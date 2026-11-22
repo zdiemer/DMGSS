@@ -7,8 +7,10 @@ browser automation is used only for testing.
 ## Status
 
 Early development. Not yet a general-purpose Game Boy emulator.
-The first target is an original embedded diagnostic ROM running through a CSS
-CPU, then writable video memory, graphics, timers, interrupts and input.
+The current build executes an original embedded diagnostic ROM on an 84-opcode
+CSS CPU with registers, arithmetic flags, branches and 64 bytes of writable RAM.
+Power on to run it; the screen reports success or a CPU trap. Graphics, timers,
+interrupts and game compatibility remain ahead.
 See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 
 ## Development
