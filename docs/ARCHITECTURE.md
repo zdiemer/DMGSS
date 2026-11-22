@@ -49,7 +49,7 @@ Switching cartridges is normal HTML navigation; no runtime ROM parsing is used.
 
 ## Browser compatibility and startup checks
 
-The runtime currently relies on Chromium's animated-variable state capture.
+Streaming mode relies on Chromium's animated-variable state capture.
 Chrome on iOS uses WebKit, not Chromium. A phone-sized Chromium test only
 verifies responsive layout/touch interaction; it cannot establish iOS support.
 
@@ -65,7 +65,38 @@ counter advances; after three seconds at zero it reports a stalled engine.
 A real opcode fault takes precedence over that message, including a fault on
 the very first instruction. The machine remains HTML/CSS-only.
 
-CI runs execution tests on desktop and phone-sized Chromium, plus a separate
-WebKit compatibility suite. If WebKit starts advancing correctly, that suite
-fails so the support policy can be revisited. Full iOS execution still requires
+CI runs both modes on desktop and phone-sized Chromium, and portable execution
+plus streaming limitation checks on phone-sized WebKit. If WebKit starts advancing correctly, that suite
+fails so the support policy can be revisited. Indefinite iOS execution still requires
 a portable state-storage design and validation on actual iOS devices.
+
+
+## Bounded compatible mode (build 04)
+
+`/portable/` and `/portable/tile/` execute at most 128 instructions in a fixed
+chain of nested HTML elements. Every stage has a read element that inherits
+resolved typed `--next-*` integers from its parent and an execute element that
+computes new `--next-*` values. The last read element exposes the final state
+to the existing display. Wrappers use `display: contents` to preserve layout.
+
+The same SM83 instruction definitions drive both modes. Compatible mode replaces
+`if()` selection with mutually exclusive integer gates:
+`equals(x, k) = max(0, 1 - abs(x - k))`. Each transition is selected with numeric
+arithmetic; registered integer properties resolve expressions before inheritance.
+This avoids both CSS `if()` and animated-variable feedback. Style queries still
+select display states, and CSS math decodes actual VRAM into pixel colors.
+
+Python repeats **generic interpreter stages**, independent of the ROM's executed
+path. It never runs the program or emits a trace. Fetch, decode, branches, flags,
+RAM writes and HALT happen in the browser. The Run checkbox gates execution;
+clearing it recomputes the initial state. HALT/fault freeze later stages. An
+infinite loop reaches 128 instructions and displays STEP LIMIT without pretending
+to HALT. There is no retained state between runs, clock, continuation or arbitrary
+ROM upload. This is bounded interpretation, not an unbounded emulator solution.
+
+Regression tests run with page JavaScript disabled: all CPU cases, reset,
+keyboard activation, the diagnostic, four-shade VRAM rendering, traps and budget
+exhaustion. Playwright WebKit 2388 passes; a manual additional check with WebKit
+2083 (Playwright 1.48.2, `CSS.supports(if(...))` false) passes the diagnostic,
+tile, infinite-loop budget and reset. These are Linux WebKit tests, not iPhone
+certification. Physical iOS validation remains outstanding.

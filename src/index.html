@@ -13,7 +13,7 @@
 <body>
   <header><a class="wordmark" href="./">DMG<span>SS</span></a><span class="edition">DOT MATRIX STYLES</span><a href="#about">About the experiment</a></header>
   <main>
-    <section class="intro"><p class="eyebrow">A STYLESHEET YOU CAN PLAY</p><h1>Old hardware.<br> New rules.</h1><p>One little handheld. Nothing but HTML and CSS.</p><span class="milestone">BUILD 03 / TILE MEMORY</span></section>
+    <section class="intro"><p class="eyebrow">A STYLESHEET YOU CAN PLAY</p><h1>Old hardware.<br> New rules.</h1><p>One little handheld. Nothing but HTML and CSS.</p><span class="milestone">STREAMING MODE / TILE MEMORY</span><p class="mode-switch"><a href="/portable/">Switch to compatible mode</a></p></section>
     <section class="console" aria-label="DMGSS experimental handheld">
       <nav class="cartridges" aria-label="Built-in cartridges"><a href="/">CPU check</a><a href="/tile/">Tile lab</a></nav><div class="topline"><span>DMGSS</span><span>HTML + CSS</span></div>
       <input class="sr-only power" type="checkbox" id="power">
@@ -22,8 +22,8 @@
         <div class="bezel"><div class="screen-label">DOT MATRIX WITH CASCADING STYLES</div>
           <div class="power-led" aria-hidden="true"></div>
           <div class="lcd" role="img" aria-label="SM83 CPU diagnostic display">
-            <div class="unsupported-screen"><strong>BROWSER LIMIT</strong><span>This browser cannot run the CSS engine.</span><span>Try desktop Chrome / Edge or Chrome on Android.</span></div>
-            <div class="startup-screen" role="status"><div class="startup-check"><strong>CHECKING</strong><span>Testing CSS state storage…</span></div><div class="stall-message"><strong>ENGINE STALLED</strong><span>No instructions advanced.</span><span>Try desktop Chrome / Edge or Chrome on Android.</span></div></div>
+            <div class="unsupported-screen"><strong>BROWSER LIMIT</strong><span>This browser cannot run the CSS engine.</span><a class="portable-link" href="/portable/">Try compatible mode</a></div>
+            <div class="startup-screen" role="status"><div class="startup-check"><strong>CHECKING</strong><span>Testing CSS state storage…</span></div><div class="stall-message"><strong>ENGINE STALLED</strong><span>No instructions advanced.</span><a class="portable-link" href="/portable/">Try compatible mode</a></div></div>
             <div class="off-screen"><strong>DMGSS</strong><span>READY WHEN YOU ARE</span></div>
             <div class="tile-preview"><span class="screen-kicker">VRAM / TILE 00</span><div class="tile-grid" aria-label="8 by 8 pixel tile from emulated video memory"><!-- PIXELS --></div><span class="tile-writing">CPU WRITING VRAM</span><span class="tile-ready">TILE READY</span></div><div class="on-screen"><span class="screen-kicker">SYSTEM DIAGNOSTIC</span><strong class="running-message">RUNNING</strong><strong class="halt-message"><span class="passed">TEST PASSED</span><span class="stopped">HALTED</span></strong><strong class="fault-message">CPU TRAP</strong><div class="tick-display"></div><span>INSTRUCTIONS EXECUTED</span></div>
           </div><div class="bezel-bottom">EXPERIMENTAL HARDWARE</div>
@@ -36,7 +36,7 @@
         <details class="debug"><summary>Machine inspector</summary><dl><div><dt>Instructions</dt><dd class="ticks"></dd></div><div><dt>PC</dt><dd class="register-pc"></dd></div><div><dt>A</dt><dd class="register-a"></dd></div><div><dt>B</dt><dd class="register-b"></dd></div><div><dt>F</dt><dd class="register-f"></dd></div></dl></details>
       </div></div>
     </section>
-    <aside id="about"><h2>A different kind of console.</h2><p>The clock and state live in your browser’s stylesheet engine. No JavaScript. No hidden emulator.</p><div class="compat-warning"><strong>iPhone / iPad: not supported yet.</strong> Chrome on iOS uses WebKit, just like Safari; changing browsers on your iPhone won’t fix this. Use recent Chrome or Edge on desktop, or Chrome on Android.</div><ul class="notes"><li>Embedded diagnostic: loads, arithmetic, branches and RAM.</li><li>Tile lab: an original ROM writes an 8×8, four-shade tile to VRAM.</li><li>Full graphics hardware, games and joypad input are still in development.</li><li>Reset reloads the machine. Nothing is saved.</li></ul><a class="source-link" href="https://github.com/zdiemer/DMGSS">View the source ↗</a></aside>
+    <aside id="about"><h2>A different kind of console.</h2><p>The clock and state live in your browser’s stylesheet engine. No JavaScript. No hidden emulator.</p><div class="compat-warning"><strong>Streaming mode needs Chromium.</strong> Chrome on iOS uses WebKit, just like Safari. <a href="/portable/">Try compatible mode</a> for a bounded, CSS-only run on WebKit.</div><ul class="notes"><li>Embedded diagnostic: loads, arithmetic, branches and RAM.</li><li>Tile lab: an original ROM writes an 8×8, four-shade tile to VRAM.</li><li>Full graphics hardware, games and joypad input are still in development.</li><li>Reset reloads the machine. Nothing is saved.</li></ul><a class="source-link" href="https://github.com/zdiemer/DMGSS">View the source ↗</a></aside>
   </main>
   <footer><span>NO SCRIPTS. JUST STYLES.</span><span>An independent experiment. Not affiliated with Nintendo.</span></footer>
 </body>

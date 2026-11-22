@@ -60,3 +60,5 @@
     .power:checked ~ .clock .on-screen { display: flex; }
   }
 }
+
+.portable-link {font-size:12px;line-height:1.5;} .intro .mode-switch {font-size:14px;}

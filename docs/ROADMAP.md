@@ -13,6 +13,8 @@ Audio, ROM uploads and persistent saves require separate feasibility research
 under the HTML/CSS-only runtime constraint. No full-speed promise.
 
 
-Browser portability: iOS/WebKit execution is blocked on state retention, not
-layout. In-screen startup diagnostics and WebKit regression coverage are in
-place. See [the observed behavior](ARCHITECTURE.md#browser-compatibility-and-startup-checks).
+Browser portability: **shipped bounded compatible mode**, with 128 generic CSS
+instruction stages, both original cartridges and reset. Verified on Chromium and
+Linux WebKit, including an older build without CSS `if()`. Real iOS testing and
+indefinite state retention remain open. Streaming mode retains its explicit
+startup diagnostics. See [the architecture](ARCHITECTURE.md#bounded-compatible-mode-build-04).
