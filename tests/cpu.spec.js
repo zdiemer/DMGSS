@@ -19,3 +19,19 @@ test('original ROM completes its branching RAM diagnostic', async ({page}) => {
   expect(await state(page,'m49154')).toBe(165);
   await expect(page.locator('.passed')).toBeVisible();
 });
+test('tile ROM writes VRAM and CSS decodes both bitplanes', async ({page}, info) => {
+  await page.goto('/tile/');
+  await page.locator('.power-switch').click();
+  await expect.poll(() => state(page,'halted'), { timeout: 20000 }).toBe(1);
+  expect(await state(page,'fault')).toBe(0);
+  const rows = ['00333300','03111130','31211213','31111113','31211213','31122113','03111130','00333300'];
+  for(let y=0;y<8;y++) for(let plane=0;plane<2;plane++) {
+    const expected = [...rows[y]].reduce((v,pixel,x)=>v|(((Number(pixel)>>plane)&1)<<(7-x)),0);
+    expect(await state(page,`m${0x8000+y*2+plane}`)).toBe(expected);
+  }
+  const shades = await page.locator('.tile-grid i').evaluateAll(elements=>elements.map(el=>Number(getComputedStyle(el).getPropertyValue('--shade'))));
+  expect(shades).toEqual([...rows.join('')].map(Number));
+  await expect(page.locator('.tile-ready')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:`test-results/tile-${info.project.name}.png`,fullPage:true});
+});

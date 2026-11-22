@@ -4,7 +4,8 @@
 2. **Shipped:** responsive console shell, standalone CSS clock and state storage.
 3. **Shipped (subset):** embedded original diagnostic ROM: instruction fetch/decode, registers,
    arithmetic/flags, branches, writable memory and visible results.
-4. Tile-based 160×144 display, VRAM and LCD registers.
+4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
+   tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Full SM83 CPU, stack, interrupts, timers and DMA, verified against test ROMs.
 6. Joypad integration, sprites, scrolling, cartridge banking and game testing.
 
