@@ -13,7 +13,7 @@
 <body>
   <header><a class="wordmark" href="./">DMG<span>SS</span></a><span class="edition">DOT MATRIX STYLES</span><a href="#about">About the experiment</a></header>
   <main>
-    <section class="intro"><p class="eyebrow">A STYLESHEET YOU CAN PLAY</p><h1>Old hardware.<br>New rules.</h1><p>One little handheld. Nothing but HTML and CSS.</p><span class="milestone">BUILD 01 / CSS CLOCK</span></section>
+    <section class="intro"><p class="eyebrow">A STYLESHEET YOU CAN PLAY</p><h1>Old hardware.<br> New rules.</h1><p>One little handheld. Nothing but HTML and CSS.</p><span class="milestone">BUILD 02 / FIRST INSTRUCTIONS</span></section>
     <section class="console" aria-label="DMGSS experimental handheld">
       <div class="topline"><span>DMGSS</span><span>HTML + CSS</span></div>
       <input class="sr-only power" type="checkbox" id="power">
@@ -21,9 +21,9 @@
       <div class="clock"><div class="machine">
         <div class="bezel"><div class="screen-label">DOT MATRIX WITH CASCADING STYLES</div>
           <div class="power-led" aria-hidden="true"></div>
-          <div class="lcd" role="img" aria-label="CSS clock diagnostic display">
+          <div class="lcd" role="img" aria-label="SM83 CPU diagnostic display">
             <div class="off-screen"><strong>DMGSS</strong><span>READY WHEN YOU ARE</span></div>
-            <div class="on-screen"><span class="screen-kicker">SYSTEM DIAGNOSTIC</span><strong>CSS CLOCK</strong><div class="tick-display"></div><span>STATE RETAINED IN CSS</span></div>
+            <div class="on-screen"><span class="screen-kicker">SYSTEM DIAGNOSTIC</span><strong class="running-message">RUNNING</strong><strong class="halt-message"><span class="passed">TEST PASSED</span><span class="stopped">HALTED</span></strong><strong class="fault-message">CPU TRAP</strong><div class="tick-display"></div><span>INSTRUCTIONS EXECUTED</span></div>
           </div><div class="bezel-bottom">EXPERIMENTAL HARDWARE</div>
         </div>
         <div class="brand">DMGSS <em>pocket experiment</em></div>
@@ -31,10 +31,10 @@
           <button class="up" disabled aria-label="Up">▲</button><button class="left" disabled aria-label="Left">◀</button><span></span><button class="right" disabled aria-label="Right">▶</button><button class="down" disabled aria-label="Down">▼</button>
         </div><div class="action-buttons"><div><button disabled>B</button></div><div><button disabled>A</button></div></div></div>
         <div class="lower-controls"><a class="reset" href="./">RESET</a><label for="power" class="start">POWER</label><div class="speaker" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
-        <details class="debug"><summary>Machine inspector</summary><dl><div><dt>Clock cycles</dt><dd class="ticks"></dd></div><div><dt>Runtime</dt><dd>HTML + CSS</dd></div></dl></details>
+        <details class="debug"><summary>Machine inspector</summary><dl><div><dt>Instructions</dt><dd class="ticks"></dd></div><div><dt>PC</dt><dd class="register-pc"></dd></div><div><dt>A</dt><dd class="register-a"></dd></div><div><dt>B</dt><dd class="register-b"></dd></div><div><dt>F</dt><dd class="register-f"></dd></div></dl></details>
       </div></div>
     </section>
-    <aside id="about"><h2>A different kind of console.</h2><p>The clock and state live in your browser’s stylesheet engine. No JavaScript. No hidden emulator.</p><div class="compat-warning">The experimental engine needs recent Chromium. Other browsers may display the shell without running the machine.</div><p class="supported">Engine features detected. Power on to start the diagnostic.</p><ul class="notes"><li>First milestone: a working CSS clock.</li><li>Game emulation and joypad input are still in development.</li><li>Reset reloads the machine. Nothing is saved.</li></ul><a class="source-link" href="https://github.com/zdiemer/DMGSS">View the source ↗</a></aside>
+    <aside id="about"><h2>A different kind of console.</h2><p>The clock and state live in your browser’s stylesheet engine. No JavaScript. No hidden emulator.</p><div class="compat-warning">The experimental engine needs recent Chromium. Other browsers may display the shell without running the machine.</div><p class="supported">Engine features detected. Power on to start the diagnostic.</p><ul class="notes"><li>Embedded diagnostic: loads, arithmetic, branches and RAM.</li><li>CPU subset only. Graphics, games and joypad input are still in development.</li><li>Reset reloads the machine. Nothing is saved.</li></ul><a class="source-link" href="https://github.com/zdiemer/DMGSS">View the source ↗</a></aside>
   </main>
   <footer><span>NO SCRIPTS. JUST STYLES.</span><span>An independent experiment. Not affiliated with Nintendo.</span></footer>
 </body>
