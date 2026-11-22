@@ -15,7 +15,7 @@ async function continueBatch(page) {
   const state = await read(page,['ticks','pc','a','b','f','m49152']);
   let saved = 0;
   while ((await copyState(page))['copy-remaining']) {
-    expect(saved++).toBeLessThan(738);
+    expect(saved++).toBeLessThan(754);
     await expect(page.locator('.commit-control')).not.toBeVisible();
     await saveBit(page);
     // Partial writes to the inactive bank must never alter this batch's result.
@@ -31,7 +31,7 @@ test('checkpoint reuses two banks across nine batches and byte wrap', async ({pa
   await page.goto('/checkpoint/');
   expect(await page.locator('script').count()).toBe(0);
   const inputs=await page.locator('input').count();
-  expect(inputs).toBe(1478); // 2 × 738 bits, commit, power; no growing trace.
+  expect(inputs).toBe(1510); // 2 × 754 bits, commit, power; no growing trace.
   await page.locator('.power-switch').click();
   for(let batch=1;batch<=9;batch++) {
     expect(await read(page,['ticks','pc','a','m49152','halted','fault'])).toEqual({ticks:batch*128,pc:256,a:(batch*32)%256,m49152:(batch*32)%256,halted:0,fault:0});
@@ -91,6 +91,12 @@ test('checkpoint copies every register and retained VRAM back into the CPU', asy
   expect((await read(page,['ticks'])).ticks).toBe(128);
   await continueBatch(page);
   expect(await read(page,['ticks','a','b','c','d','e','h','l','m32783','m49215','halted'])).toEqual({ticks:132,a:170,b:1,c:2,d:4,e:8,h:16,l:32,m32783:170,m49215:170,halted:1});
+});
+test('checkpoint retains a 16-bit stack pointer and HL across the bank boundary', async ({page})=>{
+  await page.goto('/checkpoint/tests/addressing/'); await page.locator('.power-switch').click();
+  expect(await read(page,['ticks','sp','h','l'])).toEqual({ticks:128,sp:65244,h:192,l:0});
+  await continueBatch(page);
+  expect(await read(page,['ticks','sp','h','l','a','m49152','halted','fault'])).toEqual({ticks:131,sp:65244,h:192,l:1,a:42,m49152:42,halted:1,fault:0});
 });
 test('checkpoint instruction bookkeeping wraps at its documented 16-bit width', async ({page})=>{
   await page.goto('/checkpoint/tests/tick-wrap/');

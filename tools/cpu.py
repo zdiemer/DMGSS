@@ -26,6 +26,15 @@ def zero(expr):
     return f'(1 - min(1, {expr})) * 128'
 
 
+def pair_effects(pair, expression):
+    """Split a wrapped word into simultaneous register writes from OLD state."""
+    word = f'mod({expression}, 65536)'
+    if pair == 'sp':
+        return {'sp': f'calc({word})'}
+    return {pair[0]: f'calc(round(down, ({word}) / 256))',
+            pair[1]: f'calc(mod({word}, 256))'}
+
+
 def diagnostic():
     # Original test program. Labels are resolved here, instructions run in CSS.
     code, labels, refs = [], {}, []
@@ -55,17 +64,34 @@ def instruction_set():
     op(0x00)
     op(0x76, halted='1')  # Stops until reset; interrupts not yet implemented.
     for i, reg in enumerate(REGS):
-        if reg is None: continue
-        op(0x06 + i * 8, 2, **{reg: 'var(--imm)'})
-        value = f'var(--{reg})'
+        destination = reg or 'write'
+        memory = {} if reg else {'access': '1', 'address': 'var(--hl)'}
+        op(0x06 + i * 8, 2, **{destination: 'var(--imm)'}, **memory)
+        value = f'var(--{reg})' if reg else 'var(--read)'
         inc = byte(value + ' + 1')
         dec = byte(value + ' - 1')
         carry = 'mod(var(--f), 32)'
-        op(0x04 + i * 8, **{reg: f'calc({inc})', 'f': f'calc({zero(inc)} + round(down, mod({value}, 16) / 15) * 32 + {carry})'})
-        op(0x05 + i * 8, **{reg: f'calc({dec})', 'f': f'calc({zero(dec)} + 64 + (1 - min(1, mod({value}, 16))) * 32 + {carry})'})
+        op(0x04 + i * 8, **{destination: f'calc({inc})', 'f': f'calc({zero(inc)} + round(down, mod({value}, 16) / 15) * 32 + {carry})'}, **memory)
+        op(0x05 + i * 8, **{destination: f'calc({dec})', 'f': f'calc({zero(dec)} + 64 + (1 - min(1, mod({value}, 16))) * 32 + {carry})'}, **memory)
         for j, src in enumerate(REGS):
-            if src is not None:
-                op(0x40 + i * 8 + j, **{reg: f'var(--{src})'})
+            if reg is None and src is None: continue  # 76 is HALT, not LD [HL],[HL].
+            access = {} if reg and src else {'access': '1', 'address': 'var(--hl)'}
+            op(0x40 + i * 8 + j, **{destination: f'var(--{src})' if src else 'var(--read)'}, **access)
+    for i, pair in enumerate(('bc', 'de', 'hl', 'sp')):
+        op(0x01 + i * 16, 3, **pair_effects(pair, 'var(--imm16)'))
+        op(0x03 + i * 16, **pair_effects(pair, f'var(--{pair}) + 1'))
+        op(0x0B + i * 16, **pair_effects(pair, f'var(--{pair}) - 1'))
+        # ADD HL,rr preserves Z, clears N; carries come from bits 11 and 15.
+        total = f'var(--hl) + var(--{pair})'
+        half = f'round(down, (mod(var(--hl),4096) + mod(var(--{pair}),4096)) / 4096)'
+        op(0x09 + i * 16, **pair_effects('hl', total),
+           f=f'calc(var(--z) * 128 + ({half}) * 32 + round(down, ({total}) / 65536) * 16)')
+    for i, pair in enumerate(('bc', 'de', 'hl', 'hl')):
+        post = pair_effects('hl', f'var(--hl) + {1 if i == 2 else -1}') if i >= 2 else {}
+        op(0x02 + i * 16, write='var(--a)', access='1', address=f'var(--{pair})', **post)
+        op(0x0A + i * 16, a='var(--read)', access='1', address=f'var(--{pair})', **post)
+    op(0xF9, sp='var(--hl)')
+    op(0xE9, pc='var(--hl)')  # JP HL does not dereference memory.
     for code, mode in [(0xC6, 'add'), (0xD6, 'sub'), (0xFE, 'cp')]:
         a, b = 'var(--a)', 'var(--imm)'
         raw = f'{a} + {b}' if mode == 'add' else f'{a} - {b}'
@@ -80,7 +106,7 @@ def instruction_set():
         if mode != 'cp': effects['a'] = f'calc({result})'
         op(code, 2, **effects)
     op(0xAF, a='0', f='128')
-    op(0xC3, 3, pc='var(--address)')
+    op(0xC3, 3, pc='var(--imm16)')
     target = 'calc(mod(var(--pc) + 2 + var(--signed), 65536))'
     op(0x18, 2, pc=target)
     for code, condition in [(0x20, '1 - var(--z)'), (0x28, 'var(--z)'), (0x30, '1 - var(--carry)'), (0x38, 'var(--carry)')]:
@@ -94,20 +120,28 @@ def machine(rom, storage, arithmetic=False):
     choose = choose_math if arithmetic else choose_native
     ops = instruction_set()
     props = {'opcode': 0, 'imm': 0, 'upper': 0, 'pc1': 257, 'pc2': 258,
+             'imm16': 0, 'bc': 0, 'de': 0, 'hl': 0,
              'address': 0, 'signed': 0, 'z': 0, 'carry': 0, 'known': 0,
-             'access': 0, 'valid': 0, 'read': 0, 'invalid': 0, 'enabled': 0}
+             'access': 0, 'writing': 0, 'writable': 0, 'readable': 0,
+             'write': 0, 'valid': 0, 'read': 0, 'invalid': 0, 'enabled': 0}
     css = '\n'.join(f'@property --{k} {{syntax:"<integer>";inherits:true;initial-value:{v};}}' for k, v in props.items())
     expr = {
         'pc1': 'calc(mod(var(--pc) + 1, 65536))',
         'pc2': 'calc(mod(var(--pc) + 2, 65536))',
-        'address': 'calc(var(--imm) + 256 * var(--upper))',
+        'imm16': 'calc(var(--imm) + 256 * var(--upper))',
+        **{pair: f'calc(var(--{pair[0]}) * 256 + var(--{pair[1]}))' for pair in ('bc', 'de', 'hl')},
+        'address': choose('opcode', {k: v['address'] for k, v in ops.items() if 'address' in v}, 'var(--imm16)'),
         'signed': 'calc(var(--imm) - 256 * round(down, var(--imm) / 128))',
         'z': 'calc(round(down, var(--f) / 128))',
         'carry': 'calc(mod(round(down, var(--f) / 16), 2))',
         'known': choose('opcode', {k: 1 for k in ops}, 0),
         'access': choose('opcode', {k: v['access'] for k, v in ops.items() if 'access' in v}, 0),
-        'valid': choose('address', {i: 1 for i in RAM}, 0),
-        'read': choose('address', {i: f'var(--m{i})' for i in RAM}, 255),
+        'writing': choose('opcode', {k: 1 for k, v in ops.items() if 'write' in v}, 0),
+        'write': choose('opcode', {k: v['write'] for k, v in ops.items() if 'write' in v}, 0),
+        'writable': choose('address', {i: 1 for i in RAM}, 0),
+        'readable': choose('address', {**{256 + i: 1 for i in range(len(rom))}, **{i: 1 for i in RAM}}, 0),
+        'valid': 'calc(var(--writing) * var(--writable) + (1 - var(--writing)) * var(--readable))',
+        'read': choose('address', {**{256 + i: b for i, b in enumerate(rom)}, **{i: f'var(--m{i})' for i in RAM}}, 255),
     }
     for name, pc in [('opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]:
         expr[name] = choose(pc, {256 + i: b for i, b in enumerate(rom)}, 255)
@@ -117,7 +151,7 @@ def machine(rom, storage, arithmetic=False):
     states = {}
     stopped = 'style(--halted:1) or style(--fault:1)'
     invalid = 'style(--known:0) or (style(--access:1) and style(--valid:0))'
-    for name in ['pc', 'a', 'b', 'c', 'd', 'e', 'h', 'l', 'f', 'halted', 'fault', 'ticks']:
+    for name in ['pc', 'a', 'b', 'c', 'd', 'e', 'h', 'l', 'f', 'sp', 'halted', 'fault', 'ticks']:
         initial = 256 if name == 'pc' else 0
         default = f'var(--{name})'
         if name == 'ticks': default = 'calc(var(--ticks) + 1)'
@@ -136,13 +170,15 @@ def machine(rom, storage, arithmetic=False):
         states[name] = (initial, result)
     for addr in RAM:
         name = f'm{addr}'
-        result = f'if({stopped}:var(--{name});style(--opcode:234) and style(--address:{addr}):var(--a);else:var(--{name}))'
+        result = f'if(style(--enabled:1) and style(--writing:1) and style(--address:{addr}):var(--write);else:var(--{name}))'
         if arithmetic:
-            result = f'calc(var(--{name}) + var(--enabled) * ({equals("opcode", 234)}) * ({equals("address", addr)}) * (var(--a) - var(--{name})))'
+            result = f'calc(var(--{name}) + var(--enabled) * var(--writing) * ({equals("address", addr)}) * (var(--write) - var(--{name})))'
         states[name] = (0, result)
     css += storage(states)
-    for name in ['pc', 'a', 'b', 'f', 'ticks']:
+    for name in ['pc', 'a', 'b', 'f', 'sp', 'ticks']:
         css += f'.register-{name}::after {{counter-reset:value var(--{name});content:counter(value);}}\n'
+    for pair in ('bc', 'de', 'hl'):
+        css += f'.register-{pair}::after {{counter-reset:value calc(var(--{pair[0]}) * 256 + var(--{pair[1]}));content:counter(value);}}\n'
     css += '''
 @container style(--halted:1) {.running-message{display:none}.halt-message{display:block}}
 @container style(--fault:1) {.running-message{display:none}.fault-message{display:block}}
@@ -164,15 +200,15 @@ TILE = [
 
 
 def tile_rom():
-    """Original 8x8 image encoded as ordinary DMG 2bpp bytes, written by the CPU."""
+    """A pointer loop copies original 2bpp ROM data to VRAM at runtime."""
     data = []
     for row in TILE:
         for plane in range(2):
             data.append(sum(((int(pixel) >> plane) & 1) << (7 - x) for x, pixel in enumerate(row)))
-    code = []
-    for offset, value in enumerate(data):
-        code.extend([0x3E, value, 0xEA, offset, 0x80])
-    return code + [0x76]
+    # LD HL,010F; LD DE,8000; LD B,16
+    # loop: LD A,[HL+]; LD [DE],A; INC DE; DEC B; JR NZ,loop; HALT
+    return [0x21,0x0F,0x01,0x11,0x00,0x80,0x06,16,
+            0x2A,0x12,0x13,0x05,0x20,0xFA,0x76] + data
 
 
 def tile_css(arithmetic=False):

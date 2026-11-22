@@ -20,7 +20,7 @@ test('automatic state advances beyond 1,000 instructions with one input, then pa
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
-  expect(await page.locator('.scroll-memory').count()).toBe(185);
+  expect(await page.locator('.scroll-memory').count()).toBe(187);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   const nodes = await page.locator('*').count();
   await toggle(page);
@@ -60,6 +60,7 @@ for (const [path, expected, message] of [
   ['tests/long-loop/', {ticks:304,pc:268,a:100,b:0,f:192,m49152:100,halted:1,fault:0}, '.halt-message'],
   ['tests/register-vram/', {ticks:132,a:170,b:1,c:2,d:4,e:8,h:16,l:32,m32783:170,m49215:170,halted:1,fault:0}, '.halt-message'],
   ['tests/trap/', {ticks:0,pc:256,halted:0,fault:1}, '.fault-message'],
+  ['tests/addressing-trap/', {ticks:2,pc:261,a:7,h:1,l:0,halted:0,fault:1}, '.fault-message'],
 ]) {
   test(`automatic commits the complete stopped state: ${path}`, async ({page}) => {
     await page.goto('/automatic/'+path);
@@ -76,7 +77,7 @@ for (const [path, expected, message] of [
 
 test('automatic tile renders committed VRAM, including while paused', async ({page}) => {
   await page.goto('/automatic/tile/'); await toggle(page);
-  await expect.poll(() => read(page, ['ticks','pc','halted','fault'])).toEqual({ticks:33,pc:337,halted:1,fault:0});
+  await expect.poll(() => read(page, ['ticks','pc','halted','fault'])).toEqual({ticks:84,pc:271,halted:1,fault:0});
   await expect(page.locator('.tile-ready')).toBeVisible();
   const colors = await page.locator('.tile-grid i').evaluateAll(nodes => nodes.map(el => getComputedStyle(el).backgroundColor));
   expect(colors).toHaveLength(64);
@@ -84,6 +85,16 @@ test('automatic tile renders committed VRAM, including while paused', async ({pa
   await toggle(page);
   expect(await page.locator('.tile-grid i').evaluateAll(nodes => nodes.map(el => getComputedStyle(el).backgroundColor))).toEqual(colors);
   await expect(page.locator('.tile-preview')).toBeVisible();
+});
+
+test('automatic pointer loops fill RAM then copy backwards to VRAM across banks', async ({page}) => {
+  await page.goto('/automatic/tests/addressing-loop/'); await toggle(page);
+  await expect.poll(() => read(page, ['halted']), {timeout:15000}).toEqual({halted:1});
+  expect(await read(page, ['ticks','pc','a','b','h','l','d','e','sp','f','fault'])).toEqual({ticks:344,pc:286,a:48,b:0,h:192,l:47,d:128,e:16,sp:65244,f:192,fault:0});
+  const keys = [...Array.from({length:64}, (_,i)=>`m${0xC000+i}`), ...Array.from({length:16}, (_,i)=>`m${0x8000+i}`)];
+  const memory = await read(page, keys);
+  for (let i=0;i<64;i++) expect(memory[`m${0xC000+i}`]).toBe(i);
+  for (let i=0;i<16;i++) expect(memory[`m${0x8000+i}`]).toBe(63-i);
 });
 
 test('automatic bookkeeping wraps through 65535 without losing CPU state', async ({page}) => {

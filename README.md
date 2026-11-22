@@ -7,10 +7,10 @@ browser automation is used only for testing.
 ## Status
 
 Early development. Not yet a general-purpose Game Boy emulator.
-The current build executes an original embedded diagnostic ROM on an 84-opcode
-CSS CPU with registers, arithmetic flags, branches and 64 bytes of writable RAM.
+The current build executes original embedded ROMs on a 127-opcode CSS CPU with
+16-bit register pairs, indirect addressing, arithmetic flags, branches and 64 bytes of writable RAM.
 Power on to run it; the screen reports success or a CPU trap. Tile lab runs a
-second original ROM that writes a four-shade tile into 16 bytes of VRAM. The full
+second original ROM that copies a four-shade tile from ROM data into 16 bytes of VRAM using pointers. The full
 PPU, timers, interrupts and game compatibility remain ahead.
 See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 
@@ -27,7 +27,8 @@ Four execution modes share the same CPU:
 - **Automatic continuation** (`/automatic/`): press Run once to keep executing
   through reusable CSS scroll-storage banks. Pause retains state; Reset clears it.
   Tested in Chromium and current Linux WebKit. Requires scroll timelines;
-  actual iOS verification is pending. Counter, CPU check and Tile lab are included.
+  the user confirmed its counter keeps advancing in iOS Chrome. Other features
+  still need device checks. Counter, CPU check and Tile lab are included.
 - **Compatible mode** (`/portable/`): runs up to 128 instructions in CSS, with
   reset and tile rendering. Tested in Chromium and Linux WebKit (including a
   build without CSS `if()`). The user also confirmed it works in iOS Chrome.
