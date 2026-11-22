@@ -6,7 +6,6 @@
 .machine{animation:latch 1ms infinite,execute 1ms infinite;animation-play-state:paused,paused}
 @keyframes clock{0%{--phase:0}25%{--phase:1}50%{--phase:2}75%{--phase:3}}
 @supports (width:if(style(--x:1):1px;else:2px)){
-  .supported{display:block}.compat-warning{display:none}
   .power:checked~.clock{animation-play-state:running}
   @container style(--phase:1){.power:checked~.clock .machine{animation-play-state:running,paused}}
   @container style(--phase:3){.power:checked~.clock .machine{animation-play-state:paused,running}}
@@ -19,3 +18,45 @@
 .cartridges{display:flex;gap:6px;margin:-7px 0 20px}.cartridges a{padding:8px 12px;border:1px solid #acb1a8;border-radius:5px;text-decoration:none;font-size:12px;font-weight:600}.cartridges a:first-child{background:#343e3a;color:#f1f1e9}.tile-mode .cartridges a:first-child{background:transparent;color:inherit}.tile-mode .cartridges a:last-child{background:#343e3a;color:#f1f1e9}.power-switch{top:93px}.lcd .tile-preview{display:none}.tile-mode .power:checked~.clock .on-screen{display:none}.tile-mode .power:checked~.clock .tile-preview{display:flex}.tile-grid{display:grid;grid-template-columns:repeat(8,1fr);width:55%;aspect-ratio:1;box-shadow:0 0 0 1px #31452c44}.tile-grid i{display:block;aspect-ratio:1}.tile-preview>span{font-size:9px}.tile-ready{display:none}
 @container style(--halted:1){.tile-writing{display:none}.tile-ready{display:block}}
 @container style(--fault:1){.tile-mode .power:checked~.clock .tile-preview{display:none}.tile-mode .power:checked~.clock .on-screen{display:flex}}
+
+/* Parsing if() is necessary, but not sufficient: WebKit can parse it and still
+   fail to retain animated CPU state. Observe real instruction progress below. */
+.compat-warning strong { display: block; margin-bottom: 6px; }
+.lcd .unsupported-screen { display: flex; padding: 16px; gap: 12px; }
+.unsupported-screen strong, .startup-screen strong { font-size: 18px; }
+.unsupported-screen span, .startup-screen span { font-size: 12px; line-height: 1.4; }
+.lcd .startup-screen { display: none; }
+.lcd .off-screen,
+.power:checked ~ .clock .on-screen,
+.tile-mode .power:checked ~ .clock .tile-preview { display: none; }
+.startup-check, .stall-message {
+  position: absolute; inset: 18px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+}
+.stall-message { visibility: hidden; }
+@keyframes finish-startup-check { to { visibility: hidden; } }
+@keyframes report-stalled-engine { to { visibility: visible; } }
+@supports (width:if(style(--x:1):1px;else:2px)) {
+  .lcd .unsupported-screen { display: none; }
+  .lcd .off-screen { display: flex; }
+  .power:checked ~ .clock .off-screen { display: none; }
+  .power:checked ~ .clock .on-screen { display: flex; }
+  .tile-mode .power:checked ~ .clock .on-screen { display: none; }
+  .tile-mode .power:checked ~ .clock .tile-preview { display: flex; }
+  .power:checked ~ .clock .startup-check {
+    animation: finish-startup-check 0s 3s forwards;
+  }
+  .power:checked ~ .clock .stall-message {
+    animation: report-stalled-engine 0s 3s forwards;
+  }
+  @container style(--ticks:0) {
+    .power:checked ~ .clock .on-screen,
+    .tile-mode .power:checked ~ .clock .tile-preview { display: none; }
+    .power:checked ~ .clock .startup-screen { display: flex; }
+  }
+  @container style(--fault:1) {
+    .power:checked ~ .clock .startup-screen,
+    .tile-mode .power:checked ~ .clock .tile-preview { display: none; }
+    .power:checked ~ .clock .on-screen { display: flex; }
+  }
+}

@@ -5,6 +5,7 @@ module.exports = defineConfig({
   webServer: { command: 'python3 tools/build.py --fixtures && python3 -m http.server 8080 --directory dist', url: 'http://127.0.0.1:8080', reuseExistingServer: false },
   projects: [
     { name: 'desktop', use: { browserName: 'chromium', viewport: { width: 1440, height: 1000 } } },
-    { name: 'mobile', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+    { name: 'chromium-mobile', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+    { name: 'webkit-mobile', testMatch: /compatibility\.spec\.js/, use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
   ],
 });

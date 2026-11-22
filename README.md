@@ -19,12 +19,13 @@ See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 - Python 3.11+ and Node.js 22+ for build/test tooling.
 - `python3 tools/build.py` generates the static site in `dist/` (once implemented).
 - `python3 -m http.server 8080 --directory dist` serves it locally.
-- `npm ci && npx playwright install chromium` installs browser test tooling.
+- `npm ci && npx playwright install chromium webkit` installs browser test tooling.
 - `npm test` runs browser tests with page JavaScript disabled.
 
-Recent Chromium is the initial execution target. The interface will adapt to
-phones and desktops; CSS engine support on Safari/iOS and Firefox must be
-verified separately. No commercial ROMs or Nintendo boot ROM are bundled.
+Use recent Chrome/Edge on desktop or Chrome on Android. **iPhone/iPad is not
+supported, including Chrome on iOS**, which uses WebKit. A responsive layout
+does not imply engine compatibility. The console reports missing CSS syntax or
+a stalled startup instead of presenting a non-running CPU as active. No commercial ROMs or Nintendo boot ROM are bundled.
 
 ## Workflow
 

@@ -45,3 +45,27 @@ Each pixel reads the corresponding low/high bitplane bits directly from VRAM:
 The renderer is a magnified tile viewer, not a full 160×144 PPU: tile maps,
 sprites, LCD registers, scrolling, DMA and scanline timing are still absent.
 Switching cartridges is normal HTML navigation; no runtime ROM parsing is used.
+
+
+## Browser compatibility and startup checks
+
+The runtime currently relies on Chromium's animated-variable state capture.
+Chrome on iOS uses WebKit, not Chromium. A phone-sized Chromium test only
+verifies responsive layout/touch interaction; it cannot establish iOS support.
+
+With Playwright 1.65.1's WebKit build 2388, the page parses CSS `if()`, the phase
+clock advances, and `--next-pc` computes 258, but `--bank-pc` stays 256 and the
+instruction counter stays zero. Syntax detection alone therefore produces a
+false positive. Older engines may lack `if()` as well. This was reproduced in
+Linux WebKit; it is not a real-device iOS test or a claim about every WebKit release.
+
+The LCD shows an immediate browser limitation when the syntax gate fails. When
+syntax is accepted, it displays a startup check until the real instruction
+counter advances; after three seconds at zero it reports a stalled engine.
+A real opcode fault takes precedence over that message, including a fault on
+the very first instruction. The machine remains HTML/CSS-only.
+
+CI runs execution tests on desktop and phone-sized Chromium, plus a separate
+WebKit compatibility suite. If WebKit starts advancing correctly, that suite
+fails so the support policy can be revisited. Full iOS execution still requires
+a portable state-storage design and validation on actual iOS devices.
