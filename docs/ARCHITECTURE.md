@@ -25,7 +25,7 @@ explores CSS feedback. DMGSS uses its own generator and machine implementation.
 LD r8,d8; INC/DEC r8; ADD/SUB/CP d8; XOR A; JP a16; JR and all four JR
 conditions; LD [a16],A and LD A,[a16]. Z/N/H/C are packed in the F register.
 Instruction fetch reads embedded bytes at 0100. The initial registers are zero,
-not a boot-ROM or post-boot register image. RAM is currently C000–C03F.
+not a boot-ROM or post-boot register image. RAM is currently C000–C03F, plus a single tile at VRAM 8000–800F.
 
 Unknown opcodes and unmapped data accesses trap without advancing PC. HALT
 stops execution until reset (interrupt wakeup and the halt bug are not implemented).
@@ -35,3 +35,13 @@ byte; it does not set it itself. Inspector values are decimal.
 
 This is instruction-level execution, not cycle-accurate emulation. There is no
 PPU, timer, interrupt controller, stack, cartridge banking or audio yet.
+
+
+## Tile lab (build 03)
+
+A separate embedded ROM writes all 16 bytes of an original 8×8 tile, then HALTs.
+Each pixel reads the corresponding low/high bitplane bits directly from VRAM:
+`shade = bit(low, 7-x) + 2 * bit(high, 7-x)`. CSS selects one of four LCD shades.
+The renderer is a magnified tile viewer, not a full 160×144 PPU: tile maps,
+sprites, LCD registers, scrolling, DMA and scanline timing are still absent.
+Switching cartridges is normal HTML navigation; no runtime ROM parsing is used.

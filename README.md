@@ -9,8 +9,9 @@ browser automation is used only for testing.
 Early development. Not yet a general-purpose Game Boy emulator.
 The current build executes an original embedded diagnostic ROM on an 84-opcode
 CSS CPU with registers, arithmetic flags, branches and 64 bytes of writable RAM.
-Power on to run it; the screen reports success or a CPU trap. Graphics, timers,
-interrupts and game compatibility remain ahead.
+Power on to run it; the screen reports success or a CPU trap. Tile lab runs a
+second original ROM that writes a four-shade tile into 16 bytes of VRAM. The full
+PPU, timers, interrupts and game compatibility remain ahead.
 See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 
 ## Development
@@ -35,4 +36,4 @@ The private GitHub repository is `zdiemer/DMGSS`. Deployment uses the sibling
 
 [DMGSS](https://dmgss.zachd.duckdns.org) uses your existing Authelia login.
 See [deployment instructions](docs/DEPLOYMENT.md). Power on to run the built-in
-CPU diagnostic; reset reloads it. The A/B/directional controls are not wired yet.
+CPU diagnostic, or select Tile lab to watch VRAM fill; reset reloads the cartridge. The A/B/directional controls are not wired yet.

@@ -1,6 +1,6 @@
 """Emit SM83 instruction semantics as CSS expressions (not an execution trace)."""
 REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
-RAM = range(0xC000, 0xC040)
+RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC040)]
 
 
 def choose(key, values, default):
@@ -126,4 +126,40 @@ def machine(rom, storage):
 @container style(--fault:1) {.running-message{display:none}.fault-message{display:block}}
 @container style(--m49154:165) {.halt-message .passed{display:inline}.halt-message .stopped{display:none}}
 '''
+    return css
+
+
+TILE = [
+    '00333300',
+    '03111130',
+    '31211213',
+    '31111113',
+    '31211213',
+    '31122113',
+    '03111130',
+    '00333300',
+]
+
+
+def tile_rom():
+    """Original 8x8 image encoded as ordinary DMG 2bpp bytes, written by the CPU."""
+    data = []
+    for row in TILE:
+        for plane in range(2):
+            data.append(sum(((int(pixel) >> plane) & 1) << (7 - x) for x, pixel in enumerate(row)))
+    code = []
+    for offset, value in enumerate(data):
+        code.extend([0x3E, value, 0xEA, offset, 0x80])
+    return code + [0x76]
+
+
+def tile_css():
+    css = '@property --shade {syntax:"<integer>";inherits:false;initial-value:0;}\n'
+    colors = {0: '#b1c37e', 1: '#8baf62', 2: '#527547', 3: '#31452c'}
+    for y in range(8):
+        for x in range(8):
+            bit = 2 ** (7 - x)
+            shade = f'calc(mod(round(down, var(--m{0x8000 + y * 2}) / {bit}), 2) + 2 * mod(round(down, var(--m{0x8001 + y * 2}) / {bit}), 2))'
+            css += f'.pixel-{y * 8 + x} {{--shade:{shade};}}\n'
+    css += '.tile-grid i {background:' + choose('shade', colors, colors[0]) + ';}\n'
     return css
