@@ -30,3 +30,9 @@ verified separately. No commercial ROMs or Nintendo boot ROM are bundled.
 Each milestone or fix gets a branch, pull request, checks and squash merge.
 The private GitHub repository is `zdiemer/DMGSS`. Deployment uses the sibling
 `selfhosted` repository's registry, Helm and Traefik conventions.
+
+## Try the homelab build
+
+[DMGSS](https://dmgss.zachd.duckdns.org) uses your existing Authelia login.
+See [deployment instructions](docs/DEPLOYMENT.md). Power on to run the built-in
+CPU diagnostic; reset reloads it. The A/B/directional controls are not wired yet.

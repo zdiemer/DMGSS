@@ -1,0 +1,6 @@
+apiVersion: v2
+name: dmgss
+description: HTML and CSS Game Boy emulator experiment
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
