@@ -1,8 +1,8 @@
 # Homelab deployment
 
 URL: https://dmgss.zachd.duckdns.org — existing Authelia login required.
-The private repository and authenticated ingress keep this experimental build
-within the existing homelab access model. No Cloudflare public host is configured.
+The source repository is public. Authenticated ingress keeps the running
+experimental build within the existing homelab access model. No Cloudflare public host is configured.
 
 From the standalone `/home/node/code/DMGSS` checkout:
 

@@ -39,7 +39,7 @@ Neither mode is game-ready. No commercial ROMs or Nintendo boot ROM are bundled.
 ## Workflow
 
 Each milestone or fix gets a branch, pull request, checks and squash merge.
-The private GitHub repository is `zdiemer/DMGSS`. Deployment uses the sibling
+The public GitHub repository is `zdiemer/DMGSS`. Deployment uses the sibling
 `selfhosted` repository's registry, Helm and Traefik conventions.
 
 ## Try the homelab build
