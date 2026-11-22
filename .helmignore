@@ -9,3 +9,6 @@ tools/
 tests/
 docs/
 values.local.yaml
+
+core
+core.*

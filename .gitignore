@@ -11,3 +11,7 @@ values.local.yaml
 *.gb
 *.gbc
 .DS_Store
+
+# Browser crash dumps
+/core
+/core.*

@@ -11,3 +11,8 @@
 
 Audio, ROM uploads and persistent saves require separate feasibility research
 under the HTML/CSS-only runtime constraint. No full-speed promise.
+
+
+Browser portability: iOS/WebKit execution is blocked on state retention, not
+layout. In-screen startup diagnostics and WebKit regression coverage are in
+place. See [the observed behavior](ARCHITECTURE.md#browser-compatibility-and-startup-checks).

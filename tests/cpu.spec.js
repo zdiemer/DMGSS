@@ -7,6 +7,10 @@ for (const item of cases) {
     await page.locator('.power-switch').click();
     await expect.poll(() => state(page, item.fault ? 'fault' : 'halted'), { timeout: 15000 }).toBe(1);
     for (const [key,value] of Object.entries(item.expect)) expect(await state(page,key), key).toBe(value);
+    if (item.fault) {
+      await expect(page.locator('.fault-message')).toBeVisible();
+      await expect(page.locator('.startup-screen')).not.toBeVisible();
+    }
   });
 }
 test('original ROM completes its branching RAM diagnostic', async ({page}) => {
