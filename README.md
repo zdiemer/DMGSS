@@ -22,8 +22,12 @@ See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 - `npm ci && npx playwright install chromium webkit` installs browser test tooling.
 - `npm test` runs browser tests with page JavaScript disabled.
 
-Three execution modes share the same CPU:
+Four execution modes share the same CPU:
 
+- **Automatic continuation** (`/automatic/`): press Run once to keep executing
+  through reusable CSS scroll-storage banks. Pause retains state; Reset clears it.
+  Tested in Chromium and current Linux WebKit. Requires scroll timelines;
+  actual iOS verification is pending. Counter, CPU check and Tile lab are included.
 - **Compatible mode** (`/portable/`): runs up to 128 instructions in CSS, with
   reset and tile rendering. Tested in Chromium and Linux WebKit (including a
   build without CSS `if()`). The user also confirmed it works in iOS Chrome.
@@ -34,7 +38,7 @@ Three execution modes share the same CPU:
 - **Streaming mode** (`/`): animated state storage for continuous execution,
   currently Chromium-only. It reports unsupported syntax or stalled startup.
 
-Neither mode is game-ready. No commercial ROMs or Nintendo boot ROM are bundled.
+None of these modes is game-ready. No commercial ROMs or Nintendo boot ROM are bundled.
 
 ## Workflow
 
@@ -49,6 +53,12 @@ See [deployment instructions](docs/DEPLOYMENT.md). Power on to run the built-in
 CPU diagnostic, or select Tile lab to watch VRAM fill. On iOS, try
 [Compatible mode](https://dmgss.zachd.duckdns.org/portable/) and press Run;
 it displays the final state immediately. The A/B/directional controls are not wired yet.
+
+[Try automatic continuation](https://dmgss.zachd.duckdns.org/automatic/): press Run
+once to keep incrementing RAM C000 beyond 128 instructions, without saving bits
+or committing batches yourself. Pause keeps the last committed state. This new
+mode needs a browser with working scroll timelines; use Compatible mode or
+manual checkpoints if it reports a browser limit or stalled engine.
 
 [Try manual checkpoints](https://dmgss.zachd.duckdns.org/checkpoint/): the counter
 cartridge increments RAM C000 and continues beyond the first 128 instructions.

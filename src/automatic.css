@@ -1,0 +1,49 @@
+/* Native scroll offsets are storage. They must remain laid out, in the viewport,
+   and excluded from input; moving them offscreen can suspend WebKit timelines. */
+.pipeline-read, .pipeline-execute { display: contents; }
+.scroll-memory {
+  position: fixed; top: 0; left: 0; width: 20px; height: 20px;
+  overflow: scroll; scroll-snap-type: y mandatory; scroll-behavior: auto;
+  scrollbar-width: none; opacity: 0; pointer-events: none;
+  overflow-anchor: none; overscroll-behavior: none;
+}
+.scroll-memory::-webkit-scrollbar { display: none; }
+.memory-pad { position: relative; overflow-anchor: none; }
+.memory-mark { position: absolute; width: 1px; height: 1px; scroll-snap-align: start; overflow-anchor: none; }
+/* Disable re-snapping as well as writes while paused: a timeline update may
+   still be in flight when power is toggled. The stored offsets stay untouched. */
+body[data-automatic] .power:not(:checked) ~ .clock .scroll-memory { scroll-snap-type: none; }
+body[data-automatic] .machine { animation: none; }
+body[data-automatic] { --automatic-style: 1; }
+body[data-automatic] .lcd .unsupported-screen { display: flex; }
+body[data-automatic] .lcd .off-screen,
+body[data-automatic] .lcd .on-screen,
+body[data-automatic] .lcd .tile-preview,
+body[data-automatic] .lcd .startup-screen { display: none; }
+.automatic-memory::after { counter-reset: ram var(--m49152); content: counter(ram); }
+.auto-paused { display: inline-block; }
+.auto-running, .power:checked ~ .clock .auto-paused { display: none; }
+.power:checked ~ .clock .auto-running { display: inline-block; }
+.on-screen .auto-running, .on-screen .auto-paused { font-size: 24px; }
+body[data-automatic] .cartridges a { background: transparent; color: inherit; }
+body[data-automatic] .cartridges a[aria-current="page"] { background: #343e3a; color: #f1f1e9; }
+@supports (animation-timeline: --memory) and (timeline-scope: --memory) and (width:calc(1px * mod(round(down, abs(-3), 1), 2) * sign(1))) {
+  @container style(--automatic-style:1) {
+    body[data-automatic] .lcd .unsupported-screen { display: none; }
+    body[data-automatic] .lcd .on-screen { display: flex; }
+    body[data-automatic].tile-mode .lcd .on-screen { display: none; }
+    body[data-automatic].tile-mode .lcd .tile-preview { display: flex; }
+    body[data-automatic] .power:checked ~ .clock .startup-check { animation: finish-startup-check 0s 3s forwards; }
+    body[data-automatic] .power:checked ~ .clock .stall-message { animation: report-stalled-engine 0s 3s forwards; }
+    @container style(--ticks:0) and style(--fault:0) {
+      body[data-automatic] .power:checked ~ .clock .on-screen,
+      body[data-automatic].tile-mode .power:checked ~ .clock .tile-preview { display: none; }
+      body[data-automatic] .power:checked ~ .clock .startup-screen { display: flex; }
+    }
+    @container style(--fault:1) {
+      body[data-automatic] .lcd .startup-screen,
+      body[data-automatic].tile-mode .lcd .tile-preview { display: none; }
+      body[data-automatic] .lcd .on-screen { display: flex; }
+    }
+  }
+}
