@@ -1,0 +1,21 @@
+/* Inputs remain outside the pipeline. Only the next label/focus link is shown. */
+.checkpoint-bit {position:fixed;top:0;left:0}
+.copy-control {display:none;text-align:center}
+.copy-control label {display:block;background:#3f4563;color:#fff;border-radius:6px;padding:13px 8px;font:12px ui-monospace,monospace;letter-spacing:1px;cursor:pointer;min-height:44px}
+.copy-control a {display:inline-block;margin-top:8px;font:11px/1.6 ui-monospace,monospace;color:#4f5c55}
+.copy-control:focus-within {outline:3px solid var(--wine);outline-offset:4px}
+#commit:checked ~ .clock .bank1,
+#commit:not(:checked) ~ .clock .bank0 {display:none}
+.checkpoint-controls {display:none;margin:18px 0}
+@supports (width:calc(1px * mod(round(down, abs(-3), 1), 2) * sign(1))) {
+  @container style(--portable-style:1) {
+    body[data-checkpoint] .power:checked ~ .clock .checkpoint-controls {display:block}
+  }
+}
+.copy-remaining::after {counter-reset:n var(--copy-remaining);content:counter(n)}
+.save-hint {font:11px/1.6 ui-monospace,monospace;color:#4f5c55;text-align:center;margin:10px 0 0}
+@container style(--halted:1) or style(--fault:1) {
+  body[data-checkpoint] .power:checked ~ .clock .checkpoint-controls {display:none}
+}
+body[data-checkpoint] .cartridges a {background:transparent;color:inherit}
+body[data-checkpoint] .cartridges a[aria-current] {background:#343e3a;color:#f1f1e9}

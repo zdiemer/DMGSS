@@ -99,4 +99,53 @@ keyboard activation, the diagnostic, four-shade VRAM rendering, traps and budget
 exhaustion. Playwright WebKit 2388 passes; a manual additional check with WebKit
 2083 (Playwright 1.48.2, `CSS.supports(if(...))` false) passes the diagnostic,
 tile, infinite-loop budget and reset. These are Linux WebKit tests, not iPhone
-certification. Physical iOS validation remains outstanding.
+certification. The user subsequently confirmed Compatible mode works in their iOS Chrome
+setup; the OS/browser versions were not supplied. This is separate from
+validation of the new checkpoint mode below.
+
+
+## Manual checkpoints (build 05)
+
+`/checkpoint/` feeds the same 128-stage arithmetic CPU from one of two reusable
+native HTML checkbox banks. Each bank stores 738 bits: PC (16), eight 8-bit
+registers including F, HALT/fault (one each), instruction bookkeeping (16),
+and the current 80 bytes of RAM/VRAM. A commit checkbox selects the source bank.
+No DOM nodes are appended: every run uses the same inputs and CPU stages.
+
+CSS sibling selectors (`input:checked ~ .clock`) expose native bits as numeric
+custom properties. Inputs precede the pipeline and stay present when their
+visible save labels change. A `:has()` readback prototype produced stale values
+in WebKit during touch/keyboard tests, so the shipped mode avoids it.
+The pipeline inherits its starting state from the selected bank. At the output,
+CSS compares each result bit to the inactive bank, counts differences, and
+shows the label for the first differing bit. A **user action** flips that input;
+the other labels are hidden. Storage inputs have `tabindex="-1"`; the visible
+keyboard link focuses the required input via its fragment, then Space flips it.
+Only the current keyboard link participates in normal tab order. Each save leaves
+the source bank immutable, so the program's result does not change during copying.
+Only when all bits match does the commit control appear. Toggling it swaps banks
+and evaluates the next batch. This permits ongoing manually clocked execution
+without raising the stage budget or precomputing a ROM execution trace.
+
+This is not automatic state capture: one tap/key activation is needed per
+changed bit, plus commit. The counter demo usually takes a few saves per batch;
+a program rewriting most of memory can require up to 738. Visually hidden storage
+inputs hold their native checked state.
+There is no disk persistence. Reset/reload restores both banks to their defaults;
+pause keeps a partial copy and displays the last committed source state.
+HALT or faults hide continuation controls. The diagnostic instruction count
+wraps modulo 2^16; emulated 8/16-bit state retains its usual widths.
+
+The original counter cartridge executes LD A,[C000], INC A, LD [C000],A, JR.
+One batch advances 32 loop iterations; regression tests reach 1,152 instructions,
+including byte wrap, using native mouse/touch/keyboard input with page JS disabled.
+Other tests cover partial saves, pause/reset, a later HALT after conditional
+branches, all registers, VRAM copied then read back, traps and counter width.
+
+Automatic WebKit storage remains open. Experiments with alternating animation
+names, forced keyframe invalidation and long-duration/delayed transition banks
+did not yield a reliable feedback latch. The manual mode uses ordinary HTML
+control state instead of relying on animation snapshot behavior. It requires
+real iOS validation independently of the previously confirmed Compatible mode.
+A manual check with older WebKit 2083 also passed four batches (512 instructions)
+using touch input; current WebKit and Chromium receive the full regression suite.
