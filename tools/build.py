@@ -7,6 +7,7 @@ import re
 from cpu import machine, diagnostic, tile_rom, tile_css
 import portable
 import checkpoint
+import automatic
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,6 +35,7 @@ def build(rom=None, out=None, tile=False, bounded=False):
             shutil.copyfile(file, out / file.name)
     html = (out / 'index.html').read_text()
     html = html.replace('<!-- PIXELS -->', ''.join(f'<i class="pixel-{i}"></i>' for i in range(64)))
+    html = html.replace('</aside>', '<p class="automatic-link"><a href="/automatic/">Try automatic continuation →</a></p></aside>')
     if tile:
         html = html.replace('<body>', '<body class="tile-mode">')
     program = diagnostic() if rom is None else rom
@@ -87,6 +89,42 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
     (out / 'index.html').write_text(html)
 
 
+def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
+    build(rom, out, tile=tile, bounded=True)
+    # Keep the shared shell's streaming-mode visibility/clock rules below this
+    # mode's rules, including when its capability gate fails.
+    shell = (out / 'style.css').read_text()
+    (out / 'style.css').write_text('@layer console {\n' + shell + '\n}\n')
+    css, cells = automatic.generate(rom, initial=initial)
+    (out / 'machine.css').write_text(css)
+    html = (out / 'index.html').read_text()
+    html = html.replace('data-engine="portable"', 'data-engine="automatic" data-automatic')
+    html = html.replace('href="portable.css"', 'href="automatic.css"')
+    html = re.sub(r'<p class="(?:checkpoint|automatic)-link">.*?</p>', '', html)
+    html = html.replace('<div class="pipeline-read machine">', '<div class="pipeline-read auto-output">' + cells + '<div class="machine">')
+    html = html.replace('</details>\n      </div>', '</details>\n      </div></div>')
+    html = html.replace('COMPATIBLE MODE / 128 STEPS', 'AUTOMATIC CONTINUATION / EXPERIMENTAL')
+    html = html.replace('RESET VIEW', 'PAUSE').replace('RUN / RESET', 'RUN / PAUSE')
+    html = html.replace('>STEP LIMIT<', '>RUNNING<').replace('128-STEP LIMIT', 'CPU WRITING VRAM')
+    html = html.replace('INSTRUCTIONS / MAX 128', 'TOTAL INSTRUCTIONS')
+    html = html.replace('<strong class="running-message">RUNNING</strong>', '<strong class="running-message"><span class="auto-running">RUNNING</span><span class="auto-paused">PAUSED</span></strong>')
+    html = html.replace('href="/portable/">CPU check', 'href="/automatic/">Counter</a><a href="/automatic/diagnostic/">CPU check')
+    html = html.replace('href="/portable/tile/"', 'href="/automatic/tile/"')
+    active = '/automatic/tile/' if tile else '/automatic/diagnostic/' if cartridge == 'diagnostic' else '/automatic/'
+    html = html.replace(f'href="{active}"', f'aria-current="page" href="{active}"')
+    if cartridge == 'counter' and not tile:
+        html = html.replace('SYSTEM DIAGNOSTIC', 'RAM C000: <span class="automatic-memory"></span>')
+    html = html.replace('<a href="/">Switch to streaming mode</a>', '<a href="/portable/">Back to compatible mode</a>')
+    html = html.replace('<div><dt>F</dt>', '<div><dt>RAM C000</dt><dd class="automatic-memory"></dd></div><div><dt>F</dt>')
+    html = html.replace('Your browser executes the ROM through 128 CSS stages. No JavaScript. No execution trace generated ahead of time.', 'Press Run once. CSS executes the ROM and automatically carries its state into the next batch. Pause keeps your place; Reset starts over.')
+    html = re.sub(r'<div class="compat-warning">.*?</div>', '<div class="compat-warning"><strong>Automatic continuation experiment.</strong> Tested in Chromium and Linux WebKit with scroll timelines. This new mode needs verification on iOS. If it cannot advance, try <a href="/checkpoint/">manual checkpoints</a> or <a href="/portable/">compatible mode</a>. The instruction counter wraps at 65,536; this is not a full-speed or game-ready emulator.</div>', html)
+    html = re.sub(r'<div class="unsupported-screen">.*?</div>', '<div class="unsupported-screen"><strong>BROWSER LIMIT</strong><span>This mode needs CSS scroll timelines.</span><a class="portable-link" href="/checkpoint/">Try manual checkpoints</a></div>', html)
+    html = html.replace('Evaluating CSS stages…', 'Testing automatic storage…')
+    html = html.replace('Reset view clears the run. Cartridge state is not saved.', 'State lasts until reset or navigation. No persistent saves yet.')
+    html = html.replace('Embedded diagnostic: loads, arithmetic, branches and RAM.', 'Counter cartridge repeatedly increments RAM C000. CPU check tests arithmetic, branches and RAM.')
+    (out / 'index.html').write_text(html)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--fixtures', action='store_true')
@@ -98,6 +136,9 @@ if __name__ == '__main__':
     build_checkpoint(checkpoint.counter_rom(), ROOT / 'dist/checkpoint')
     build_checkpoint(diagnostic(), ROOT / 'dist/checkpoint/diagnostic', cartridge='diagnostic')
     build_checkpoint(tile_rom(), ROOT / 'dist/checkpoint/tile', tile=True)
+    build_automatic(checkpoint.counter_rom(), ROOT / 'dist/automatic')
+    build_automatic(diagnostic(), ROOT / 'dist/automatic/diagnostic', cartridge='diagnostic')
+    build_automatic(tile_rom(), ROOT / 'dist/automatic/tile', tile=True)
     if args.fixtures:
         import json
         for case in json.loads((ROOT / 'tests/cpu-cases.json').read_text()):
@@ -115,3 +156,7 @@ if __name__ == '__main__':
         retained.extend([0xAF,0xFA,0x0F,0x80,0xEA,0x3F,0xC0,0x76])
         build_checkpoint(retained, ROOT / 'dist/checkpoint/tests/register-vram')
         build_checkpoint(checkpoint.counter_rom(), ROOT / 'dist/checkpoint/tests/tick-wrap', initial={'ticks':65472})
+        build_automatic([0x06,100,0x3E,0,0x3C,0x05,0x20,0xFC,0xEA,0,0xC0,0x76], ROOT / 'dist/automatic/tests/long-loop')
+        build_automatic([0xD3], ROOT / 'dist/automatic/tests/trap')
+        build_automatic(retained, ROOT / 'dist/automatic/tests/register-vram')
+        build_automatic(checkpoint.counter_rom(), ROOT / 'dist/automatic/tests/tick-wrap', initial={'ticks':65472})

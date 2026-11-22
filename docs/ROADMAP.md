@@ -22,6 +22,12 @@ startup diagnostics. See [the architecture](ARCHITECTURE.md#bounded-compatible-m
 
 **Shipped experimental manual checkpoints:** two reusable native input banks
 continue in 128-instruction batches, with user taps to save changed bits and
-commit each batch. Tests cover continuation beyond 1,000 instructions. Automatic
-WebKit retention, practical game speed, and iOS validation of checkpoint mode
-remain open; the manual workflow is not a substitute for those milestones.
+commit each batch. Tests cover continuation beyond 1,000 instructions. This mode
+remains available for browsers without the scroll timelines used below.
+
+**Shipped experimental automatic continuation:** two scroll-offset banks retain
+CPU state across reusable 128-instruction batches, with no further input after
+Run. Chromium and current Linux WebKit tests cover ongoing execution, pause,
+reset, branches, retained registers/VRAM, HALT, traps and bookkeeping wraparound.
+Practical game speed and actual iOS validation remain open; this is not a complete
+Game Boy emulator. See [automatic storage](ARCHITECTURE.md#automatic-scroll-storage-build-06).

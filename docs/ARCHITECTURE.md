@@ -67,8 +67,8 @@ the very first instruction. The machine remains HTML/CSS-only.
 
 CI runs both modes on desktop and phone-sized Chromium, and portable execution
 plus streaming limitation checks on phone-sized WebKit. If WebKit starts advancing correctly, that suite
-fails so the support policy can be revisited. Indefinite iOS execution still requires
-a portable state-storage design and validation on actual iOS devices.
+fails so the support policy can be revisited. The new automatic mode below uses
+a different storage design; it still requires validation on actual iOS devices.
 
 
 ## Bounded compatible mode (build 04)
@@ -142,10 +142,61 @@ including byte wrap, using native mouse/touch/keyboard input with page JS disabl
 Other tests cover partial saves, pause/reset, a later HALT after conditional
 branches, all registers, VRAM copied then read back, traps and counter width.
 
-Automatic WebKit storage remains open. Experiments with alternating animation
+Before the scroll-storage experiment below, experiments with alternating animation
 names, forced keyframe invalidation and long-duration/delayed transition banks
 did not yield a reliable feedback latch. The manual mode uses ordinary HTML
 control state instead of relying on animation snapshot behavior. It requires
 real iOS validation independently of the previously confirmed Compatible mode.
 A manual check with older WebKit 2083 also passed four batches (512 instructions)
 using touch input; current WebKit and Chromium receive the full regression suite.
+
+
+## Automatic scroll storage (build 06)
+
+`/automatic/` uses the same 128 generic CPU stages, but replaces manual bit copies
+with CSS scroll snapping and scroll-driven animations. No click sequence, script,
+server request or precomputed ROM trace clocks the machine after Run.
+
+There are two banks of 92 scroll cells: the CPU registers/bookkeeping and 80 bytes
+of RAM/VRAM. Each cell's native vertical scroll offset stores an integer. A marker
+is positioned at the desired value in pixels; mandatory scroll snapping moves
+the offset to it after layout. A named scroll timeline reads the offset into a
+registered numeric property on the ancestor clock. Scroll range and animation
+range match (255 for a byte, 65,535 for a word, 1 for a bit). Explicit rounding
+removes small interpolation errors observed in WebKit. Initial values are encoded
+as zero offsets, including PC 0100, so no scripted initialization is needed.
+
+A 185th scroll cell stores which bank is selected. The selected bank is immutable
+while the CSS pipeline executes from it. Output markers update only the inactive
+bank. CSS compares **every** returned register and memory value to the output;
+the selector flips only after they all match. Then the next batch executes from
+that committed state. This handshake uses data readiness rather than a timed
+copy interval. HALT and faults must commit before they disable subsequent writes.
+The UI reads the committed source, never a partially copied destination.
+
+Run enables writes and re-snapping. Pause disables both, retaining offsets and
+the last committed state (a queued layout/timeline sample may settle first).
+Reset navigates to a fresh document. Bookkeeping wraps at 2^16, independently of
+8/16-bit emulated values. The DOM has a constant number of stages and cells.
+
+The timeline scope lives on `body`, outside the animated reader: putting scope
+and reader on the same element failed in tested WebKit. Storage cells remain
+laid out at a fixed viewport position, transparent, excluded from pointer input,
+the tab order and the accessibility tree. `display:none` would deactivate the
+timelines. Page scrolling must not write these cells. Scroll anchoring is disabled;
+this design uses snap re-alignment, not anchoring.
+
+The UI gates on scroll-timeline, timeline-scope, CSS math and style-query support,
+then checks real instruction progress at startup. Syntax support alone does not
+establish working storage. A first-instruction trap takes precedence over the
+startup warning. Older browsers can use compatible/manual modes. Tests run with
+page JavaScript disabled on desktop/mobile Chromium and Linux WebKit 2388;
+these do not certify Safari/iOS behavior or guarantee full-speed execution.
+A separate check with older WebKit 2083 rejects the missing timeline features,
+leaves the automatic clock disabled, and successfully runs the checkpoint fallback.
+
+Relevant specifications: [re-snapping after layout changes](https://www.w3.org/TR/css-scroll-snap-1/#re-snap)
+defines snap retention when content moves. WebKit's [scroll-driven animation guide](https://webkit.org/blog/17101/a-guide-to-scroll-driven-animations-with-just-css/)
+describes named timelines and scope. Their combination as CPU storage is an
+experimental design validated by our state-transition tests, not a claim that
+every browser must support arbitrary CSS feedback reliably.
