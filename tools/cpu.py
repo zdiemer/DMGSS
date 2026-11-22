@@ -3,8 +3,19 @@ REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
 RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC040)]
 
 
-def choose(key, values, default):
+def choose_native(key, values, default):
     return 'if(' + ''.join(f'style(--{key}:{k}):{v};' for k, v in values.items()) + f'else:{default})'
+
+
+def equals(key, value):
+    """Integer equality as a 0/1 arithmetic gate; no CSS if() required."""
+    return f'max(0, 1 - abs(var(--{key}) - {value}))'
+
+
+def choose_math(key, values, default):
+    """Select one integer-keyed value; keys are unique and mutually exclusive."""
+    terms = [f'({equals(key, k)}) * (({v}) - ({default}))' for k, v in values.items()]
+    return 'calc((' + str(default) + ')' + ''.join(' + ' + t for t in terms) + ')'
 
 
 def byte(expr):
@@ -72,18 +83,19 @@ def instruction_set():
     op(0xC3, 3, pc='var(--address)')
     target = 'calc(mod(var(--pc) + 2 + var(--signed), 65536))'
     op(0x18, 2, pc=target)
-    for code, condition in [(0x20, 'style(--z:0)'), (0x28, 'style(--z:1)'), (0x30, 'style(--carry:0)'), (0x38, 'style(--carry:1)')]:
-        op(code, 2, pc=f'if({condition}:{target};else:calc(mod(var(--pc) + 2, 65536)))')
+    for code, condition in [(0x20, '1 - var(--z)'), (0x28, 'var(--z)'), (0x30, '1 - var(--carry)'), (0x38, 'var(--carry)')]:
+        op(code, 2, pc=f'calc(mod(var(--pc) + 2 + ({condition}) * var(--signed), 65536))')
     op(0xEA, 3, write='var(--a)', access='1')
     op(0xFA, 3, a='var(--read)', access='1')
     return ops
 
 
-def machine(rom, storage):
+def machine(rom, storage, arithmetic=False):
+    choose = choose_math if arithmetic else choose_native
     ops = instruction_set()
     props = {'opcode': 0, 'imm': 0, 'upper': 0, 'pc1': 257, 'pc2': 258,
              'address': 0, 'signed': 0, 'z': 0, 'carry': 0, 'known': 0,
-             'access': 0, 'valid': 0, 'read': 0}
+             'access': 0, 'valid': 0, 'read': 0, 'invalid': 0, 'enabled': 0}
     css = '\n'.join(f'@property --{k} {{syntax:"<integer>";inherits:true;initial-value:{v};}}' for k, v in props.items())
     expr = {
         'pc1': 'calc(mod(var(--pc) + 1, 65536))',
@@ -99,6 +111,8 @@ def machine(rom, storage):
     }
     for name, pc in [('opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]:
         expr[name] = choose(pc, {256 + i: b for i, b in enumerate(rom)}, 255)
+    expr['invalid'] = 'calc(max(1 - var(--known), var(--access) * (1 - var(--valid))))'
+    expr['enabled'] = 'calc(var(--run, 1) * (1 - max(var(--halted), var(--fault), var(--invalid))))'
     css += '\n.machine {' + ''.join(f'--{k}:{v};' for k, v in expr.items()) + '}\n'
     states = {}
     stopped = 'style(--halted:1) or style(--fault:1)'
@@ -114,17 +128,25 @@ def machine(rom, storage):
             elif name in effects: changes[code] = effects[name]
         calc = choose('opcode', changes, default) if changes else default
         on_invalid = '1' if name == 'fault' else f'var(--{name})'
-        states[name] = (initial, f'if({stopped}:var(--{name});{invalid}:{on_invalid};else:{calc})')
+        result = f'if({stopped}:var(--{name});{invalid}:{on_invalid};else:{calc})'
+        if arithmetic:
+            result = f'calc(var(--{name}) + var(--enabled) * (({calc}) - var(--{name})))'
+            if name == 'fault':
+                result = 'calc(max(var(--fault), var(--run, 1) * (1 - var(--halted)) * var(--invalid)))'
+        states[name] = (initial, result)
     for addr in RAM:
         name = f'm{addr}'
-        states[name] = (0, f'if({stopped}:var(--{name});style(--opcode:234) and style(--address:{addr}):var(--a);else:var(--{name}))')
+        result = f'if({stopped}:var(--{name});style(--opcode:234) and style(--address:{addr}):var(--a);else:var(--{name}))'
+        if arithmetic:
+            result = f'calc(var(--{name}) + var(--enabled) * ({equals("opcode", 234)}) * ({equals("address", addr)}) * (var(--a) - var(--{name})))'
+        states[name] = (0, result)
     css += storage(states)
     for name in ['pc', 'a', 'b', 'f', 'ticks']:
         css += f'.register-{name}::after {{counter-reset:value var(--{name});content:counter(value);}}\n'
     css += '''
 @container style(--halted:1) {.running-message{display:none}.halt-message{display:block}}
 @container style(--fault:1) {.running-message{display:none}.fault-message{display:block}}
-@container style(--m49154:165) {.halt-message .passed{display:inline}.halt-message .stopped{display:none}}
+@container style(--m49154:165) {.halt-message .passed{display:inline-block}.halt-message .stopped{display:none}}
 '''
     return css
 
@@ -153,7 +175,7 @@ def tile_rom():
     return code + [0x76]
 
 
-def tile_css():
+def tile_css(arithmetic=False):
     css = '@property --shade {syntax:"<integer>";inherits:false;initial-value:0;}\n'
     colors = {0: '#b1c37e', 1: '#8baf62', 2: '#527547', 3: '#31452c'}
     for y in range(8):
@@ -161,5 +183,9 @@ def tile_css():
             bit = 2 ** (7 - x)
             shade = f'calc(mod(round(down, var(--m{0x8000 + y * 2}) / {bit}), 2) + 2 * mod(round(down, var(--m{0x8001 + y * 2}) / {bit}), 2))'
             css += f'.pixel-{y * 8 + x} {{--shade:{shade};}}\n'
-    css += '.tile-grid i {background:' + choose('shade', colors, colors[0]) + ';}\n'
+    if arithmetic:
+        channels = [choose_math('shade', {k: int(v[i:i+2], 16) for k, v in colors.items()}, int(colors[0][i:i+2], 16)) for i in [1, 3, 5]]
+        css += '.tile-grid i {background:rgb(' + ' '.join(channels) + '); }\n'
+    else:
+        css += '.tile-grid i {background:' + choose_native('shade', colors, colors[0]) + ';}\n'
     return css

@@ -1,0 +1,31 @@
+/* A bounded combinational pipeline. There is no clock or temporal feedback. */
+body[data-engine="portable"] { --portable-style: 1; }
+.pipeline-read, .pipeline-execute { display: contents; }
+body[data-engine="portable"] .clock,
+body[data-engine="portable"] .machine { animation: none; }
+body[data-engine="portable"] .clock { --run: 0; }
+body[data-engine="portable"] .power:checked ~ .clock { --run: 1; }
+body[data-engine="portable"] .lcd .unsupported-screen { display: flex; }
+body[data-engine="portable"] .lcd .off-screen,
+body[data-engine="portable"] .power:checked ~ .clock .on-screen,
+body[data-engine="portable"] .power:checked ~ .clock .tile-preview,
+body[data-engine="portable"] .power:checked ~ .clock .startup-screen { display: none; }
+@supports (width:calc(1px * mod(round(down, abs(-3), 1), 2) * sign(1))) {
+  @container style(--portable-style:1) {
+    body[data-engine="portable"] .lcd .unsupported-screen { display: none; }
+    body[data-engine="portable"] .lcd .off-screen { display: flex; }
+    body[data-engine="portable"] .power:checked ~ .clock .off-screen { display: none; }
+    body[data-engine="portable"] .power:checked ~ .clock .on-screen { display: flex; }
+    body[data-engine="portable"].tile-mode .power:checked ~ .clock .on-screen { display: none; }
+    body[data-engine="portable"].tile-mode .power:checked ~ .clock .tile-preview { display: flex; }
+  }
+}
+
+@supports (width:calc(1px * mod(round(down, abs(-3), 1), 2) * sign(1))) {
+  @container style(--portable-style:1) {
+    @container style(--fault:1) {
+      body[data-engine="portable"].tile-mode .power:checked ~ .clock .tile-preview { display: none; }
+      body[data-engine="portable"].tile-mode .power:checked ~ .clock .on-screen { display: flex; }
+    }
+  }
+}
