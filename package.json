@@ -1,0 +1,24 @@
+{
+  "name": "dmgss",
+  "version": "0.1.0",
+  "description": "HTML/CSS Game Boy emulator experiment",
+  "scripts": {
+    "build": "python3 tools/build.py",
+    "test": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zdiemer/DMGSS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/zdiemer/DMGSS/issues"
+  },
+  "homepage": "https://github.com/zdiemer/DMGSS#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.65.1"
+  },
+  "private": true
+}
