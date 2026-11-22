@@ -1,0 +1,3 @@
+# No application secrets or local overrides are required.
+# Images use the shared registry; ingress uses the existing Authelia service.
+# Do not copy this file to values.local.yaml.

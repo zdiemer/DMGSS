@@ -1,0 +1,8 @@
+**
+!Dockerfile
+!nginx.conf
+!src/
+!src/**
+!tools/
+!tools/**
+tools/__pycache__/
