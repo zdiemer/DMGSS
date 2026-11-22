@@ -1,0 +1,28 @@
+# DMGSS agent instructions
+
+Read the shared code-root AGENTS.md first. Work in the standalone DMGSS checkout,
+never selfhosted's submodule. Keep this file and CLAUDE.md identical.
+
+## Product contract
+
+- Browser execution is HTML + CSS only: no scripts, event handlers, WASM,
+  server-side emulation, precomputed execution traces or video pretending to run.
+- Build-time Python and test-only JavaScript are allowed. ROM bytes may be
+  embedded at build time. CPU, memory and graphics transitions happen in CSS.
+- Keep the Game Boy-inspired UI responsive, keyboard reachable and touch usable.
+- Clearly label unsupported browsers and unimplemented hardware. Never claim
+  game compatibility based on an animation or CPU-only diagnostic.
+- Only include original or appropriately licensed ROMs/assets. Credit research.
+
+## Delivery
+
+- Use a feature branch and PR for each cohesive milestone/fix. Run relevant
+  checks, squash merge, delete the branch, then update the local main branch.
+- Test real state transitions in Chromium with page JavaScript disabled. Test
+  mobile and desktop layouts. Unsupported opcodes must trap visibly.
+- Keep README concise; track capabilities and remaining work in docs/ROADMAP.md.
+- Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
+  tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
+- Secrets only through existing op:// references resolved at deploy time; never
+  create values.local.yaml. Static deployment should need no application secret.
+- Push app commits before moving the deployed selfhosted submodule pin.
