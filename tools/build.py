@@ -4,12 +4,19 @@ from pathlib import Path
 import shutil
 import argparse
 import re
-from cpu import machine, diagnostic, tile_rom, tile_css
+from cpu import machine, diagnostic, stack_rom, tile_rom, tile_css
 import portable
 import checkpoint
 import automatic
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def current_cartridge(html, path):
+    def mark(match):
+        nav = match.group().replace(' aria-current="page"', '')
+        return nav.replace(f'href="{path}"', f'aria-current="page" href="{path}"')
+    return re.sub(r'<nav class="cartridges".*?</nav>', mark, html)
 
 
 def storage(states):
@@ -25,7 +32,7 @@ def storage(states):
         '@keyframes execute {0%,100% {' + ''.join(execute) + '}}\n'
 
 
-def build(rom=None, out=None, tile=False, bounded=False):
+def build(rom=None, out=None, tile=False, bounded=False, stack=False):
     out = out or ROOT / 'dist'
     if out.exists():
         shutil.rmtree(out)
@@ -38,6 +45,8 @@ def build(rom=None, out=None, tile=False, bounded=False):
     html = html.replace('</aside>', '<p class="automatic-link"><a href="/automatic/">Try automatic continuation →</a></p></aside>')
     if tile:
         html = html.replace('<body>', '<body class="tile-mode">')
+    if stack:
+        html = html.replace('SYSTEM DIAGNOSTIC', 'STACK / NESTED CALLS')
     program = diagnostic() if rom is None else rom
     if bounded:
         html = html.replace('<body', '<body data-engine="portable"')
@@ -45,7 +54,7 @@ def build(rom=None, out=None, tile=False, bounded=False):
         html = html.replace('</head>', '<link rel="stylesheet" href="portable.css"></head>')
         html = html.replace('POWER ON', 'RUN').replace('POWER OFF', 'RESET VIEW').replace('class="start">POWER', 'class="start">RUN / RESET')
         html = html.replace('STREAMING MODE / TILE MEMORY', 'COMPATIBLE MODE / 128 STEPS')
-        html = html.replace('href="/"', 'href="/portable/"').replace('href="/tile/"', 'href="/portable/tile/"')
+        html = html.replace('href="/"', 'href="/portable/"').replace('href="/tile/"', 'href="/portable/tile/"').replace('href="/stack/"', 'href="/portable/stack/"')
         html = html.replace('<a href="/portable/">Switch to compatible mode</a>', '<a href="/">Switch to streaming mode</a>')
         html = html.replace('>RUNNING<', '>STEP LIMIT<').replace('CPU WRITING VRAM', '128-STEP LIMIT')
         html = html.replace('Testing CSS state storage…', 'Evaluating CSS stages…')
@@ -59,11 +68,12 @@ def build(rom=None, out=None, tile=False, bounded=False):
         (out / 'machine.css').write_text(portable.stylesheet(program))
     else:
         (out / 'machine.css').write_text(machine(program, storage) + tile_css())
-    (out / 'index.html').write_text(html)
+    active = ('/portable' if bounded else '') + ('/stack/' if stack else '/tile/' if tile else '/')
+    (out / 'index.html').write_text(current_cartridge(html, active))
 
 
 def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
-    build(rom, out, tile=tile, bounded=True)
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack')
     css, inputs, controls = checkpoint.generate(rom, initial=initial)
     (out / 'machine.css').write_text(css)
     html = (out / 'index.html').read_text()
@@ -77,8 +87,9 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
     html = html.replace('>STEP LIMIT<', '>BATCH COMPLETE<').replace('INSTRUCTIONS / MAX 128', 'TOTAL INSTRUCTIONS')
     html = html.replace('href="/portable/">CPU check', 'href="/checkpoint/">Counter</a><a href="/checkpoint/diagnostic/">CPU check')
     html = html.replace('href="/portable/tile/"', 'href="/checkpoint/tile/"')
-    active = '/checkpoint/tile/' if tile else '/checkpoint/diagnostic/' if cartridge == 'diagnostic' else '/checkpoint/'
-    html = html.replace(f'href="{active}"', f'aria-current="page" href="{active}"')
+    html = html.replace('href="/portable/stack/"', 'href="/checkpoint/stack/"')
+    active = '/checkpoint/stack/' if cartridge == 'stack' else '/checkpoint/tile/' if tile else '/checkpoint/diagnostic/' if cartridge == 'diagnostic' else '/checkpoint/'
+    html = current_cartridge(html, active)
     if cartridge == 'counter' and not tile:
         html = html.replace('SYSTEM DIAGNOSTIC', 'RAM C000: <span class="checkpoint-memory"></span>')
     html = html.replace('<a href="/">Switch to streaming mode</a>', '<a href="/portable/">Back to compatible mode</a>')
@@ -90,7 +101,7 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
 
 
 def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
-    build(rom, out, tile=tile, bounded=True)
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack')
     # Keep the shared shell's streaming-mode visibility/clock rules below this
     # mode's rules, including when its capability gate fails.
     shell = (out / 'style.css').read_text()
@@ -110,8 +121,9 @@ def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
     html = html.replace('<strong class="running-message">RUNNING</strong>', '<strong class="running-message"><span class="auto-running">RUNNING</span><span class="auto-paused">PAUSED</span></strong>')
     html = html.replace('href="/portable/">CPU check', 'href="/automatic/">Counter</a><a href="/automatic/diagnostic/">CPU check')
     html = html.replace('href="/portable/tile/"', 'href="/automatic/tile/"')
-    active = '/automatic/tile/' if tile else '/automatic/diagnostic/' if cartridge == 'diagnostic' else '/automatic/'
-    html = html.replace(f'href="{active}"', f'aria-current="page" href="{active}"')
+    html = html.replace('href="/portable/stack/"', 'href="/automatic/stack/"')
+    active = '/automatic/stack/' if cartridge == 'stack' else '/automatic/tile/' if tile else '/automatic/diagnostic/' if cartridge == 'diagnostic' else '/automatic/'
+    html = current_cartridge(html, active)
     if cartridge == 'counter' and not tile:
         html = html.replace('SYSTEM DIAGNOSTIC', 'RAM C000: <span class="automatic-memory"></span>')
     html = html.replace('<a href="/">Switch to streaming mode</a>', '<a href="/portable/">Back to compatible mode</a>')
@@ -139,9 +151,13 @@ if __name__ == '__main__':
     build_automatic(checkpoint.counter_rom(), ROOT / 'dist/automatic')
     build_automatic(diagnostic(), ROOT / 'dist/automatic/diagnostic', cartridge='diagnostic')
     build_automatic(tile_rom(), ROOT / 'dist/automatic/tile', tile=True)
+    build(stack_rom(), ROOT / 'dist/stack', stack=True)
+    build(stack_rom(), ROOT / 'dist/portable/stack', bounded=True, stack=True)
+    build_checkpoint(stack_rom(), ROOT / 'dist/checkpoint/stack', cartridge='stack')
+    build_automatic(stack_rom(), ROOT / 'dist/automatic/stack', cartridge='stack')
     if args.fixtures:
         import json
-        cases = json.loads((ROOT / 'tests/cpu-cases.json').read_text()) + json.loads((ROOT / 'tests/addressing-cases.json').read_text())
+        cases = json.loads((ROOT / 'tests/cpu-cases.json').read_text()) + json.loads((ROOT / 'tests/addressing-cases.json').read_text()) + json.loads((ROOT / 'tests/stack-cases.json').read_text())
         for case in cases:
             build(case['rom'], ROOT / 'dist/tests' / case['name'])
             build(case['rom'], ROOT / 'dist/portable/tests' / case['name'], bounded=True)
@@ -173,3 +189,10 @@ if __name__ == '__main__':
         pointer_checkpoint = [0x31,0xDC,0xFE,0x21,0,0xC0] + [0] * 126 + [0x36,42,0x2A,0x76]
         build_checkpoint(pointer_checkpoint, ROOT / 'dist/checkpoint/tests/addressing')
         build_automatic([0x21,0,1,0x3E,7,0x22], ROOT / 'dist/automatic/tests/addressing-trap')
+
+        # The inner RET is instruction 128. Outer still has saved BC and its
+        # return address in RAM, so POP/RET must consume a transferred bank.
+        stack_continuation = [0x31,0x40,0xC0,0x01,0x34,0x12,0xCD,0x0A,1,0x76,0xC5,0xCD,0x11,1,0xC1,0xC9,0xD3] + [0] * 121 + [0x01,0xCD,0xAB,0xC9]
+        build_checkpoint(stack_continuation, ROOT / 'dist/checkpoint/tests/stack-continuation')
+        build_automatic(stack_continuation, ROOT / 'dist/automatic/tests/stack-continuation')
+        build_automatic([0x31,1,0xC0,0x01,0x34,0x12,0xC5], ROOT / 'dist/automatic/tests/stack-trap')

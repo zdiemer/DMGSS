@@ -1,5 +1,5 @@
 const {test, expect} = require('@playwright/test');
-const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json')];
+const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json')];
 const state = (page, key) => page.locator('.machine').evaluate((el,k)=>Number(getComputedStyle(el).getPropertyValue(`--${k}`)),key);
 for (const item of cases) {
   test(`portable ${item.name}`, async ({page})=>{
@@ -72,3 +72,12 @@ for (const path of ['/portable/', '/portable/tile/']) {
     await expect(page.locator('.tile-preview')).not.toBeVisible();
   });
 }
+test('portable stack lab completes nested calls within the budget', async ({page}) => {
+  await page.goto('/portable/');
+  await page.getByRole('link', {name:'Stack lab',exact:true}).click();
+  await expect(page).toHaveURL(/\/portable\/stack\/$/);
+  await page.locator('.power-switch').click();
+  for (const [key,value] of Object.entries({ticks:52,pc:278,a:165,b:0,c:0,sp:49216,f:192,m49154:165,fault:0})) expect(await state(page,key),key).toBe(value);
+  await expect(page.locator('.passed')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

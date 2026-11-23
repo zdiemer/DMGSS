@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json')];
+const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json')];
 const state = (page, key) => page.locator('.machine').evaluate((el, k) => Number(getComputedStyle(el).getPropertyValue(`--${k}`)), key);
 for (const item of cases) {
   test(item.name, async ({page}) => {
@@ -42,4 +42,10 @@ test('tile ROM writes VRAM and CSS decodes both bitplanes', async ({page}, info)
   await expect(page.locator('.tile-ready')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:`test-results/tile-${info.project.name}.png`,fullPage:true});
+});
+test('stack lab runs nested calls and restores the loop counter', async ({page}) => {
+  await page.goto('/stack/'); await page.locator('.power-switch').click();
+  await expect.poll(() => state(page,'halted'), {timeout:25000}).toBe(1);
+  for (const [key,value] of Object.entries({ticks:52,pc:278,a:165,b:0,c:0,sp:49216,f:192,m49154:165,m49214:9,m49215:1,m49212:0,m49213:1,m49210:28,m49211:1,fault:0})) expect(await state(page,key),key).toBe(value);
+  await expect(page.locator('.passed')).toBeVisible();
 });

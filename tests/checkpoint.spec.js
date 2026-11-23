@@ -87,6 +87,9 @@ for(const [path,message] of [['diagnostic/','.passed'],['tile/','.tile-ready'],[
 }
 
 test('checkpoint copies every register and retained VRAM back into the CPU', async ({page})=>{
+  // Each native bit save re-evaluates the full CPU pipeline on shared runners.
+  // Per-bit progress still has its own bound; allow time for the whole copy.
+  test.setTimeout(60000);
   await page.goto('/checkpoint/tests/register-vram/'); await page.locator('.power-switch').click();
   expect((await read(page,['ticks'])).ticks).toBe(128);
   await continueBatch(page);
@@ -111,5 +114,19 @@ test('checkpoint capability failure hides copy controls', async ({page})=>{
   });
   await page.goto('/checkpoint/'); await page.locator('.power-switch').click();
   await expect(page.locator('.unsupported-screen')).toBeVisible();
+  await expect(page.locator('.checkpoint-controls')).not.toBeVisible();
+});
+test('checkpoint preserves live nested-call frames across a manual bank transfer', async ({page})=>{
+  test.setTimeout(60000);
+  await page.goto('/checkpoint/tests/stack-continuation/'); await page.locator('.power-switch').click();
+  expect(await read(page,['ticks','pc','b','c','sp','m49212','m49213','m49214','m49215'])).toEqual({ticks:128,pc:270,b:171,c:205,sp:49212,m49212:52,m49213:18,m49214:9,m49215:1});
+  await continueBatch(page);
+  expect(await read(page,['ticks','pc','b','c','sp','m49210','m49211','m49212','m49213','m49214','m49215','halted','fault'])).toEqual({ticks:131,pc:266,b:18,c:52,sp:49216,m49210:14,m49211:1,m49212:52,m49213:18,m49214:9,m49215:1,halted:1,fault:0});
+});
+test('checkpoint stack lab needs no extra batch', async ({page})=>{
+  await page.goto('/checkpoint/'); await page.getByRole('link',{name:'Stack lab',exact:true}).click();
+  await expect(page).toHaveURL(/\/checkpoint\/stack\/$/);
+  await page.locator('.power-switch').click();
+  expect(await read(page,['ticks','sp','m49154','halted','fault'])).toEqual({ticks:52,sp:49216,m49154:165,halted:1,fault:0});
   await expect(page.locator('.checkpoint-controls')).not.toBeVisible();
 });

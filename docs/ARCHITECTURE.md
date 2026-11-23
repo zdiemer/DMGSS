@@ -34,7 +34,8 @@ loop, then writes A5 to C002 on success. The UI derives success from that memory
 byte; it does not set it itself. Inspector values are decimal.
 
 This is instruction-level execution, not cycle-accurate emulation. There is no
-PPU, timer, interrupt controller, stack, cartridge banking or audio yet.
+PPU, timer, interrupt controller, cartridge banking or audio yet. Stack support
+was added in build 08 below.
 
 
 ## Tile lab (build 03)
@@ -119,7 +120,11 @@ visible save labels change. A `:has()` readback prototype produced stale values
 in WebKit during touch/keyboard tests, so the shipped mode avoids it.
 The pipeline inherits its starting state from the selected bank. At the output,
 CSS compares each result bit to the inactive bank, counts differences, and
-shows the label for the first differing bit. A **user action** flips that input;
+shows the label for the first differing bit. The index is split into a group
+and slot (32 bits per group) for the display queries: in Chromium, the long
+minimum expression exposed index 707 while its direct style equality query
+failed to show the control. Group/slot queries fix the reproduced case and
+cover high RAM bits in the stack continuation test. A **user action** flips that input;
 the other labels are hidden. Storage inputs have `tabindex="-1"`; the visible
 keyboard link focuses the required input via its fragment, then Space flips it.
 Only the current keyboard link participates in normal tab order. Each save leaves
@@ -237,7 +242,61 @@ rejected writes, read-modify-write flags, and JP HL. A 344-instruction automatic
 case fills all 64 RAM bytes through a pointer, then copies the last 16 backwards
 to VRAM across bank swaps. A manual checkpoint case retains SP FEDC and HL
 across the 128-step boundary. No new RAM capacity or stack operations are claimed:
-PUSH/POP/CALL/RET, signed SP arithmetic and `LD [a16],SP` remain unimplemented.
+At this stage PUSH/POP/CALL/RET, signed SP arithmetic and `LD [a16],SP`
+were unimplemented; build 08 adds them.
 
 Semantics reference: [RGBDS Game Boy instruction manual](https://github.com/gbdev/rgbds/blob/master/man/gbz80.7).
 Instruction sizes were also checked against [gbdev's opcode data](https://github.com/gbdev/gb-opcodes/blob/master/Opcodes.json).
+
+
+## Stack and subroutines (build 08)
+
+The CPU implements 152 unprefixed opcodes. The 25 additions are PUSH/POP for
+BC/DE/HL/AF; unconditional and NZ/Z/NC/C CALL/RET; conditional JP; ADD SP,e8;
+LD HL,SP+e8; and LD [a16],SP. POP AF clears F's low nibble. Signed SP operations
+clear Z/N and derive H/C from the low nibble/byte addition using the immediate's
+unsigned byte, including when the signed displacement is negative.
+
+Two adjacent memory lanes transfer words in a single instruction transition.
+The low byte occupies the lower address. PUSH and CALL store at old SP-2/SP-1;
+POP and RET read at old SP/SP+1. Addresses and SP wrap at 16 bits. CALL pushes
+PC+3, and RET uses the actual word read from memory. Untaken conditional calls
+and returns advance normally without reading, writing or validating the stack.
+
+Both addresses must pass the existing memory policy before *any* state commits.
+If either byte is unmapped or a write targets ROM, the instruction traps with no
+partial write, SP change, register/flag change or PC/tick advancement. This is
+an instruction-level diagnostic policy, not cycle-level bus fault emulation.
+A valid RET to an unmapped instruction address does commit its pop, then faults
+on the next fetch. RAM is still only C000–C03F and VRAM 8000–800F; there is no
+special stack memory or automatic SP initialization. RST, RETI and interrupt
+semantics remain absent. The ROM layout still starts at 0100, with no vectors.
+
+Stack lab calls an outer subroutine four times. It saves BC, increments A,
+calls an inner subroutine that increments A and clobbers BC, restores BC and
+returns. Main checks the result and writes the success marker. It takes 52
+instructions and restores SP to C040. The same embedded program is available
+in all four modes. A separate test pauses the generic pipeline at 128 while
+live stack frames remain in RAM, then verifies POP/RET after actual automatic
+and manual bank transfers. Test fixtures also exercise independent byte-order
+expectations, POP AF masking, taken/untaken conditions, SP arithmetic and
+rejected partial transfers with page JavaScript disabled.
+
+## ROM loading boundary
+
+HTML's [`input type=file`](https://html.spec.whatwg.org/multipage/input.html#file-upload-state-(type=file))
+can select a local file and submit it through a form. It does not expose its
+binary contents as HTML attributes or CSS values. CSS
+[`attr()`](https://drafts.csswg.org/css-values-5/#attr-notation) reads attributes,
+not file bodies. The [File API](https://www.w3.org/TR/FileAPI/) supplies scripted
+access to those bytes. Computational expressiveness does not provide this I/O.
+
+A local "Load ROM" feature would therefore need a small JS importer to encode
+bytes for the CSS machine. Emulation could remain CSS, but the application
+would no longer have a zero-JS runtime. Alternatively, a native HTML form could
+upload the file to a converter that returns generated HTML/CSS, preserving a
+script-free browser while introducing a server component. Neither is implemented
+or enabled by the current CSP. Offline/build-time conversion keeps today's
+static HTML/CSS runtime contract and is how the original cartridges are embedded.
+Import alone would not make commercial ROMs run: instruction coverage, the
+memory map, cartridge banking and hardware support are still incomplete.

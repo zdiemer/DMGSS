@@ -57,6 +57,18 @@ def diagnostic():
     return code
 
 
+def stack_rom():
+    """Original nested calls preserve BC while computing 8, then report success."""
+    # Main calls outer four times. Outer saves the loop counter, increments A,
+    # and calls inner, which increments A again and clobbers BC before returning.
+    # Both return addresses and the saved BC live in ordinary emulated RAM.
+    return [0x31,0x40,0xC0,0x06,4,0xAF,
+            0xCD,0x17,1,0x05,0x20,0xFA,
+            0xFE,8,0x20,6,0x3E,0xA5,0xEA,2,0xC0,0x76,0xD3,
+            0xC5,0x3C,0xCD,0x1E,1,0xC1,0xC9,
+            0x3C,0x01,0x34,0x12,0xC9]
+
+
 def instruction_set():
     ops = {}
     def op(code, size=1, **effects):
@@ -92,6 +104,37 @@ def instruction_set():
         op(0x0A + i * 16, a='var(--read)', access='1', address=f'var(--{pair})', **post)
     op(0xF9, sp='var(--hl)')
     op(0xE9, pc='var(--hl)')  # JP HL does not dereference memory.
+    # Word transfers use two adjacent byte lanes, validated before either commits.
+    # The lower address holds the low byte; PUSH stores at old SP-2 and SP-1.
+    for i, pair in enumerate(('bc', 'de', 'hl', 'af')):
+        op(0xC5 + i * 16, access='1', word='1',
+           address='calc(mod(var(--sp) - 2, 65536))',
+           write=f'var(--{pair[1]})', write2=f'var(--{pair[0]})',
+           sp='calc(mod(var(--sp) - 2, 65536))')
+        low = 'calc(round(down, var(--read) / 16) * 16)' if pair == 'af' else 'var(--read)'
+        op(0xC1 + i * 16, access='1', word='1', address='var(--sp)',
+           sp='calc(mod(var(--sp) + 2, 65536))',
+           **{pair[0]: 'var(--read2)', pair[1]: low})
+    conditions = ['1 - var(--z)', 'var(--z)', '1 - var(--carry)', 'var(--carry)']
+    for code, condition in [(0xCD, '1'), *zip((0xC4, 0xCC, 0xD4, 0xDC), conditions)]:
+        op(code, 3, access=f'calc({condition})', word='1',
+           address='calc(mod(var(--sp) - 2, 65536))',
+           write='calc(mod(var(--pc) + 3, 256))',
+           write2='calc(round(down, mod(var(--pc) + 3, 65536) / 256))',
+           sp=f'calc(mod(var(--sp) - 2 * ({condition}), 65536))',
+           pc=f'calc(mod(var(--pc) + 3 + ({condition}) * (var(--imm16) - var(--pc) - 3), 65536))')
+    for code, condition in [(0xC9, '1'), *zip((0xC0, 0xC8, 0xD0, 0xD8), conditions)]:
+        op(code, access=f'calc({condition})', word='1', address='var(--sp)',
+           sp=f'calc(mod(var(--sp) + 2 * ({condition}), 65536))',
+           pc=f'calc(mod(var(--pc) + 1 + ({condition}) * (var(--read) + 256 * var(--read2) - var(--pc) - 1), 65536))')
+    for code, condition in zip((0xC2, 0xCA, 0xD2, 0xDA), conditions):
+        op(code, 3, pc=f'calc(mod(var(--pc) + 3 + ({condition}) * (var(--imm16) - var(--pc) - 3), 65536))')
+    op(0x08, 3, access='1', word='1', write='calc(mod(var(--sp), 256))',
+       write2='calc(round(down, var(--sp) / 256))')
+    for code, pair in [(0xE8, 'sp'), (0xF8, 'hl')]:
+        # Flags use the unsigned immediate's low nibble/byte even for e8 < 0.
+        op(code, 2, **pair_effects(pair, 'var(--sp) + var(--signed)'),
+           f='calc(round(down, (mod(var(--sp), 16) + mod(var(--imm), 16)) / 16) * 32 + round(down, (mod(var(--sp), 256) + var(--imm)) / 256) * 16)')
     for code, mode in [(0xC6, 'add'), (0xD6, 'sub'), (0xFE, 'cp')]:
         a, b = 'var(--a)', 'var(--imm)'
         raw = f'{a} + {b}' if mode == 'add' else f'{a} - {b}'
@@ -123,7 +166,9 @@ def machine(rom, storage, arithmetic=False):
              'imm16': 0, 'bc': 0, 'de': 0, 'hl': 0,
              'address': 0, 'signed': 0, 'z': 0, 'carry': 0, 'known': 0,
              'access': 0, 'writing': 0, 'writable': 0, 'readable': 0,
-             'write': 0, 'valid': 0, 'read': 0, 'invalid': 0, 'enabled': 0}
+             'write': 0, 'valid': 0, 'read': 0, 'invalid': 0, 'enabled': 0,
+             'word': 0, 'address2': 0, 'write2': 0, 'read2': 0,
+             'writable2': 0, 'readable2': 0, 'valid2': 0}
     css = '\n'.join(f'@property --{k} {{syntax:"<integer>";inherits:true;initial-value:{v};}}' for k, v in props.items())
     expr = {
         'pc1': 'calc(mod(var(--pc) + 1, 65536))',
@@ -131,26 +176,33 @@ def machine(rom, storage, arithmetic=False):
         'imm16': 'calc(var(--imm) + 256 * var(--upper))',
         **{pair: f'calc(var(--{pair[0]}) * 256 + var(--{pair[1]}))' for pair in ('bc', 'de', 'hl')},
         'address': choose('opcode', {k: v['address'] for k, v in ops.items() if 'address' in v}, 'var(--imm16)'),
+        'address2': 'calc(mod(var(--address) + 1, 65536))',
         'signed': 'calc(var(--imm) - 256 * round(down, var(--imm) / 128))',
         'z': 'calc(round(down, var(--f) / 128))',
         'carry': 'calc(mod(round(down, var(--f) / 16), 2))',
         'known': choose('opcode', {k: 1 for k in ops}, 0),
         'access': choose('opcode', {k: v['access'] for k, v in ops.items() if 'access' in v}, 0),
-        'writing': choose('opcode', {k: 1 for k, v in ops.items() if 'write' in v}, 0),
+        'word': choose('opcode', {k: v['word'] for k, v in ops.items() if 'word' in v}, 0),
+        'writing': choose('opcode', {k: 'var(--access)' for k, v in ops.items() if 'write' in v}, 0),
         'write': choose('opcode', {k: v['write'] for k, v in ops.items() if 'write' in v}, 0),
+        'write2': choose('opcode', {k: v['write2'] for k, v in ops.items() if 'write2' in v}, 0),
         'writable': choose('address', {i: 1 for i in RAM}, 0),
         'readable': choose('address', {**{256 + i: 1 for i in range(len(rom))}, **{i: 1 for i in RAM}}, 0),
         'valid': 'calc(var(--writing) * var(--writable) + (1 - var(--writing)) * var(--readable))',
         'read': choose('address', {**{256 + i: b for i, b in enumerate(rom)}, **{i: f'var(--m{i})' for i in RAM}}, 255),
+        'writable2': choose('address2', {i: 1 for i in RAM}, 0),
+        'readable2': choose('address2', {**{256 + i: 1 for i in range(len(rom))}, **{i: 1 for i in RAM}}, 0),
+        'valid2': 'calc(var(--writing) * var(--writable2) + (1 - var(--writing)) * var(--readable2))',
+        'read2': choose('address2', {**{256 + i: b for i, b in enumerate(rom)}, **{i: f'var(--m{i})' for i in RAM}}, 255),
     }
     for name, pc in [('opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]:
         expr[name] = choose(pc, {256 + i: b for i, b in enumerate(rom)}, 255)
-    expr['invalid'] = 'calc(max(1 - var(--known), var(--access) * (1 - var(--valid))))'
+    expr['invalid'] = 'calc(max(1 - var(--known), var(--access) * max(1 - var(--valid), var(--word) * (1 - var(--valid2)))))'
     expr['enabled'] = 'calc(var(--run, 1) * (1 - max(var(--halted), var(--fault), var(--invalid))))'
     css += '\n.machine {' + ''.join(f'--{k}:{v};' for k, v in expr.items()) + '}\n'
     states = {}
     stopped = 'style(--halted:1) or style(--fault:1)'
-    invalid = 'style(--known:0) or (style(--access:1) and style(--valid:0))'
+    invalid = 'style(--invalid:1)'
     for name in ['pc', 'a', 'b', 'c', 'd', 'e', 'h', 'l', 'f', 'sp', 'halted', 'fault', 'ticks']:
         initial = 256 if name == 'pc' else 0
         default = f'var(--{name})'
@@ -170,9 +222,9 @@ def machine(rom, storage, arithmetic=False):
         states[name] = (initial, result)
     for addr in RAM:
         name = f'm{addr}'
-        result = f'if(style(--enabled:1) and style(--writing:1) and style(--address:{addr}):var(--write);else:var(--{name}))'
+        result = f'if(style(--enabled:1) and style(--writing:1) and style(--address:{addr}):var(--write);style(--enabled:1) and style(--writing:1) and style(--word:1) and style(--address2:{addr}):var(--write2);else:var(--{name}))'
         if arithmetic:
-            result = f'calc(var(--{name}) + var(--enabled) * var(--writing) * ({equals("address", addr)}) * (var(--write) - var(--{name})))'
+            result = f'calc(var(--{name}) + var(--enabled) * var(--writing) * (({equals("address", addr)}) * (var(--write) - var(--{name})) + var(--word) * ({equals("address2", addr)}) * (var(--write2) - var(--{name}))))'
         states[name] = (0, result)
     css += storage(states)
     for name in ['pc', 'a', 'b', 'f', 'sp', 'ticks']:

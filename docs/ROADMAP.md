@@ -6,14 +6,19 @@
    arithmetic/flags, branches, writable memory and visible results.
    **Addressing milestone:** 127 opcodes, BC/DE/HL/SP word operations, indirect
    byte loads/stores, HL post-increment/decrement, and readable embedded ROM data.
-   Tile lab now runs a pointer-based copy loop. Next: stack and subroutine support.
+   Tile lab now runs a pointer-based copy loop.
+   **Stack milestone:** 152 opcodes, PUSH/POP, CALL/RET (including conditions),
+   conditional JP, signed SP arithmetic and two-byte SP stores. Stack lab runs
+   nested subroutines. Next: remaining 8-bit ALU and CB-prefixed bit operations.
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
-5. Full SM83 CPU, stack, interrupts, timers and DMA, verified against test ROMs.
+5. Full SM83 CPU, restart vectors, interrupts, timers and DMA, verified against test ROMs.
 6. Joypad integration, sprites, scrolling, cartridge banking and game testing.
 
-Audio, ROM uploads and persistent saves require separate feasibility research
-under the HTML/CSS-only runtime constraint. No full-speed promise.
+Audio and persistent saves require separate feasibility research. HTML file
+inputs cannot expose ROM bytes to CSS: local import needs a JS loader or an
+external conversion step. Build-time embedding remains the supported approach.
+No full-speed promise.
 
 
 Browser portability: **shipped bounded compatible mode**, with 128 generic CSS

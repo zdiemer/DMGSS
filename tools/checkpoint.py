@@ -29,6 +29,8 @@ def generate(rom, initial=None):
     css += '''
 @property --bank-phase {syntax:"<integer>";inherits:true;initial-value:0}
 @property --copy-index {syntax:"<integer>";inherits:true;initial-value:0}
+@property --copy-group {syntax:"<integer>";inherits:true;initial-value:0}
+@property --copy-slot {syntax:"<integer>";inherits:true;initial-value:0}
 @property --copy-remaining {syntax:"<integer>";inherits:true;initial-value:0}
 #commit:checked ~ .clock {--bank-phase:1}
 '''
@@ -57,10 +59,14 @@ def generate(rom, initial=None):
         target = f'var(--b1-{name}-{bit},0) * (1 - var(--bank-phase)) + var(--b0-{name}-{bit},0) * var(--bank-phase)'
         css += f'@property --diff-{i} {{syntax:"<integer>";inherits:true;initial-value:0}}\n'
         differences.append(f'--diff-{i}:calc(abs(({result}) - ({target})));')
-        css += f'@container style(--copy-index:{i}) {{.checkpoint-controls .copy-{i} {{display:block}}}}\n'
+        # Chromium can expose index 707 while failing style(--copy-index:707)
+        # on this long min() expression. Small group/slot queries select the
+        # same bit and work in both engines, including the last RAM bytes.
+        css += f'@container style(--copy-group:{i // 32}) and style(--copy-slot:{i % 32}) {{.checkpoint-controls .copy-{i} {{display:block}}}}\n'
     css += '.checkpoint-values {' + ''.join(differences) + '}\n'
     css += '.checkpoint-select {--copy-remaining:calc(' + ' + '.join(f'var(--diff-{i})' for i in range(count)) + ');'
-    css += '--copy-index:min(' + ','.join(f'{i} + (1 - var(--diff-{i})) * {count}' for i in range(count)) + f',{count});}}\n'
+    css += '--copy-index:min(' + ','.join(f'{i} + (1 - var(--diff-{i})) * {count}' for i in range(count)) + f',{count});'
+    css += '--copy-group:calc(round(down,var(--copy-index) / 32));--copy-slot:mod(var(--copy-index),32);}\n'
     css += '@container style(--copy-remaining:0) {.checkpoint-controls .commit-control {display:block}.save-hint {display:none}}\n'
     css += '.checkpoint-memory::after {counter-reset:value var(--m49152);content:counter(value);}\n'
     # Bookkeeping is finite so both banks have fixed size; hardware state keeps

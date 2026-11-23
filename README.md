@@ -7,10 +7,10 @@ browser automation is used only for testing.
 ## Status
 
 Early development. Not yet a general-purpose Game Boy emulator.
-The current build executes original embedded ROMs on a 127-opcode CSS CPU with
-16-bit register pairs, indirect addressing, arithmetic flags, branches and 64 bytes of writable RAM.
+The current build executes original embedded ROMs on a 152-opcode CSS CPU with
+16-bit register pairs, indirect addressing, stack/subroutines, arithmetic flags, branches and 64 bytes of writable RAM.
 Power on to run it; the screen reports success or a CPU trap. Tile lab runs a
-second original ROM that copies a four-shade tile from ROM data into 16 bytes of VRAM using pointers. The full
+second original ROM that copies a four-shade tile from ROM data into 16 bytes of VRAM using pointers. Stack lab exercises nested calls and saved registers. The full
 PPU, timers, interrupts and game compatibility remain ahead.
 See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 
@@ -65,3 +65,10 @@ manual checkpoints if it reports a browser limit or stalled engine.
 cartridge increments RAM C000 and continues beyond the first 128 instructions.
 It usually takes several save taps per batch; programs changing lots of memory
 can require hundreds. Keyboard: Tab to the focus link, Enter, then Space to save.
+
+[Try Stack lab](https://dmgss.zachd.duckdns.org/automatic/stack/): nested subroutines
+save and restore BC while computing a result, then report TEST PASSED.
+
+ROMs are embedded at build time. Native HTML can select/upload a file, but CSS
+cannot read its bytes. Local ROM import would require a JavaScript loader or an
+external converter; neither is included. See [ROM loading](docs/ARCHITECTURE.md#rom-loading-boundary).
