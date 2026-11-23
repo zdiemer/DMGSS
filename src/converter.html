@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#1c2423"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'self'"><title>Load a ROM · DMGSS</title><link rel="stylesheet" href="/converter.css"></head>
+<body><header><a class="wordmark" href="/automatic/">DMG<span>SS</span></a><a href="/automatic/">Back to the console</a></header>
+<main><p class="eyebrow">ROM → HTML + CSS</p><h1>Your cartridge.<br>A stylesheet runtime.</h1>
+<p class="lead">Choose a small test ROM. Convert it into a page you can run now or keep as one offline HTML file.</p>
+<div class="caveat"><strong>The caveat</strong><p>Conversion uses Python on the server, outside the browser. The generated emulator runs entirely in HTML/CSS. The converter encodes bytes; it does not execute the ROM or precompute an execution trace.</p></div>
+<!-- ERROR -->
+<form action="/convert/" method="post" enctype="multipart/form-data">
+<label for="rom">ROM file</label><input id="rom" name="rom" type="file" accept=".gb,.bin,application/octet-stream" required aria-describedby="limits privacy">
+<label for="format">File layout</label><select id="format" name="format"><option value="gb">Game Boy ROM · 32 KiB, ROM ONLY</option><option value="raw">Raw test program · starts at 0100</option></select>
+<label for="mode">Execution mode</label><select id="mode" name="mode"><option value="portable">Compatible · up to 128 instructions</option><option value="automatic">Automatic continuation · experimental</option><option value="checkpoint">Manual checkpoints · save bits by hand</option><option value="streaming">Streaming · Chromium only</option></select>
+<p id="limits">Small diagnostics only: 32 KiB unbanked ROMs, or raw programs up to 4 KiB. At most 1,024 bytes may differ from the ROM’s most common padding byte; denser files are rejected to bound CSS size.</p>
+<div class="actions"><button type="submit" name="delivery" value="open">Convert &amp; run</button><button type="submit" name="delivery" value="download">Download HTML</button></div>
+<p id="privacy">Your file is sent to this server for conversion. Uploads and generated pages are not retained; temporary files use memory storage. Downloaded HTML contains the encoded ROM. Use the offline command below to keep conversion on your own machine.</p></form>
+<section><h2>Import is not game compatibility.</h2><p>The CPU supports 152 opcodes, 64 bytes of RAM and one VRAM tile. Full graphics, interrupts, timers, joypad, audio and cartridge banking are still missing. Registers start at zero except PC at 0100; there is no boot ROM. Unsupported instructions and addresses show CPU TRAP.</p><p>Compatible mode is the best first check. Automatic mode needs working scroll timelines; Linux WebKit tests do not certify every iOS device.</p></section>
+<section><h2>Convert offline</h2><p>From a checkout of <a href="https://github.com/zdiemer/DMGSS">DMGSS</a>, using Python 3.11 or later:</p><pre><code>python3 tools/convert.py demo.gb -o demo.html
+# For a raw diagnostic program:
+python3 tools/convert.py demo.bin --format raw -o demo.html</code></pre><p>Open the generated HTML file in a supported browser. It includes its styles and ROM and makes no network requests while running. Mobile file viewers may preview HTML rather than open it as a browser page; Convert &amp; run avoids that extra step.</p><p><a href="/convert/sample.gb" download>Download an original sample ROM</a> · exercises nested CALL/RET and writes A5 to RAM C002 before HALT.</p></section>
+</main><footer>PYTHON CONVERSION. HTML + CSS EXECUTION.</footer></body></html>

@@ -72,7 +72,42 @@ spec:
               mountPath: /var/cache/nginx
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+        - name: converter
+          image: "{{ .Values.image.repository }}-converter:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsUser: 101
+            runAsGroup: 101
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: converter
+              containerPort: 8090
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: converter
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: converter
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          volumeMounts:
+            - name: converter-tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.converterResources | nindent 12 }}
       volumes:
+        - name: converter-tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
         - name: tmp
           emptyDir:
             medium: Memory

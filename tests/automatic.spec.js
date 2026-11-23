@@ -5,6 +5,9 @@ const read = (page, keys) => page.locator('.machine').evaluate((el, keys) => {
   const style = getComputedStyle(el);
   return Object.fromEntries(keys.map(k => [k, Number(style.getPropertyValue(`--${k}`))]));
 }, keys);
+// A computed-style read on the running pipeline takes ~3.2s locally and can
+// exceed 5s on shared runners. Continuation checks use the existing 15s bound;
+// all exact CPU/coherence assertions and the no-inspection interval stay intact.
 const ticks = async page => (await read(page, ['ticks'])).ticks;
 const toggle = page => test.info().project.name.endsWith('mobile')
   ? page.locator('.power-switch').tap() : page.locator('.power-switch').click();
@@ -44,7 +47,7 @@ test('automatic state advances beyond 1,000 instructions with one input, then pa
   expect(await read(page, counterKeys)).toEqual(paused);
   await page.locator('#power').focus();
   await page.keyboard.press('Space');
-  await expect.poll(() => ticks(page)).toBeGreaterThan(paused.ticks);
+  await expect.poll(() => ticks(page), {timeout:15000}).toBeGreaterThan(paused.ticks);
   await toggle(page);
   expect(await page.locator('*').count()).toBe(nodes);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -53,7 +56,7 @@ test('automatic state advances beyond 1,000 instructions with one input, then pa
   await expect.poll(() => ticks(page)).toBe(0);
   expect(await read(page, counterKeys)).toEqual({ticks:0,pc:256,a:0,m49152:0,halted:0,fault:0});
   await toggle(page);
-  await expect.poll(() => ticks(page)).toBeGreaterThanOrEqual(256);
+  await expect.poll(() => ticks(page), {timeout:15000}).toBeGreaterThanOrEqual(256);
   assertCounter(await read(page, counterKeys));
 });
 
@@ -103,7 +106,7 @@ test('automatic bookkeeping wraps through 65535 without losing CPU state', async
   await page.goto('/automatic/tests/tick-wrap/');
   expect(await ticks(page)).toBe(65472);
   await toggle(page);
-  await expect.poll(() => ticks(page)).toBeLessThan(4096);
+  await expect.poll(() => ticks(page), {timeout:15000}).toBeLessThan(4096);
   await toggle(page); await page.waitForTimeout(150);
   assertCounter(await read(page, counterKeys), 65472);
 });
@@ -114,7 +117,7 @@ test('automatic repeated pause/resume preserves committed state', async ({page})
   for (let i=0; i<5; i++) {
     const before = await ticks(page);
     await toggle(page);
-    await expect.poll(() => ticks(page)).toBeGreaterThan(before);
+    await expect.poll(() => ticks(page), {timeout:15000}).toBeGreaterThan(before);
     await toggle(page); await page.waitForTimeout(100);
     const state = await read(page, counterKeys);
     assertCounter(state);

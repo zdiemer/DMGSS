@@ -7,8 +7,9 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
 
 - Browser execution is HTML + CSS only: no scripts, event handlers, WASM,
   server-side emulation, precomputed execution traces or video pretending to run.
-- Build-time Python and test-only JavaScript are allowed. ROM bytes may be
-  embedded at build time. CPU, memory and graphics transitions happen in CSS.
+- Offline/server Python conversion and test-only JavaScript are allowed. ROM
+  bytes may be encoded into generated HTML/CSS; disclose this conversion caveat.
+  Never execute ROM instructions in the converter. CPU, memory and graphics transitions happen in CSS.
 - Keep the Game Boy-inspired UI responsive, keyboard reachable and touch usable.
 - Clearly label unsupported browsers and unimplemented hardware. Never claim
   game compatibility based on an animation or CPU-only diagnostic.
@@ -39,6 +40,11 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   low nibble of F; signed SP arithmetic computes H/C from the unsigned low byte.
 - Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
   tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
+- Converter uploads stay request-local; temporary generated files use tmpfs in
+  deployment and are removed on completion. Keep size/complexity limits, escaped
+  metadata, no-store responses, no runtime scripts, and no hidden ROM persistence.
+  Test native upload/reset/download with JavaScript disabled, including file://
+  execution. Imported ROMs must never inherit the built-in TEST PASSED signal.
 - Secrets only through existing op:// references resolved at deploy time; never
   create values.local.yaml. Static deployment should need no application secret.
 - Push app commits before moving the deployed selfhosted submodule pin.

@@ -14,7 +14,17 @@ From the standalone `/home/node/code/DMGSS` checkout:
 The image is built in Docker or the workspace's shared BuildKit and pushed to
 `registry.zachd.duckdns.org/zdiemer/dmgss`. The `games/dmgss` Helm release serves
 static files through two unprivileged nginx replicas, with readiness/liveness
-checks, a disruption budget, node spreading and graceful drain.
+checks, a disruption budget, node spreading and graceful drain. Each pod also
+runs the `dmgss-converter` image at the same version: two Gunicorn workers handle
+`/convert/` behind nginx and the existing Authelia ingress. The converter port
+is not exposed by the Service. No new public route bypasses authentication.
+
+`./build.sh` builds/pushes both Docker targets (`web` and `converter`). nginx
+limits and buffers upload bodies to 64 KiB; responses are not spilled to disk.
+The converter has a separate 16 MiB memory-backed `/tmp` and a read-only root
+filesystem. Temporary generated files are removed before returning the response;
+no ROM/artifact volume or database is used. Both containers must be ready for a
+pod to receive traffic. Changing either image requires a fresh shared tag.
 
 Bump Chart.yaml version/appVersion and values.yaml image.tag together before
 building changed image inputs. Never reuse tags with IfNotPresent. Merge the app

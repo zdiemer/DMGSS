@@ -19,6 +19,7 @@ See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 - Python 3.11+ and Node.js 22+ for build/test tooling.
 - `python3 tools/build.py` generates the static site in `dist/`.
 - `python3 -m http.server 8080 --directory dist` serves it locally.
+- `python3 -m pip install -r requirements.txt` installs the local converter server.
 - `npm ci && npx playwright install chromium webkit` installs browser test tooling.
 - `npm test` runs browser tests with page JavaScript disabled.
 
@@ -69,6 +70,16 @@ can require hundreds. Keyboard: Tab to the focus link, Enter, then Space to save
 [Try Stack lab](https://dmgss.zachd.duckdns.org/automatic/stack/): nested subroutines
 save and restore BC while computing a result, then report TEST PASSED.
 
-ROMs are embedded at build time. Native HTML can select/upload a file, but CSS
-cannot read its bytes. Local ROM import would require a JavaScript loader or an
-external converter; neither is included. See [ROM loading](docs/ARCHITECTURE.md#rom-loading-boundary).
+[Load a ROM](https://dmgss.zachd.duckdns.org/convert/) through a native HTML form,
+or convert offline:
+
+```sh
+python3 tools/convert.py demo.gb -o demo.html
+python3 tools/convert.py demo.bin --format raw --mode automatic -o demo.html
+```
+
+**The caveat:** Python performs conversion outside the browser. It encodes ROM
+bytes, never an execution trace. The resulting single HTML file runs the CPU in
+HTML/CSS with no runtime scripts. Server uploads are not retained; use the offline
+command to keep conversion local. Import does not imply game compatibility.
+See [converter limits and usage](docs/CONVERTER.md).
