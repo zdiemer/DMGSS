@@ -165,4 +165,8 @@ test('automatic stack lab is reachable and finishes with a restored SP', async (
   await toggle(page);
   await expect.poll(() => read(page,['ticks','sp','m49154','halted','fault'])).toEqual({ticks:52,sp:49216,m49154:165,halted:1,fault:0});
   await expect(page.locator('.passed')).toBeVisible();
+  await page.setViewportSize({width:320,height:844});
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(await page.locator('.cartridges').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await expect(page.locator('.cartridges [aria-current="page"]')).toHaveText('Stack lab');
 });
