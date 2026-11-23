@@ -145,3 +145,24 @@ test('automatic startup detects accepted syntax without working storage', async 
   expect(await ticks(page)).toBe(0);
   await expect(page.locator('.on-screen')).not.toBeVisible();
 });
+test('automatic nested calls return after transferring the live stack across banks', async ({page}) => {
+  await page.goto('/automatic/tests/stack-continuation/'); await toggle(page);
+  const expected={ticks:131,pc:266,b:18,c:52,sp:49216,m49210:14,m49211:1,m49212:52,m49213:18,m49214:9,m49215:1,halted:1,fault:0};
+  await expect.poll(() => read(page,Object.keys(expected)),{timeout:15000}).toEqual(expected);
+  await page.waitForTimeout(350);
+  expect(await read(page,Object.keys(expected))).toEqual(expected);
+});
+test('automatic rejected PUSH commits only the trap, with no partial stack write', async ({page}) => {
+  await page.goto('/automatic/tests/stack-trap/'); await toggle(page);
+  const expected={ticks:2,pc:262,b:18,c:52,sp:49153,m49152:0,halted:0,fault:1};
+  await expect.poll(() => read(page,Object.keys(expected))).toEqual(expected);
+  await expect(page.locator('.fault-message')).toBeVisible();
+});
+test('automatic stack lab is reachable and finishes with a restored SP', async ({page}) => {
+  await page.goto('/automatic/');
+  await page.getByRole('link',{name:'Stack lab',exact:true}).click();
+  await expect(page).toHaveURL(/\/automatic\/stack\/$/);
+  await toggle(page);
+  await expect.poll(() => read(page,['ticks','sp','m49154','halted','fault'])).toEqual({ticks:52,sp:49216,m49154:165,halted:1,fault:0});
+  await expect(page.locator('.passed')).toBeVisible();
+});

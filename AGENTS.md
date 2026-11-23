@@ -32,6 +32,9 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
 - Addressing uses old-state BC/DE/HL pairs and a separate 16-bit SP. A rejected
   data access must not update pointers, flags, memory, PC or ticks. ROM data is
   readable but not writable; retain explicit traps until the memory map expands.
+- Word memory transfers validate both byte addresses before committing either.
+  Untaken conditional calls/returns do not access the stack. POP AF masks the
+  low nibble of F; signed SP arithmetic computes H/C from the unsigned low byte.
 - Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
   tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
 - Secrets only through existing op:// references resolved at deploy time; never
