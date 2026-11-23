@@ -19,9 +19,9 @@ function assertCounter(state, initial=0) {
 }
 
 test('automatic state advances beyond 1,000 instructions with one input, then pauses/resumes/resets', async ({page}, info) => {
-  // This includes several native-input/readback cycles on shared CI runners.
-  // Keep individual progress assertions bounded independently of this budget.
-  test.setTimeout(120000);
+  // The expanded ALU makes repeated mobile tap/style cycles exceed two minutes
+  // on shared runners. Keep each progress check at 15s and all state assertions.
+  test.setTimeout(180000);
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
@@ -112,7 +112,8 @@ test('automatic bookkeeping wraps through 65535 without losing CPU state', async
 });
 
 test('automatic repeated pause/resume preserves committed state', async ({page}) => {
-  test.setTimeout(120000);
+  // Five complete tap/readback cycles need the same overall budget as above.
+  test.setTimeout(180000);
   await page.goto('/automatic/');
   for (let i=0; i<5; i++) {
     const before = await ticks(page);
