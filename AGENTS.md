@@ -23,6 +23,8 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Unsupported opcodes must trap visibly. Keep the 128-step batch limit explicit;
   Linux WebKit coverage is not real-device iOS certification. Checkpoint mode
   requires native user input for each copied bit; never imply automatic storage.
+  Preserve grouped checkpoint display queries; large direct index queries failed
+  in Chromium when copying the stack near the end of RAM.
 - Automatic mode uses scroll offsets and a complete-bank readiness handshake.
   Keep its source immutable during copies, commit HALT/fault before stopping,
   and round timeline readback explicitly. No timed copy assumption or test-driven

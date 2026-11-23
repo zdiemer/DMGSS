@@ -120,7 +120,11 @@ visible save labels change. A `:has()` readback prototype produced stale values
 in WebKit during touch/keyboard tests, so the shipped mode avoids it.
 The pipeline inherits its starting state from the selected bank. At the output,
 CSS compares each result bit to the inactive bank, counts differences, and
-shows the label for the first differing bit. A **user action** flips that input;
+shows the label for the first differing bit. The index is split into a group
+and slot (32 bits per group) for the display queries: in Chromium, the long
+minimum expression exposed index 707 while its direct style equality query
+failed to show the control. Group/slot queries fix the reproduced case and
+cover high RAM bits in the stack continuation test. A **user action** flips that input;
 the other labels are hidden. Storage inputs have `tabindex="-1"`; the visible
 keyboard link focuses the required input via its fragment, then Space flips it.
 Only the current keyboard link participates in normal tab order. Each save leaves
