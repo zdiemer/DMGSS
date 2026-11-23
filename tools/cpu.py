@@ -164,7 +164,7 @@ def instruction_set():
 def machine(rom, storage, arithmetic=False):
     choose = choose_math if arithmetic else choose_native
     ops = instruction_set()
-    rom = rom if isinstance(rom, ROM) else ROM(rom)
+    rom = rom if isinstance(rom, ROM) else ROM(rom, compact=False)
     props = {'opcode': 0, 'imm': 0, 'upper': 0, 'pc1': 257, 'pc2': 258,
              'imm16': 0, 'bc': 0, 'de': 0, 'hl': 0,
              'address': 0, 'signed': 0, 'z': 0, 'carry': 0, 'known': 0,
@@ -190,11 +190,11 @@ def machine(rom, storage, arithmetic=False):
         'write': choose('opcode', {k: v['write'] for k, v in ops.items() if 'write' in v}, 0),
         'write2': choose('opcode', {k: v['write2'] for k, v in ops.items() if 'write2' in v}, 0),
         'writable': choose('address', {i: 1 for i in RAM}, 0),
-        'readable': f'calc({rom.contains("address")} + ({choose("address", {i: 1 for i in RAM}, 0)}))',
+        'readable': rom.readable('address', choose, RAM),
         'valid': 'calc(var(--writing) * var(--writable) + (1 - var(--writing)) * var(--readable))',
         'read': rom.lookup('address', choose, {i: f'var(--m{i})' for i in RAM}, 'var(--readable)'),
         'writable2': choose('address2', {i: 1 for i in RAM}, 0),
-        'readable2': f'calc({rom.contains("address2")} + ({choose("address2", {i: 1 for i in RAM}, 0)}))',
+        'readable2': rom.readable('address2', choose, RAM),
         'valid2': 'calc(var(--writing) * var(--writable2) + (1 - var(--writing)) * var(--readable2))',
         'read2': rom.lookup('address2', choose, {i: f'var(--m{i})' for i in RAM}, 'var(--readable2)'),
     }

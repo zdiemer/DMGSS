@@ -311,13 +311,16 @@ All styles are inlined into one HTML document, with escaped metadata, a SHA-256
 fingerprint, the conversion caveat and hardware limits. Imported programs show
 HALTED, never the built-in diagnostic's TEST PASSED marker.
 
-ROM lookup now has an explicit base and range: full cartridges map file offsets
+Imported ROM lookup now has an explicit base and range: full cartridges map file offsets
 0000–7FFF; raw diagnostics map at 0100. The most frequent byte is encoded as the
 lookup default and exceptions as address selectors. This preserves every byte,
 including padding. Range checks distinguish mapped padding from an unmapped
 fetch; RAM and VRAM still override only their separate mapped addresses. This
 is data compression, independent of the program's execution path. It does not
 add cartridge banking, interrupt vectors/RST semantics, a boot ROM or new RAM.
+Small built-in cartridges retain their original direct lookup expressions:
+adding range dependencies slowed Chromium's repeated automatic-stage evaluation.
+Imported cartridges use the bounded compact representation and may run slower.
 
 `tools/server.py` accepts bounded multipart uploads or the generated page's
 native reset form. It returns inline HTML or an attachment. Online Reset posts
