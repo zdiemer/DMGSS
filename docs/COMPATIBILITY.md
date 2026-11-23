@@ -69,7 +69,7 @@ arithmetic, carry, bitwise logic and rotations without JavaScript.
 Passing instruction-state checks does not establish timing, complete memory
 mapping, hardware compatibility or practical game speed.
 
-CB fetch consumes both bytes in one instruction tick. A missing second ROM
+CB fetch consumes both bytes in one instruction tick. A missing second mapped
 byte traps without retiring. BIT performs a read only, so mapped ROM is legal;
 other `[HL]` CB forms require writable memory even when the value would not
 change. Rejected accesses preserve registers, flags, memory, PC and ticks.

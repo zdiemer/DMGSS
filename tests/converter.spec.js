@@ -100,11 +100,18 @@ test('converter runs CB operations from imported bytes',async({page})=>{
   await page.locator('.power-switch').click();await halt(page);
   expect(await read(page,['ticks','pc','a','f'])).toEqual({ticks:4,pc:263,a:3,f:176});
 });
-test('converter traps a CB prefix at the ROM boundary without retiring it',async({page})=>{
-  const rom=Buffer.alloc(32768);rom.set([0xC3,0xFF,0x7F],0x100);rom[32767]=0xCB;
-  await upload(page,rom,{format:'gb',name:'truncated-prefix.gb'});
+test('converter traps a CB prefix whose second byte is unmapped',async({page})=>{
+  await upload(page,Buffer.from([0x3E,0xCB,0xE0,0xFE,0xC3,0xFE,0xFF]));
   await page.locator('.power-switch').click();await expect(page.locator('.fault-message')).toBeVisible();
-  expect(await read(page,['ticks','pc','a','f','fault'])).toEqual({ticks:1,pc:32767,a:0,f:0,fault:1});
+  expect(await read(page,['ticks','pc','a','f','m65534','fault'])).toEqual({ticks:3,pc:65534,a:203,f:0,m65534:203,fault:1});
+});
+test('converter fetches a CB instruction across mapped ROM and VRAM',async({page})=>{
+  const rom=Buffer.alloc(32768);
+  rom.set([0x3E,0x07,0xEA,0,0x80,0x3E,0x76,0xEA,1,0x80,0x3E,0x81,0xC3,0xFF,0x7F],0x100);
+  rom[32767]=0xCB;
+  await upload(page,rom,{format:'gb',name:'cross-boundary.gb'});
+  await page.locator('.power-switch').click();await halt(page);
+  expect(await read(page,['ticks','pc','a','f','m32768','m32769'])).toEqual({ticks:8,pc:32770,a:3,f:16,m32768:7,m32769:118});
 });
 
 test('converter preserves low restart vectors and HRAM stack/data',async({page})=>{
