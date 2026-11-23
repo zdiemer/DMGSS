@@ -47,7 +47,16 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   forms validate writability even for no-op results. Truncated prefixes trap.
 - Instruction fetch uses mapped ROM/RAM and validates every required byte.
   FF is RST 38, never a substitute for an unmapped fetch. HRAM ends at FFFE;
-  I/O and IE remain unsupported until their hardware semantics exist.
+  IF (FF0F) and IE (FFFF) are mapped; other I/O remains unsupported.
+- EI takes effect after the following retired instruction; DI cancels the delay,
+  RETI enables immediately, and interrupt entry clears IME/delay. Preserve both
+  latches and the HALT bug across banks. Pending low IE/IF bits wake HALT even
+  with IME off. The HALT bug suppresses one fetch increment, including immediate
+  addressing and CALL/RST return addresses. EI→HALT dispatch returns to HALT.
+- Interrupt entry precedes opcode fetch, validates both stack bytes atomically,
+  and does not increment the retired-instruction counter. IF upper bits read as
+  one; IE retains all eight bits, only low five participate in dispatch. Keep
+  instruction-level entry distinct from missing bus timing and hardware sources.
 - Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
   tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
 - Converter uploads stay request-local; temporary generated files use tmpfs in

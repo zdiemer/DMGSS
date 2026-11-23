@@ -1,10 +1,11 @@
 const { test, expect } = require('@playwright/test');
-const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json'), ...require('./alu-cases.json'), ...require('./cb-cases.json'), ...require('./high-cases.json')];
+const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json'), ...require('./alu-cases.json'), ...require('./cb-cases.json'), ...require('./high-cases.json'), ...require('./interrupt-cases.json')];
 const state = (page, key) => page.locator('.machine').evaluate((el, k) => Number(getComputedStyle(el).getPropertyValue(`--${k}`)), key);
 for (const item of cases) {
   test(item.name, async ({page}) => {
     await page.goto(`/tests/${item.name}/`);
     await page.locator('.power-switch').click();
+    if (item.initial?.halted) await expect.poll(() => state(page,'ticks'), {timeout:15000}).toBe(item.expect.ticks);
     await expect.poll(() => state(page, item.fault ? 'fault' : 'halted'), { timeout: 15000 }).toBe(1);
     for (const [key,value] of Object.entries(item.expect)) expect(await state(page,key), key).toBe(value);
     if (item.fault) {

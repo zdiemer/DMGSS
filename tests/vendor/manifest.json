@@ -352,7 +352,10 @@
     "sm83/v1/e0.json": "0cbd6312b8f3f5a8d981c32374cac0523813fcd8d2f14cd7c7f0e9cdf21d1f8a",
     "sm83/v1/f0.json": "ec717d0b54b27cea549158f3533956fa0e93d7bdcc365dae7a1f7adec93a1ffb",
     "sm83/v1/e2.json": "823bb7845c4eca365abf3bfee8afd92c0236430a954ec16de872f0b92738eef8",
-    "sm83/v1/f2.json": "3dee5e7dff712236d689e1d058ef62886d51d7879902cb877da7e95f1b2240a4"
+    "sm83/v1/f2.json": "3dee5e7dff712236d689e1d058ef62886d51d7879902cb877da7e95f1b2240a4",
+    "sm83/v1/f3.json": "89fa36d54f5b5d751328c7f204a6d9e1c45ff17c110997a7d4e57e686d097204",
+    "sm83/v1/fb.json": "31421c7ff86bbc1d88c0500ec7e03560cd18512c03debdbe27f8d212edbabf0a",
+    "sm83/v1/d9.json": "d859eac4853a8618ec54894e2122abb2ebca331960c77db29a5e7485f15650b2"
   },
   "outputs": {
     "mooneye/daa.json": "c15c76eff928f53fe0a0b13efedfbbfc0b56b2f820671e376a09cc380baa1ab8",
@@ -360,6 +363,7 @@
     "sm83/alu.json": "bde2f92e71cbf2623d2f8c1bff5deff57b56f2d750b0e81909aba775be414fe5",
     "sm83/cb.json": "cdf779925a727c78a0ea56562779b7b360b1c447034f9c431f19d5267669b6c8",
     "sm83/high.json": "9b0aa847aa90c40224a724151796ef720072baabc07ba7ff351d9bf3e8bc7e21",
+    "sm83/interrupts.json": "c22fa735e2b14735ffbec570e7b6e3ed2601245d85d5026d892b19eba6ce9588",
     "sm83/LICENSE": "9b9e332ee11019f131e945d40e20ab0c48b52921754dc03fe62cc85b579e6c61"
   }
 }

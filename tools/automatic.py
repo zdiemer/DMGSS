@@ -8,7 +8,7 @@ from portable import storage
 
 
 def modulus(name):
-    return 2 if name in ('halted', 'fault') else 65536 if name in ('pc', 'sp', 'ticks') else 256
+    return 2 if name in ('halted', 'fault', 'ime', 'ime-delay', 'halt-bug') else 65536 if name in ('pc', 'sp', 'ticks') else 256
 
 
 def generate(rom, initial=None):
@@ -64,9 +64,10 @@ def generate(rom, initial=None):
         differences.append(f'abs(var(--{name}) - (({b}) * (1 - var(--select)) + ({a}) * var(--select)))')
         display.append(f'--{name}:var(--seed-{name});')
     rules.append('body[data-automatic] .clock {' + ''.join(seed) + '}')
-    # A halted/faulted RESULT must still commit. Stop writes only once the SOURCE
-    # is halted/faulted. No elapsed-time assumption enters the commit decision.
-    rules.append('.auto-output {--enabled-copy:calc(var(--run) * (1 - max(var(--seed-halted), var(--seed-fault))));' +
+    # Commit a halted/faulted RESULT before stopping. A halted SOURCE may still
+    # wake when its immutable IE/IF state has an enabled request.
+    pending = ' + '.join(f'mod(round(down,var(--seed-m65295) / {1<<bit}),2) * mod(round(down,var(--seed-m65535) / {1<<bit}),2)' for bit in range(5))
+    rules.append('.auto-output {--enabled-copy:calc(var(--run) * (1 - max(var(--seed-halted) * (1 - min(1,' + pending + ')), var(--seed-fault))));' +
                  '--ready:calc(1 - min(1, ' + ' + '.join(differences) + '));}')
     rules.append('body[data-automatic] .machine {' + ''.join(display) + '}')
     return '\n'.join(rules) + tile_css(arithmetic=True), ''.join(cells)

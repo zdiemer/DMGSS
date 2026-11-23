@@ -22,13 +22,13 @@ function assertCounter(state, initial=0) {
 }
 
 test('automatic state advances beyond 1,000 instructions with one input, then pauses/resumes/resets', async ({page}, info) => {
-  // Full HRAM expands retention from 187 to 441 cells and adds mapped-RAM
+  // Full HRAM expands retention from 187 to 451 cells and adds mapped-RAM
   // fetches. Budget repeated tap/readback cycles; keep every 15s progress check.
   test.setTimeout(300000);
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
-  expect(await page.locator('.scroll-memory').count()).toBe(441);
+  expect(await page.locator('.scroll-memory').count()).toBe(451);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   const nodes = await page.locator('*').count();
   await toggle(page);
@@ -199,4 +199,20 @@ test('automatic commits all 127 HRAM bytes before stopping',async({page})=>{
   await expect.poll(()=>read(page,['ticks','pc','halted','fault']),{timeout:20000}).toEqual({ticks:129,pc:513,halted:1,fault:0});
   const keys=Array.from({length:127},(_,i)=>`m${0xFF80+i}`);
   expect(await read(page,keys)).toEqual(Object.fromEntries(keys.map(k=>[k,90])));
+});
+
+for(const [kind,expected] of [
+  ['delay',{ticks:132,pc:391,b:1,sp:65534,ime:1,'ime-delay':0,'halt-bug':0,m65295:224,m65535:1,m65532:134,m65533:1,halted:1,fault:0}],
+  ['service',{ticks:130,pc:389,b:1,sp:65534,ime:1,'ime-delay':0,'halt-bug':0,m65295:224,m65535:1,m65532:132,m65533:1,halted:1,fault:0}],
+  ['bug',{ticks:133,pc:394,b:2,sp:65534,ime:0,'ime-delay':0,'halt-bug':0,m65295:224,m65535:1,halted:1,fault:0}],
+])test(`automatic retains interrupt ${kind} across banks`,async({page})=>{
+  await page.goto(`/automatic/tests/interrupt-${kind}/`);await toggle(page);
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:15000}).toEqual(expected);
+  await page.waitForTimeout(300);
+  expect(await read(page,Object.keys(expected))).toEqual(expected);
+});
+test('automatic commits a wakeup from a seeded halted source',async({page})=>{
+  await page.goto('/automatic/tests/interrupt-wake/');await toggle(page);
+  const expected={ticks:2,pc:257,sp:65534,ime:1,m65295:224,halted:1,fault:0};
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:15000}).toEqual(expected);
 });

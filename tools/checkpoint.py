@@ -2,7 +2,7 @@
 from cpu import machine, tile_css
 from portable import storage as pipeline_storage
 
-WIDTHS = {'pc': 16, 'sp': 16, 'halted': 1, 'fault': 1, 'ticks': 16}
+WIDTHS = {'pc': 16, 'sp': 16, 'halted': 1, 'fault': 1, 'ticks': 16, 'ime': 1, 'ime-delay': 1, 'halt-bug': 1}
 
 
 def counter_rom():

@@ -11,6 +11,7 @@ import automatic
 from alu import alu_rom
 from bits import bits_rom
 from high import high_rom, high_continuation, high_fill
+from interrupts import interrupt_rom, interrupt_continuation
 from rom import ROM
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,7 +37,7 @@ def storage(states):
         '@keyframes execute {0%,100% {' + ''.join(execute) + '}}\n'
 
 
-def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False):
+def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False, interrupts=False, initial=None):
     out = out or ROOT / 'dist'
     if out.exists():
         shutil.rmtree(out)
@@ -55,6 +56,8 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         html = html.replace('SYSTEM DIAGNOSTIC', 'ALU / DECIMAL + FLAGS')
     if bits:
         html = html.replace('SYSTEM DIAGNOSTIC', 'BITS / ROTATE + SHIFT')
+    if interrupts:
+        html = html.replace('SYSTEM DIAGNOSTIC', 'INTERRUPTS / REQUEST + RETURN')
     if high:
         html = html.replace('SYSTEM DIAGNOSTIC', 'HIGH RAM / RESTART + RETURN')
     program = diagnostic() if rom is None else rom
@@ -64,26 +67,28 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         html = html.replace('</head>', '<link rel="stylesheet" href="portable.css"></head>')
         html = html.replace('POWER ON', 'RUN').replace('POWER OFF', 'RESET VIEW').replace('class="start">POWER', 'class="start">RUN / RESET')
         html = html.replace('STREAMING MODE / TILE MEMORY', 'COMPATIBLE MODE / 128 STEPS')
-        html = html.replace('href="/"', 'href="/portable/"').replace('href="/tile/"', 'href="/portable/tile/"').replace('href="/stack/"', 'href="/portable/stack/"').replace('href="/alu/"', 'href="/portable/alu/"').replace('href="/bits/"', 'href="/portable/bits/"').replace('href="/high/"', 'href="/portable/high/"')
+        html = html.replace('href="/"', 'href="/portable/"').replace('href="/tile/"', 'href="/portable/tile/"').replace('href="/stack/"', 'href="/portable/stack/"').replace('href="/alu/"', 'href="/portable/alu/"').replace('href="/bits/"', 'href="/portable/bits/"').replace('href="/high/"', 'href="/portable/high/"').replace('href="/interrupts/"', 'href="/portable/interrupts/"')
         html = html.replace('<a href="/portable/">Switch to compatible mode</a>', '<a href="/">Switch to streaming mode</a>')
         html = html.replace('>RUNNING<', '>STEP LIMIT<').replace('CPU WRITING VRAM', '128-STEP LIMIT')
         html = html.replace('Testing CSS state storage…', 'Evaluating CSS stages…')
-        html = html.replace('READY WHEN YOU ARE', '128 INSTRUCTIONS PER RUN')
+        html = html.replace('READY WHEN YOU ARE', 'UP TO 128 INSTRUCTIONS')
         html = html.replace('The clock and state live in your browser’s stylesheet engine. No JavaScript. No hidden emulator.', 'Your browser executes the ROM through 128 CSS stages. No JavaScript. No execution trace generated ahead of time.')
         html = re.sub(r'<div class="compat-warning">.*?</div>', '<div class="compat-warning"><strong>Bounded execution: 128 instructions.</strong> Run evaluates the cartridge in CSS. Halt and faults stop it early. A loop reaches the step limit; this mode cannot run games indefinitely. Tested in WebKit and reported working in iOS Chrome.</div>', html)
         html = re.sub(r'<div class="unsupported-screen">.*?</div>', '<div class="unsupported-screen"><strong>CSS SUPPORT NEEDED</strong><span>Please update your browser.</span><span>This mode needs CSS math and style queries.</span></div>', html)
         html = html.replace('INSTRUCTIONS EXECUTED', 'INSTRUCTIONS / MAX 128')
         html = html.replace('</aside>', '<p class="checkpoint-link"><a href="/checkpoint/">Try manual checkpoints →</a></p></aside>')
         html = html.replace('Reset reloads the machine. Nothing is saved.', 'Reset view clears the run. Cartridge state is not saved.')
-        (out / 'machine.css').write_text(portable.stylesheet(program))
+        (out / 'machine.css').write_text(portable.stylesheet(program, initial=initial))
     else:
-        (out / 'machine.css').write_text(machine(program, storage) + tile_css())
-    active = ('/portable' if bounded else '') + ('/high/' if high else '/bits/' if bits else '/alu/' if alu else '/stack/' if stack else '/tile/' if tile else '/')
+        def seeded(definitions):
+            return storage({name: ((initial or {}).get(name,value), expression) for name,(value,expression) in definitions.items()})
+        (out / 'machine.css').write_text(machine(program, seeded) + tile_css())
+    active = ('/portable' if bounded else '') + ('/interrupts/' if interrupts else '/high/' if high else '/bits/' if bits else '/alu/' if alu else '/stack/' if stack else '/tile/' if tile else '/')
     (out / 'index.html').write_text(current_cartridge(html, active))
 
 
 def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
-    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high')
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts')
     css, inputs, controls = checkpoint.generate(rom, initial=initial)
     (out / 'machine.css').write_text(css)
     html = (out / 'index.html').read_text()
@@ -101,7 +106,8 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
     html = html.replace('href="/portable/alu/"', 'href="/checkpoint/alu/"')
     html = html.replace('href="/portable/bits/"', 'href="/checkpoint/bits/"')
     html = html.replace('href="/portable/high/"', 'href="/checkpoint/high/"')
-    active = '/checkpoint/high/' if cartridge == 'high' else '/checkpoint/bits/' if cartridge == 'bits' else '/checkpoint/alu/' if cartridge == 'alu' else '/checkpoint/stack/' if cartridge == 'stack' else '/checkpoint/tile/' if tile else '/checkpoint/diagnostic/' if cartridge == 'diagnostic' else '/checkpoint/'
+    html = html.replace('href="/portable/interrupts/"', 'href="/checkpoint/interrupts/"')
+    active = '/checkpoint/interrupts/' if cartridge == 'interrupts' else '/checkpoint/high/' if cartridge == 'high' else '/checkpoint/bits/' if cartridge == 'bits' else '/checkpoint/alu/' if cartridge == 'alu' else '/checkpoint/stack/' if cartridge == 'stack' else '/checkpoint/tile/' if tile else '/checkpoint/diagnostic/' if cartridge == 'diagnostic' else '/checkpoint/'
     html = current_cartridge(html, active)
     if cartridge == 'counter' and not tile:
         html = html.replace('SYSTEM DIAGNOSTIC', 'RAM C000: <span class="checkpoint-memory"></span>')
@@ -114,7 +120,7 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
 
 
 def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
-    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high')
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts')
     # Keep the shared shell's streaming-mode visibility/clock rules below this
     # mode's rules, including when its capability gate fails.
     shell = (out / 'style.css').read_text()
@@ -138,7 +144,8 @@ def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
     html = html.replace('href="/portable/alu/"', 'href="/automatic/alu/"')
     html = html.replace('href="/portable/bits/"', 'href="/automatic/bits/"')
     html = html.replace('href="/portable/high/"', 'href="/automatic/high/"')
-    active = '/automatic/high/' if cartridge == 'high' else '/automatic/bits/' if cartridge == 'bits' else '/automatic/alu/' if cartridge == 'alu' else '/automatic/stack/' if cartridge == 'stack' else '/automatic/tile/' if tile else '/automatic/diagnostic/' if cartridge == 'diagnostic' else '/automatic/'
+    html = html.replace('href="/portable/interrupts/"', 'href="/automatic/interrupts/"')
+    active = '/automatic/interrupts/' if cartridge == 'interrupts' else '/automatic/high/' if cartridge == 'high' else '/automatic/bits/' if cartridge == 'bits' else '/automatic/alu/' if cartridge == 'alu' else '/automatic/stack/' if cartridge == 'stack' else '/automatic/tile/' if tile else '/automatic/diagnostic/' if cartridge == 'diagnostic' else '/automatic/'
     html = current_cartridge(html, active)
     if cartridge == 'counter' and not tile:
         html = html.replace('SYSTEM DIAGNOSTIC', 'RAM C000: <span class="automatic-memory"></span>')
@@ -183,13 +190,23 @@ if __name__ == '__main__':
     build(high_rom(), ROOT / 'dist/portable/high', bounded=True, high=True)
     build_checkpoint(high_rom(), ROOT / 'dist/checkpoint/high', cartridge='high')
     build_automatic(high_rom(), ROOT / 'dist/automatic/high', cartridge='high')
+    build(interrupt_rom(), ROOT / 'dist/interrupts', interrupts=True)
+    build(interrupt_rom(), ROOT / 'dist/portable/interrupts', bounded=True, interrupts=True)
+    build_checkpoint(interrupt_rom(), ROOT / 'dist/checkpoint/interrupts', cartridge='interrupts')
+    build_automatic(interrupt_rom(), ROOT / 'dist/automatic/interrupts', cartridge='interrupts')
     if args.fixtures:
+        for kind in ('delay','service','bug'):
+            build_checkpoint(interrupt_continuation(kind), ROOT / f'dist/checkpoint/tests/interrupt-{kind}')
+            build_automatic(interrupt_continuation(kind), ROOT / f'dist/automatic/tests/interrupt-{kind}')
+
         import json
-        cases = json.loads((ROOT / 'tests/cpu-cases.json').read_text()) + json.loads((ROOT / 'tests/addressing-cases.json').read_text()) + json.loads((ROOT / 'tests/stack-cases.json').read_text()) + json.loads((ROOT / 'tests/alu-cases.json').read_text()) + json.loads((ROOT / 'tests/cb-cases.json').read_text()) + json.loads((ROOT / 'tests/high-cases.json').read_text())
+        cases = json.loads((ROOT / 'tests/cpu-cases.json').read_text()) + json.loads((ROOT / 'tests/addressing-cases.json').read_text()) + json.loads((ROOT / 'tests/stack-cases.json').read_text()) + json.loads((ROOT / 'tests/alu-cases.json').read_text()) + json.loads((ROOT / 'tests/cb-cases.json').read_text()) + json.loads((ROOT / 'tests/high-cases.json').read_text()) + json.loads((ROOT / 'tests/interrupt-cases.json').read_text())
         for case in cases:
             program = ROM(case['rom'], base=case['base'], compact=False) if 'base' in case else case['rom']
-            build(program, ROOT / 'dist/tests' / case['name'])
-            build(program, ROOT / 'dist/portable/tests' / case['name'], bounded=True)
+            build(program, ROOT / 'dist/tests' / case['name'], initial=case.get('initial'))
+            build(program, ROOT / 'dist/portable/tests' / case['name'], bounded=True, initial=case.get('initial'))
+        wake = next(case for case in cases if case['name'] == 'interrupt-halt-wakes-with-ime')
+        build_automatic(ROM(wake['rom'],base=0), ROOT / 'dist/automatic/tests/interrupt-wake', initial=wake['initial'])
         build([0x18, 0xFE], ROOT / 'dist/portable/tests/loop', bounded=True)
         build([0xD3], ROOT / 'dist/portable/tests/tile-fault', tile=True, bounded=True)
 
