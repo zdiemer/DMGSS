@@ -1,4 +1,6 @@
 """Emit SM83 instruction semantics as CSS expressions (not an execution trace)."""
+from rom import ROM
+
 REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
 RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC040)]
 
@@ -162,6 +164,7 @@ def instruction_set():
 def machine(rom, storage, arithmetic=False):
     choose = choose_math if arithmetic else choose_native
     ops = instruction_set()
+    rom = rom if isinstance(rom, ROM) else ROM(rom)
     props = {'opcode': 0, 'imm': 0, 'upper': 0, 'pc1': 257, 'pc2': 258,
              'imm16': 0, 'bc': 0, 'de': 0, 'hl': 0,
              'address': 0, 'signed': 0, 'z': 0, 'carry': 0, 'known': 0,
@@ -187,16 +190,16 @@ def machine(rom, storage, arithmetic=False):
         'write': choose('opcode', {k: v['write'] for k, v in ops.items() if 'write' in v}, 0),
         'write2': choose('opcode', {k: v['write2'] for k, v in ops.items() if 'write2' in v}, 0),
         'writable': choose('address', {i: 1 for i in RAM}, 0),
-        'readable': choose('address', {**{256 + i: 1 for i in range(len(rom))}, **{i: 1 for i in RAM}}, 0),
+        'readable': f'calc({rom.contains("address")} + ({choose("address", {i: 1 for i in RAM}, 0)}))',
         'valid': 'calc(var(--writing) * var(--writable) + (1 - var(--writing)) * var(--readable))',
-        'read': choose('address', {**{256 + i: b for i, b in enumerate(rom)}, **{i: f'var(--m{i})' for i in RAM}}, 255),
+        'read': rom.lookup('address', choose, {i: f'var(--m{i})' for i in RAM}, 'var(--readable)'),
         'writable2': choose('address2', {i: 1 for i in RAM}, 0),
-        'readable2': choose('address2', {**{256 + i: 1 for i in range(len(rom))}, **{i: 1 for i in RAM}}, 0),
+        'readable2': f'calc({rom.contains("address2")} + ({choose("address2", {i: 1 for i in RAM}, 0)}))',
         'valid2': 'calc(var(--writing) * var(--writable2) + (1 - var(--writing)) * var(--readable2))',
-        'read2': choose('address2', {**{256 + i: b for i, b in enumerate(rom)}, **{i: f'var(--m{i})' for i in RAM}}, 255),
+        'read2': rom.lookup('address2', choose, {i: f'var(--m{i})' for i in RAM}, 'var(--readable2)'),
     }
     for name, pc in [('opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]:
-        expr[name] = choose(pc, {256 + i: b for i, b in enumerate(rom)}, 255)
+        expr[name] = rom.lookup(pc, choose)
     expr['invalid'] = 'calc(max(1 - var(--known), var(--access) * max(1 - var(--valid), var(--word) * (1 - var(--valid2)))))'
     expr['enabled'] = 'calc(var(--run, 1) * (1 - max(var(--halted), var(--fault), var(--invalid))))'
     css += '\n.machine {' + ''.join(f'--{k}:{v};' for k, v in expr.items()) + '}\n'

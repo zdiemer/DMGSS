@@ -17,8 +17,11 @@
 
 Audio and persistent saves require separate feasibility research. HTML file
 inputs cannot expose ROM bytes to CSS: local import needs a JS loader or an
-external conversion step. Build-time embedding remains the supported approach.
-No full-speed promise.
+external conversion step. **Shipped:** offline Python conversion plus a native
+HTML upload/download form. Both generate a self-contained HTML/CSS page for
+small test programs or unbanked 32 KiB ROMs, subject to a CSS complexity limit.
+The converter never executes the program; importing does not imply game
+compatibility. See [the converter](CONVERTER.md). No full-speed promise.
 
 
 Browser portability: **shipped bounded compatible mode**, with 128 generic CSS

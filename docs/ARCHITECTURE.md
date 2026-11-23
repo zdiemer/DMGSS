@@ -291,12 +291,46 @@ binary contents as HTML attributes or CSS values. CSS
 not file bodies. The [File API](https://www.w3.org/TR/FileAPI/) supplies scripted
 access to those bytes. Computational expressiveness does not provide this I/O.
 
-A local "Load ROM" feature would therefore need a small JS importer to encode
+A direct browser-only "Load ROM" feature would therefore need a small JS importer to encode
 bytes for the CSS machine. Emulation could remain CSS, but the application
 would no longer have a zero-JS runtime. Alternatively, a native HTML form could
 upload the file to a converter that returns generated HTML/CSS, preserving a
-script-free browser while introducing a server component. Neither is implemented
-or enabled by the current CSP. Offline/build-time conversion keeps today's
-static HTML/CSS runtime contract and is how the original cartridges are embedded.
+script-free browser while introducing a server component. Build 09 implements this conversion approach as an offline command and a native
+HTML form. The form is permitted only on converter routes; runtime scripts
+remain forbidden. Offline conversion keeps the generated page self-contained.
 Import alone would not make commercial ROMs run: instruction coverage, the
 memory map, cartridge banking and hardware support are still incomplete.
+
+
+## Offline and server conversion (build 09)
+
+`tools/convert.py` is the shared converter. It validates byte count, cartridge
+layout and practical CSS size, then feeds bytes to the existing generic CPU
+builders. The input is never executed or translated into an execution trace.
+All styles are inlined into one HTML document, with escaped metadata, a SHA-256
+fingerprint, the conversion caveat and hardware limits. Imported programs show
+HALTED, never the built-in diagnostic's TEST PASSED marker.
+
+ROM lookup now has an explicit base and range: full cartridges map file offsets
+0000–7FFF; raw diagnostics map at 0100. The most frequent byte is encoded as the
+lookup default and exceptions as address selectors. This preserves every byte,
+including padding. Range checks distinguish mapped padding from an unmapped
+fetch; RAM and VRAM still override only their separate mapped addresses. This
+is data compression, independent of the program's execution path. It does not
+add cartridge banking, interrupt vectors/RST semantics, a boot ROM or new RAM.
+
+`tools/server.py` accepts bounded multipart uploads or the generated page's
+native reset form. It returns inline HTML or an attachment. Online Reset posts
+an embedded base64 copy back for conversion; Run/Pause never call the server.
+The download/CLI variant instead reloads its local file and has no server reset
+form. No upload/session database, reusable artifact URL or cross-user cache is
+created. The server has two bounded Gunicorn workers behind nginx; uploads and
+temporary output use memory only in deployment. Filenames are display text,
+never paths. Native forms use same-origin Referrer-Policy so browsers supply an
+Origin header; cross-origin POSTs are rejected. All responses forbid scripts.
+
+Tests cover original full-ROM execution, offset 0000, the second unbanked ROM
+window, 7FFF, mapped zero padding, raw programs, continuing/trapping CPU state,
+native form reset, download and offline file execution with page JS disabled.
+Unit tests cover unsupported layouts, upload parsing/limits, metadata escaping,
+no-overwrite CLI behavior and data preservation. See [usage and limits](CONVERTER.md).
