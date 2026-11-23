@@ -1,4 +1,7 @@
 const {test, expect} = require('@playwright/test');
+// Active-bank tap/readback cycles include full mapped-memory fetch evaluation.
+// Overall time is separate from the existing per-progress and exact-state checks.
+test.describe.configure({timeout:90000});
 // Read-only inspection; page JavaScript is disabled. Only native user controls
 // start/pause/reset the machine. Nothing in the harness copies or clocks state.
 const read = (page, keys) => page.locator('.machine').evaluate((el, keys) => {
@@ -7,7 +10,7 @@ const read = (page, keys) => page.locator('.machine').evaluate((el, keys) => {
 }, keys);
 // A computed-style read on the running pipeline takes ~3.2s locally and can
 // exceed 5s on shared runners. Continuation checks use the existing 15s bound;
-// all exact CPU/coherence assertions and the no-inspection interval stay intact.
+// all exact CPU/coherence assertions stay intact.
 const ticks = async page => (await read(page, ['ticks'])).ticks;
 const toggle = page => test.info().project.name.endsWith('mobile')
   ? page.locator('.power-switch').tap() : page.locator('.power-switch').click();
@@ -30,7 +33,8 @@ test('automatic state advances beyond 1,000 instructions with one input, then pa
   const nodes = await page.locator('*').count();
   await toggle(page);
   // No inspection or input during this interval: reads must not be its clock.
-  await page.waitForTimeout(2000);
+  // Full HRAM takes more than 2s for two batches on shared WebKit runners.
+  await page.waitForTimeout(10000);
   expect(await ticks(page)).toBeGreaterThanOrEqual(256);
   // Sample coherent committed state while the other bank is being rewritten.
   for (let i=0; i<6; i++) {
@@ -70,7 +74,7 @@ for (const [path, expected, message] of [
   test(`automatic commits the complete stopped state: ${path}`, async ({page}) => {
     await page.goto('/automatic/'+path);
     await toggle(page);
-    await expect.poll(() => read(page, Object.keys(expected))).toEqual(expected);
+    await expect.poll(() => read(page, Object.keys(expected)), {timeout:15000}).toEqual(expected);
     await expect(page.locator(message)).toBeVisible();
     await expect(page.locator('.startup-screen')).not.toBeVisible();
     await page.waitForTimeout(350);

@@ -401,6 +401,12 @@ banks store 1,770 bits each (3,542 inputs including commit/power); automatic
 mode has 441 scroll cells. The complete-bank readiness condition includes every
 new byte. Group/slot checkpoint selectors also cover the last HRAM bit.
 
+The larger retained state and mapped-RAM fetches increase browser work. On
+shared test runners, two automatic batches can take more than two seconds, and
+manual stack-frame copying can exceed two minutes. Tests allow longer bounded
+waits while retaining exact state and partial-copy isolation assertions. These
+are correctness checks, not a game-speed benchmark.
+
 Instruction fetch uses the same ROM/RAM mapping as data reads, so programs can
 write and execute code in HRAM, the current work RAM window or VRAM. An explicit
 validity gate checks exactly the instruction's one, two or three bytes before

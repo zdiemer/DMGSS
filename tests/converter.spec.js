@@ -55,9 +55,12 @@ test('converter accepts the complexity limit with FF padding and resets within t
   expect(await read(page,['ticks','pc'])).toEqual({ticks:0,pc:256});
 });
 test('converter automatic raw program continues beyond a batch',async({page})=>{
+  // Upload, active execution, pause and final readback each evaluate the larger banks.
+  test.setTimeout(90000);
   await upload(page,Buffer.from([0xFA,0,0xC0,0x3C,0xEA,0,0xC0,0x18,0xF7]),{mode:'automatic'});
   await page.locator('.power-switch').click();
-  await expect.poll(async()=> (await read(page,['ticks'])).ticks,{timeout:15000}).toBeGreaterThanOrEqual(256);
+  // The imported lookup plus full mapped-memory fetch can exceed 15s on CI.
+  await expect.poll(async()=> (await read(page,['ticks'])).ticks,{timeout:30000}).toBeGreaterThanOrEqual(256);
   await page.locator('.power-switch').click();await page.waitForTimeout(150);
   const state=await read(page,['ticks','pc','m49152','fault']);
   expect(state.pc).toBe(256);expect(state.fault).toBe(0);expect(state.m49152).toBe((state.ticks/4)%256);

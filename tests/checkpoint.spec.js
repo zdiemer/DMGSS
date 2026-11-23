@@ -120,7 +120,8 @@ test('checkpoint capability failure hides copy controls', async ({page})=>{
   await expect(page.locator('.checkpoint-controls')).not.toBeVisible();
 });
 test('checkpoint preserves live nested-call frames across a manual bank transfer', async ({page})=>{
-  test.setTimeout(120000);
+  // The full stack frame requires many native bit saves; CI exceeded two minutes.
+  test.setTimeout(240000);
   await page.goto('/checkpoint/tests/stack-continuation/'); await page.locator('.power-switch').click();
   expect(await read(page,['ticks','pc','b','c','sp','m49212','m49213','m49214','m49215'])).toEqual({ticks:128,pc:270,b:171,c:205,sp:49212,m49212:52,m49213:18,m49214:9,m49215:1});
   await continueBatch(page);
