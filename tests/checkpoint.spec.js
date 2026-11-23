@@ -87,6 +87,9 @@ for(const [path,message] of [['diagnostic/','.passed'],['tile/','.tile-ready'],[
 }
 
 test('checkpoint copies every register and retained VRAM back into the CPU', async ({page})=>{
+  // Each native bit save re-evaluates the full CPU pipeline on shared runners.
+  // Per-bit progress still has its own bound; allow time for the whole copy.
+  test.setTimeout(60000);
   await page.goto('/checkpoint/tests/register-vram/'); await page.locator('.power-switch').click();
   expect((await read(page,['ticks'])).ticks).toBe(128);
   await continueBatch(page);
