@@ -2,13 +2,15 @@ const {test,expect}=require('@playwright/test');
 const {pathToFileURL}=require('node:url');
 const fs=require('node:fs/promises');
 const read=(page,keys)=>page.locator('.machine').evaluate((el,keys)=>{const s=getComputedStyle(el);return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]))},keys);
-async function upload(page,buffer,{format='raw',mode='portable',name='test.bin',delivery='open'}={}){
+async function upload(page,buffer,{format='raw',mode='portable',name='test.bin'}={}){
   await page.goto('/convert/');
   await page.locator('#rom').setInputFiles({name,mimeType:'application/octet-stream',buffer});
   await page.locator('#format').selectOption(format);
   await page.locator('#mode').selectOption(mode);
-  await page.locator(`button[value="${delivery}"]`).click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.locator('button[value="open"]').click()]);
 }
+// A native same-URL POST may start after click() returns, especially in WebKit.
+const reset=page=>Promise.all([page.waitForNavigation({waitUntil:'load'}),page.locator('.reset').click()]);
 const halt=(page,timeout=15000)=>expect.poll(()=>read(page,['halted','fault']),{timeout}).toEqual({halted:1,fault:0});
 for(const mode of ['portable','automatic','checkpoint','streaming']){
   test(`converter sample executes in ${mode} with no runtime requests`,async({page},info)=>{
@@ -25,7 +27,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming']){
     expect(await read(page,['ticks','pc','sp','a','b','c','m49154','m49214','m49215'])).toEqual({ticks:53,pc:358,sp:49216,a:165,b:0,c:0,m49154:165,m49214:89,m49215:1});
     await expect(page.locator('.halt-message')).toHaveText('HALTED');
     expect(requests).toEqual([]);
-    await page.locator('.reset').click();
+    await reset(page);
     expect(requests.some(url=>url.endsWith('/convert/'))).toBe(true);
     // Streaming resolves its first animation bank after power-on.
     expect(await read(page,mode==='streaming'?['ticks']:['ticks','pc'])).toEqual(mode==='streaming'?{ticks:0}:{ticks:0,pc:256});
@@ -48,7 +50,7 @@ test('converter accepts the complexity limit with FF padding and resets within t
   await page.locator('.power-switch').click();await halt(page);
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:3,m49152:255});
   const request=page.waitForRequest(r=>r.method()==='POST');
-  await page.locator('.reset').click();
+  await reset(page);
   expect((await request).postDataBuffer().length).toBeLessThanOrEqual(65536);
   expect(await read(page,['ticks','pc'])).toEqual({ticks:0,pc:256});
 });
@@ -80,7 +82,7 @@ test('converter download is one offline HTML file and metadata stays text',async
   await page.goto(pathToFileURL(file).href);
   await page.locator('.power-switch').click();await halt(page);
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:3,m49152:42});
-  await page.locator('.reset').click();
+  await reset(page);
   expect(await read(page,['ticks'])).toEqual({ticks:0});expect(requests).toEqual([]);
 });
 test('converter rejects banking and exposes the caveat on mobile',async({page},info)=>{

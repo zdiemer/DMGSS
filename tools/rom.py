@@ -26,8 +26,8 @@ class ROM:
         table = {**self.exceptions, **(extra or {})}
         if not self.compact:
             # Preserve the small embedded cartridges' original lookup graph.
-            # Extra range dependencies make Chromium's repeated stage evaluation
-            # substantially slower, even when the arithmetic is equivalent.
+            # Avoid new range dependencies in the already timing-sensitive
+            # automatic pipeline when a large address range is not needed.
             return choose(key, table, 255)
         selected = choose(key, table, self.fill)
         # Padding is still mapped ROM, including zero bytes. Out-of-range fetch

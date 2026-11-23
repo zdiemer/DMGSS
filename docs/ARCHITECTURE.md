@@ -319,7 +319,7 @@ fetch; RAM and VRAM still override only their separate mapped addresses. This
 is data compression, independent of the program's execution path. It does not
 add cartridge banking, interrupt vectors/RST semantics, a boot ROM or new RAM.
 Small built-in cartridges retain their original direct lookup expressions:
-adding range dependencies slowed Chromium's repeated automatic-stage evaluation.
+their automatic-stage dependency graph stays unchanged and is timing-sensitive.
 Imported cartridges use the bounded compact representation and may run slower.
 
 `tools/server.py` accepts bounded multipart uploads or the generated page's
