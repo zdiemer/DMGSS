@@ -1,5 +1,5 @@
 const {test, expect} = require('@playwright/test');
-const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json'), ...require('./alu-cases.json'), ...require('./cb-cases.json')];
+const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json'), ...require('./alu-cases.json'), ...require('./cb-cases.json'), ...require('./high-cases.json')];
 const state = (page, key) => page.locator('.machine').evaluate((el,k)=>Number(getComputedStyle(el).getPropertyValue(`--${k}`)),key);
 for (const item of cases) {
   test(`portable ${item.name}`, async ({page})=>{
@@ -80,4 +80,13 @@ test('portable stack lab completes nested calls within the budget', async ({page
   for (const [key,value] of Object.entries({ticks:52,pc:278,a:165,b:0,c:0,sp:49216,f:192,m49154:165,fault:0})) expect(await state(page,key),key).toBe(value);
   await expect(page.locator('.passed')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('portable maps all 127 HRAM bytes within one bounded batch',async({page})=>{
+  await page.goto('/portable/tests/high-fill/');await page.locator('.power-switch').click();
+  const result=await page.locator('.machine').evaluate(el=>{
+    const css=getComputedStyle(el);
+    return Object.fromEntries(['ticks','pc','halted','fault',...Array.from({length:127},(_,i)=>`m${0xFF80+i}`)].map(k=>[k,Number(css.getPropertyValue('--'+k))]));
+  });
+  expect(result).toEqual({ticks:128,pc:512,halted:0,fault:0,...Object.fromEntries(Array.from({length:127},(_,i)=>[`m${0xFF80+i}`,90]))});
 });

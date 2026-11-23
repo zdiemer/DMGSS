@@ -21,7 +21,15 @@ class FixtureROM(ROM):
 
     def lookup(self, key, choose, extra=None, valid=None):
         # These numeric inputs are encoded before loading, just like ROM bytes.
-        return choose(key, {256:'var(--input-opcode)', 257:'var(--input-byte)', **(extra or {})}, 255)
+        data = choose(key, {address: f'calc(({value}) - 255)' for address,value in (extra or {}).items()}, 0)
+        return f'calc(255 + ({self.match(key, "input-address")}) * (var(--input-opcode) - 255) + ({self.match(key, "input-address1")}) * (var(--input-byte) - 255) + ({data}))'
+
+    @staticmethod
+    def match(key, address):
+        return f'max(0, 1 - abs(var(--{key}) - var(--{address})))'
+
+    def readable(self, key, choose, addresses):
+        return f'calc(({self.match(key, "input-address")}) + ({self.match(key, "input-address1")}) + ({choose(key, dict.fromkeys(addresses, 1), 0)}))'
 
 
 def cases():
@@ -57,6 +65,31 @@ def cases():
         result[source].append({'name':case['name'], 'opcode':opcode,
                               'byte':second,
                               'initial':initial, 'final':final})
+    result['high'] = []
+    for case in json.loads((ROOT / 'tests/vendor/sm83/high.json').read_text()):
+        before, after = case['initial'], case['final']
+        memory, output = dict(before['ram']), dict(after['ram'])
+        opcode = memory[before['pc']]
+        initial = {**{reg: before[reg] for reg in REGISTERS}, **{f'm{a}':0 for a in range(0xFF80,0xFFFF)}}
+        final = {**{reg: after[reg] for reg in REGISTERS}, **{f'm{a}':0 for a in range(0xFF80,0xFFFF)}}
+        second = memory.get((before['pc']+1)%65536, 0)
+        if opcode in range(0xC7,0x100,8):
+            # Preserve PC and upstream return bytes; relocate only the stack.
+            initial['sp'] = 0xFFFE
+            final['sp'] = (0xFFFE + after['sp'] - before['sp']) % 65536
+            for delta in (1,2):
+                address = (before['sp'] - delta) % 65536
+                initial[f'm{0xFFFE-delta}'] = memory[address]
+                final[f'm{0xFFFE-delta}'] = output[address]
+        else:
+            initial['pc'] = 256
+            final['pc'] = 256 + ((after['pc'] - before['pc']) % 65536)
+            address = 0xFF00 + (second if opcode in (0xE0,0xF0) else before['c'])
+            initial[f'm{address}'] = memory[address]
+            final[f'm{address}'] = output[address]
+        final.update(ticks=1, fault=0, halted=0)
+        result['high'].append({'name':case['name'], 'opcode':opcode, 'byte':second,
+                               'initial':initial, 'final':final})
     return result
 
 
@@ -75,6 +108,7 @@ def build(out):
                         '<link rel="stylesheet" href="machine.css"><title>CPU conformance fixture</title></head><body>']
                 for index, case in enumerate(vectors[offset:offset+CHUNK], offset):
                     seed = {**{f'next-{k}':v for k,v in case['initial'].items()},
+                            'input-address':case['initial']['pc'], 'input-address1':(case['initial']['pc']+1)%65536,
                             'input-opcode':case['opcode'], 'input-byte':case['byte']}
                     inline = ''.join(f'--{k}:{v};' for k,v in seed.items())
                     html.append(f'<section style="{inline}"><div class="pipeline-read"><div class="pipeline-execute"><div class="pipeline-read result" data-index="{index}">case {index}</div></div></div></section>')

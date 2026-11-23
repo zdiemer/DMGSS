@@ -53,8 +53,8 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   Dense ROMs are rejected before generating an unwieldy stylesheet.
 - Server requests are limited to 64 KiB including multipart/form overhead.
 - PC starts at 0100; other registers including SP start at zero. No boot ROM or
-  post-boot state is synthesized. The CPU still supports 228 unprefixed and 256 CB-prefixed instructions, only 64
-  bytes of work RAM and one VRAM tile. Banking, full graphics, interrupts,
+  post-boot state is synthesized. The CPU still supports 240 unprefixed and 256 CB-prefixed instructions, 64
+  bytes of work RAM, 127 bytes of high RAM and one VRAM tile. Banking, full graphics, interrupts,
   timers, joypad and audio are unimplemented. Unknown instructions and unmapped
   accesses trap. HALTED means the program halted, not that a game is compatible.
 

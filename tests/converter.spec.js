@@ -106,3 +106,16 @@ test('converter traps a CB prefix at the ROM boundary without retiring it',async
   await page.locator('.power-switch').click();await expect(page.locator('.fault-message')).toBeVisible();
   expect(await read(page,['ticks','pc','a','f','fault'])).toEqual({ticks:1,pc:32767,a:0,f:0,fault:1});
 });
+
+test('converter preserves low restart vectors and HRAM stack/data',async({page})=>{
+  const rom=Buffer.alloc(32768);rom.set([0x3C,0xC9],0x38);
+  rom.set([0x31,0xFE,0xFF,0x3E,41,0xFF,0xEA,0x80,0xFF,0xF0,0x80,0x76],0x100);
+  await upload(page,rom,{format:'gb',name:'restart.gb'});
+  await page.locator('.power-switch').click();await halt(page);
+  expect(await read(page,['ticks','pc','a','f','sp','m65408','m65532','m65533'])).toEqual({ticks:8,pc:268,a:42,f:0,sp:65534,m65408:42,m65532:6,m65533:1});
+});
+test('converter executes uploaded code copied into HRAM',async({page})=>{
+  await upload(page,Buffer.from([0x3E,0x76,0xE0,0xFE,0xC3,0xFE,0xFF]));
+  await page.locator('.power-switch').click();await halt(page);
+  expect(await read(page,['ticks','pc','m65534','fault'])).toEqual({ticks:4,pc:65535,m65534:118,fault:0});
+});

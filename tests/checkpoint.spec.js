@@ -1,7 +1,7 @@
 const {test, expect} = require('@playwright/test');
 // Manual bank transfers perform many native bit saves and full-pipeline style
-// reads. Allow a minute overall; each bit still must advance within its own bound.
-test.describe.configure({timeout:60000});
+// reads across 1,770-bit banks. Each bit still has its own progress bound.
+test.describe.configure({timeout:120000});
 const read = (page, keys, selector='.machine') => page.locator(selector).evaluate((el,keys)=>Object.fromEntries(keys.map(k=>[k,Number(getComputedStyle(el).getPropertyValue(`--${k}`))])),keys);
 const copyState = page => read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
 async function saveBit(page, keyboard=false) {
@@ -18,7 +18,7 @@ async function continueBatch(page) {
   const state = await read(page,['ticks','pc','a','b','f','m49152']);
   let saved = 0;
   while ((await copyState(page))['copy-remaining']) {
-    expect(saved++).toBeLessThan(754);
+    expect(saved++).toBeLessThan(1770);
     await expect(page.locator('.commit-control')).not.toBeVisible();
     await saveBit(page);
     // Partial writes to the inactive bank must never alter this batch's result.
@@ -30,11 +30,11 @@ async function continueBatch(page) {
   await expect.poll(async ()=>(await read(page,['ticks'])).ticks).not.toBe(state.ticks);
 }
 test('checkpoint reuses two banks across nine batches and byte wrap', async ({page},info)=>{
-  test.setTimeout(120000);
+  test.setTimeout(240000);
   await page.goto('/checkpoint/');
   expect(await page.locator('script').count()).toBe(0);
   const inputs=await page.locator('input').count();
-  expect(inputs).toBe(1510); // 2 × 754 bits, commit, power; no growing trace.
+  expect(inputs).toBe(3542); // 2 × 1770 bits, commit, power; no growing trace.
   await page.locator('.power-switch').click();
   for(let batch=1;batch<=9;batch++) {
     expect(await read(page,['ticks','pc','a','m49152','halted','fault'])).toEqual({ticks:batch*128,pc:256,a:(batch*32)%256,m49152:(batch*32)%256,halted:0,fault:0});
@@ -92,7 +92,7 @@ for(const [path,message] of [['diagnostic/','.passed'],['tile/','.tile-ready'],[
 test('checkpoint copies every register and retained VRAM back into the CPU', async ({page})=>{
   // Each native bit save re-evaluates the full CPU pipeline on shared runners.
   // Per-bit progress still has its own bound; allow time for the whole copy.
-  test.setTimeout(60000);
+  test.setTimeout(120000);
   await page.goto('/checkpoint/tests/register-vram/'); await page.locator('.power-switch').click();
   expect((await read(page,['ticks'])).ticks).toBe(128);
   await continueBatch(page);
@@ -120,7 +120,7 @@ test('checkpoint capability failure hides copy controls', async ({page})=>{
   await expect(page.locator('.checkpoint-controls')).not.toBeVisible();
 });
 test('checkpoint preserves live nested-call frames across a manual bank transfer', async ({page})=>{
-  test.setTimeout(60000);
+  test.setTimeout(120000);
   await page.goto('/checkpoint/tests/stack-continuation/'); await page.locator('.power-switch').click();
   expect(await read(page,['ticks','pc','b','c','sp','m49212','m49213','m49214','m49215'])).toEqual({ticks:128,pc:270,b:171,c:205,sp:49212,m49212:52,m49213:18,m49214:9,m49215:1});
   await continueBatch(page);
@@ -146,4 +146,12 @@ test('checkpoint transfers a complete CB memory result and carry flag',async({pa
   expect(await read(page,['ticks','pc','f','m49152'])).toEqual({ticks:128,pc:388,f:16,m49152:192});
   await continueBatch(page);
   expect(await read(page,['ticks','pc','f','m49152','halted','fault'])).toEqual({ticks:130,pc:391,f:48,m49152:192,halted:1,fault:0});
+});
+
+test('checkpoint transfers a live restart frame at the end of HRAM',async({page})=>{
+  test.setTimeout(120000);
+  await page.goto('/checkpoint/tests/high-continuation/');await page.locator('.power-switch').click();
+  expect(await read(page,['ticks','pc','sp','m65532','m65533','m65534'])).toEqual({ticks:128,pc:0,sp:65532,m65532:133,m65533:1,m65534:129});
+  await continueBatch(page);
+  expect(await read(page,['ticks','pc','a','c','f','sp','m65408','m65532','m65533','m65534','halted','fault'])).toEqual({ticks:133,pc:390,a:3,c:254,f:16,sp:65534,m65408:129,m65532:133,m65533:1,m65534:3,halted:1,fault:0});
 });

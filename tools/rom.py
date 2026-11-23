@@ -31,5 +31,5 @@ class ROM:
             return choose(key, table, 255)
         selected = choose(key, table, self.fill)
         # Padding is still mapped ROM, including zero bytes. Out-of-range fetch
-        # retains the decoder's explicit 255/unknown-opcode trap behavior.
+        # is rejected by the CPU fetch-validity gate (FF itself is valid RST).
         return f'calc(255 + ({valid or self.contains(key)}) * (({selected}) - 255))'

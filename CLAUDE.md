@@ -45,6 +45,9 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   low nibble of F; signed SP arithmetic computes H/C from the unsigned low byte.
 - CB instructions retire both bytes atomically. BIT is read-only; other memory
   forms validate writability even for no-op results. Truncated prefixes trap.
+- Instruction fetch uses mapped ROM/RAM and validates every required byte.
+  FF is RST 38, never a substitute for an unmapped fetch. HRAM ends at FFFE;
+  I/O and IE remain unsupported until their hardware semantics exist.
 - Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
   tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
 - Converter uploads stay request-local; temporary generated files use tmpfs in
