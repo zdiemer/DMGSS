@@ -446,3 +446,12 @@ a halted source with a request can still commit its resumed result. Tests seed
 such states only before page load. There are no asynchronous hardware sources
 yet. Interrupt entry remains atomic rather than five M-cycles; stack writes to
 IE/IF do not reproduce the hardware's cycle-by-cycle cancellation races.
+
+
+Continuous-counter inspection is expensive in Chromium: the same local probe
+on 0.11 and 0.12 measured approximately ten seconds per running computed-style
+read and twenty seconds for a native Pause input. Shared CI exceeded a fifteen-
+second read deadline. Counter progress checks allow thirty seconds per read and
+seven minutes for the repeated pause/resume scenario, preserving exact state,
+no-inspection progress, and bounded-stall assertions. Finite interrupt programs
+retain their shorter deadlines.
