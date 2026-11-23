@@ -40,12 +40,24 @@ def main():
     assert len(vectors) == len({(a,f) for a,f,_,_ in vectors}) == 4096
     (out / 'mooneye/daa.json').write_text(json.dumps(vectors, separators=(',', ':')) + '\n')
     counts = []
-    for filename, opcodes, prefix in [('alu.json', OPCODES, ''), ('cb.json', range(256), 'cb ')]:
+    for filename, opcodes, prefix in [('alu.json', OPCODES, ''), ('cb.json', range(256), 'cb '), ('high.json', [*range(0xC7,0x100,8),0xE0,0xF0,0xE2,0xF2], '')]:
         selected = []
         for opcode in opcodes:
             source = (args.sm83 / f'v1/{prefix}{opcode:02x}.json').read_bytes()
             manifest['sources'][f'sm83/v1/{prefix}{opcode:02x}.json'] = sha(source)
             candidates = json.loads(source)
+            if filename == 'high.json':
+                if opcode in range(0xC7,0x100,8):
+                    # Keep PC (and the pushed return bytes) unchanged, in ROM.
+                    candidates = [x for x in candidates if x['initial']['pc'] < 0x8000
+                                  and x['initial']['pc'] not in {(x['initial']['sp']-1)%65536, (x['initial']['sp']-2)%65536}]
+                else:
+                    def address(x):
+                        before = x['initial']
+                        offset = dict(before['ram'])[(before['pc']+1)%65536] if opcode in (0xE0,0xF0) else before['c']
+                        return 0xFF00 + offset
+                    candidates = [x for x in candidates if 0xFF80 <= address(x) <= 0xFFFE
+                                  and address(x) not in {(x['initial']['pc']+i)%65536 for i in range(2 if opcode in (0xE0,0xF0) else 1)}]
             # Preserve raw upstream records; relocation happens only in the fixture
             # adapter. Exclude instruction/data aliasing for the [HL] adapter.
             if opcode % 8 == 6 and (prefix or 0x80 <= opcode < 0xC0):
@@ -64,7 +76,7 @@ def main():
             selected.extend(chosen)
         (out / 'sm83' / filename).write_text(json.dumps(selected, separators=(',', ':')) + '\n')
         counts.append(len(selected))
-    for file in ('mooneye/daa.json', 'mooneye/LICENSE', 'sm83/alu.json', 'sm83/cb.json', 'sm83/LICENSE'):
+    for file in ('mooneye/daa.json', 'mooneye/LICENSE', 'sm83/alu.json', 'sm83/cb.json', 'sm83/high.json', 'sm83/LICENSE'):
         manifest['outputs'][file] = sha((out / file).read_bytes())
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(f'Imported {len(vectors)} hardware DAA cases and {sum(counts)} instruction vectors.')

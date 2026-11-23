@@ -1,4 +1,7 @@
 const {test, expect} = require('@playwright/test');
+// Active-bank tap/readback cycles include full mapped-memory fetch evaluation.
+// Overall time is separate from the existing per-progress and exact-state checks.
+test.describe.configure({timeout:90000});
 // Read-only inspection; page JavaScript is disabled. Only native user controls
 // start/pause/reset the machine. Nothing in the harness copies or clocks state.
 const read = (page, keys) => page.locator('.machine').evaluate((el, keys) => {
@@ -7,7 +10,7 @@ const read = (page, keys) => page.locator('.machine').evaluate((el, keys) => {
 }, keys);
 // A computed-style read on the running pipeline takes ~3.2s locally and can
 // exceed 5s on shared runners. Continuation checks use the existing 15s bound;
-// all exact CPU/coherence assertions and the no-inspection interval stay intact.
+// all exact CPU/coherence assertions stay intact.
 const ticks = async page => (await read(page, ['ticks'])).ticks;
 const toggle = page => test.info().project.name.endsWith('mobile')
   ? page.locator('.power-switch').tap() : page.locator('.power-switch').click();
@@ -19,18 +22,19 @@ function assertCounter(state, initial=0) {
 }
 
 test('automatic state advances beyond 1,000 instructions with one input, then pauses/resumes/resets', async ({page}, info) => {
-  // The expanded ALU makes repeated mobile tap/style cycles exceed two minutes
-  // on shared runners. Keep each progress check at 15s and all state assertions.
-  test.setTimeout(180000);
+  // Full HRAM expands retention from 187 to 441 cells and adds mapped-RAM
+  // fetches. Budget repeated tap/readback cycles; keep every 15s progress check.
+  test.setTimeout(300000);
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
-  expect(await page.locator('.scroll-memory').count()).toBe(187);
+  expect(await page.locator('.scroll-memory').count()).toBe(441);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   const nodes = await page.locator('*').count();
   await toggle(page);
   // No inspection or input during this interval: reads must not be its clock.
-  await page.waitForTimeout(2000);
+  // Full HRAM takes more than 2s for two batches on shared WebKit runners.
+  await page.waitForTimeout(10000);
   expect(await ticks(page)).toBeGreaterThanOrEqual(256);
   // Sample coherent committed state while the other bank is being rewritten.
   for (let i=0; i<6; i++) {
@@ -70,7 +74,7 @@ for (const [path, expected, message] of [
   test(`automatic commits the complete stopped state: ${path}`, async ({page}) => {
     await page.goto('/automatic/'+path);
     await toggle(page);
-    await expect.poll(() => read(page, Object.keys(expected))).toEqual(expected);
+    await expect.poll(() => read(page, Object.keys(expected)), {timeout:15000}).toEqual(expected);
     await expect(page.locator(message)).toBeVisible();
     await expect(page.locator('.startup-screen')).not.toBeVisible();
     await page.waitForTimeout(350);
@@ -113,7 +117,7 @@ test('automatic bookkeeping wraps through 65535 without losing CPU state', async
 
 test('automatic repeated pause/resume preserves committed state', async ({page}) => {
   // Five complete tap/readback cycles need the same overall budget as above.
-  test.setTimeout(180000);
+  test.setTimeout(300000);
   await page.goto('/automatic/');
   for (let i=0; i<5; i++) {
     const before = await ticks(page);
@@ -183,4 +187,16 @@ test('automatic continuation carries flags into ADC after a bank transfer',async
 test('automatic retires a whole CB memory instruction before transferring its result',async({page})=>{
   await page.goto('/automatic/tests/cb-carry/');await toggle(page);
   await expect.poll(()=>read(page,['ticks','pc','f','m49152','halted','fault']),{timeout:15000}).toEqual({ticks:130,pc:391,f:48,m49152:192,halted:1,fault:0});
+});
+
+test('automatic transfers a live HRAM restart frame and both RAM endpoints',async({page})=>{
+  await page.goto('/automatic/tests/high-continuation/');await toggle(page);
+  const expected={ticks:133,pc:390,a:3,c:254,f:16,sp:65534,m65408:129,m65532:133,m65533:1,m65534:3,halted:1,fault:0};
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:20000}).toEqual(expected);
+});
+test('automatic commits all 127 HRAM bytes before stopping',async({page})=>{
+  await page.goto('/automatic/tests/high-fill/');await toggle(page);
+  await expect.poll(()=>read(page,['ticks','pc','halted','fault']),{timeout:20000}).toEqual({ticks:129,pc:513,halted:1,fault:0});
+  const keys=Array.from({length:127},(_,i)=>`m${0xFF80+i}`);
+  expect(await read(page,keys)).toEqual(Object.fromEntries(keys.map(k=>[k,90])));
 });

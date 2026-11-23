@@ -7,8 +7,8 @@ browser automation is used only for testing.
 ## Status
 
 Early development. Not yet a general-purpose Game Boy emulator.
-The current build executes original embedded ROMs on a CSS CPU supporting 228 unprefixed and all 256 CB-prefixed instructions with
-16-bit register pairs, indirect addressing, stack/subroutines, the complete 8-bit ALU, decimal adjustment, arithmetic flags, branches and 64 bytes of writable RAM.
+The current build executes original embedded ROMs on a CSS CPU supporting 240 unprefixed and all 256 CB-prefixed instructions with
+16-bit register pairs, indirect addressing, stack/subroutines, the complete 8-bit ALU, decimal adjustment, arithmetic flags, branches and 64 bytes of work RAM plus 127 bytes of high RAM.
 Power on to run it; the screen reports success or a CPU trap. Tile lab runs a
 second original ROM that copies a four-shade tile from ROM data into 16 bytes of VRAM using pointers. Stack lab exercises nested calls and saved registers. The full
 PPU, timers, interrupts and game compatibility remain ahead.
@@ -85,9 +85,12 @@ command to keep conversion local. Import does not imply game compatibility.
 See [converter limits and usage](docs/CONVERTER.md).
 
 [Try ALU lab](https://dmgss.zachd.duckdns.org/automatic/alu/): decimal arithmetic,
-carry, bitwise operations and rotations. The CPU is checked against 14,848
+carry, bitwise operations and rotations. The CPU is checked against 15,232
 independent cases from Mooneye and SingleStepTests. These are adapted CPU-state
 checks, not whole-ROM or timing passes; see [compatibility evidence](docs/COMPATIBILITY.md).
 
 [Try Bit lab](https://dmgss.zachd.duckdns.org/automatic/bits/): all CB families,
 including register operations and RAM/VRAM read-modify-write instructions.
+
+[Try High RAM](https://dmgss.zachd.duckdns.org/automatic/high/): all restart
+vectors, high-memory loads, stack returns and a routine written into RAM.

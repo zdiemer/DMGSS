@@ -31,3 +31,11 @@ are copied directly from upstream final RAM, including read-modify-write cases. 
 instruction-level state, not bus cycles, interrupts, IME or IE. See
 [the compatibility report](../../docs/COMPATIBILITY.md) for the exact boundary
 between these checks and running complete test ROMs.
+
+`sm83/high.json` adds 32 records for each of eight RST and four LDH opcodes.
+RST candidates keep PC below 8000 and exclude stack/instruction aliases; PC and
+upstream pushed return bytes are unchanged, while SP and its two stack bytes
+move into HRAM. LDH candidates address FF80–FFFE and exclude instruction/data
+aliases; those actual HRAM addresses and expected values are retained. The
+fixture's two ROM slots are seeded at generation time to preserve RST PCs.
+Cycles and interrupt state remain outside the comparison.

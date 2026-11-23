@@ -2,7 +2,7 @@
 from rom import ROM
 
 REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
-RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC040)]
+RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC040), *range(0xFF80, 0xFFFF)]
 
 
 def choose_native(key, values, default):
@@ -106,6 +106,16 @@ def instruction_set():
         op(0x0A + i * 16, a='var(--read)', access='1', address=f'var(--{pair})', **post)
     op(0xF9, sp='var(--hl)')
     op(0xE9, pc='var(--hl)')  # JP HL does not dereference memory.
+    for store, load, size, offset in [(0xE0,0xF0,2,'imm'), (0xE2,0xF2,1,'c')]:
+        address = f'calc(65280 + var(--{offset}))'
+        op(store, size, access='1', address=address, write='var(--a)')
+        op(load, size, access='1', address=address, a='var(--read)')
+    for vector in range(0, 0x40, 8):
+        op(0xC7 + vector, access='1', word='1',
+           address='calc(mod(var(--sp) - 2, 65536))',
+           write='calc(mod(var(--pc) + 1, 256))',
+           write2='calc(round(down, mod(var(--pc) + 1, 65536) / 256))',
+           sp='calc(mod(var(--sp) - 2, 65536))', pc=str(vector))
     # Word transfers use two adjacent byte lanes, validated before either commits.
     # The lower address holds the low byte; PUSH stores at old SP-2 and SP-1.
     for i, pair in enumerate(('bc', 'de', 'hl', 'af')):
@@ -182,6 +192,7 @@ def machine(rom, storage, arithmetic=False):
     rom = rom if isinstance(rom, ROM) else ROM(rom, compact=False)
     props = {'opcode': 0, 'imm': 0, 'upper': 0, 'pc1': 257, 'pc2': 258,
              'imm16': 0, 'bc': 0, 'de': 0, 'hl': 0,
+             'size': 1, 'fetch0': 0, 'fetch1': 0, 'fetch2': 0, 'fetch-valid': 0,
              'address': 0, 'signed': 0, 'z': 0, 'carry': 0, 'known': 0,
              'access': 0, 'writing': 0, 'writable': 0, 'readable': 0,
              'write': 0, 'valid': 0, 'read': 0, 'invalid': 0, 'enabled': 0,
@@ -203,7 +214,9 @@ def machine(rom, storage, arithmetic=False):
         'signed': 'calc(var(--imm) - 256 * round(down, var(--imm) / 128))',
         'z': 'calc(round(down, var(--f) / 128))',
         'carry': 'calc(mod(round(down, var(--f) / 16), 2))',
-        'known': choose('opcode', {k: rom.readable('pc1', choose, []) if k == 0xCB else 1 for k in ops}, 0),
+        'known': choose('opcode', {k: 1 for k in ops}, 0),
+        'size': choose('opcode', {k: v['size'] for k, v in ops.items() if v['size'] != 1}, 1),
+        'fetch-valid': 'calc(min(var(--fetch0), 1 - min(1, max(0, var(--size) - 1)) * (1 - var(--fetch1)), 1 - max(0, var(--size) - 2) * (1 - var(--fetch2))))',
         'access': choose('opcode', {k: v['access'] for k, v in ops.items() if 'access' in v}, 0),
         'word': choose('opcode', {k: v['word'] for k, v in ops.items() if 'word' in v}, 0),
         'writing': choose('opcode', {k: v.get('writing', 'var(--access)') for k, v in ops.items() if 'write' in v}, 0),
@@ -271,9 +284,11 @@ def machine(rom, storage, arithmetic=False):
         'daa-low': 'calc(max(var(--half-carry), (1 - var(--subtract)) * max(0, sign(mod(var(--a),16) - 9))))',
         'daa-result': 'calc(mod(var(--a) + (1 - 2 * var(--subtract)) * (var(--daa-high) * 96 + var(--daa-low) * 6), 256))',
     })
-    for name, pc in [('opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]:
-        expr[name] = rom.lookup(pc, choose)
-    expr['invalid'] = 'calc(max(1 - var(--known), var(--access) * max(1 - var(--valid), var(--word) * (1 - var(--valid2)))))'
+    for lane, (name, pc) in enumerate([('opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]):
+        expr[f'fetch{lane}'] = rom.readable(pc, choose, RAM)
+        expr[name] = rom.lookup(pc, choose, {i: f'var(--m{i})' for i in RAM}, f'var(--fetch{lane})')
+    # FF is now RST 38: an unmapped byte must not turn into a synthetic call.
+    expr['invalid'] = 'calc(max(1 - var(--known), 1 - var(--fetch-valid), var(--access) * max(1 - var(--valid), var(--word) * (1 - var(--valid2)))))'
     expr['enabled'] = 'calc(var(--run, 1) * (1 - max(var(--halted), var(--fault), var(--invalid))))'
     css += '\n.machine {' + ''.join(f'--{k}:{v};' for k, v in expr.items()) + '}\n'
     states = {}

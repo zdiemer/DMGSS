@@ -67,6 +67,40 @@ class ConformanceDataTests(unittest.TestCase):
         self.assertEqual(set(coverage), set(range(256)))
         self.assertEqual(set(coverage.values()), {32})
 
+    def test_high_adapter_preserves_upstream_return_bytes_and_memory(self):
+        raw = json.loads((ROOT / 'tests/vendor/sm83/high.json').read_text())
+        vectors = cases()['high']
+        self.assertEqual(len(raw), 384)
+        self.assertEqual(len(vectors), len(raw))
+        coverage = {}
+        for original, case in zip(raw, vectors):
+            before, after = original['initial'], original['final']
+            memory, output = dict(before['ram']), dict(after['ram'])
+            opcode = memory[before['pc']]
+            coverage[opcode] = coverage.get(opcode, 0) + 1
+            for reg in ('a','b','c','d','e','f','h','l'):
+                self.assertEqual(case['initial'][reg], before[reg])
+                self.assertEqual(case['final'][reg], after[reg])
+            if opcode in range(0xC7,0x100,8):
+                self.assertEqual(case['initial']['pc'], before['pc'])
+                self.assertEqual(case['final']['pc'], after['pc'])
+                self.assertEqual(case['initial']['sp'], 0xFFFE)
+                self.assertEqual((case['final']['sp']-case['initial']['sp'])%65536,
+                                 (after['sp']-before['sp'])%65536)
+                for delta in (1,2):
+                    address = (before['sp']-delta)%65536
+                    self.assertEqual(case['initial'][f'm{0xFFFE-delta}'], memory[address])
+                    self.assertEqual(case['final'][f'm{0xFFFE-delta}'], output[address])
+            else:
+                address = 0xFF00 + (memory[(before['pc']+1)%65536] if opcode in (0xE0,0xF0) else before['c'])
+                self.assertTrue(0xFF80 <= address <= 0xFFFE)
+                self.assertEqual(case['initial'][f'm{address}'], memory[address])
+                self.assertEqual(case['final'][f'm{address}'], output[address])
+                self.assertEqual(case['initial']['sp'], before['sp'])
+                self.assertEqual(case['final']['sp'], after['sp'])
+        self.assertEqual(set(coverage), {*range(0xC7,0x100,8),0xE0,0xF0,0xE2,0xF2})
+        self.assertEqual(set(coverage.values()), {32})
+
 
 if __name__ == '__main__':
     unittest.main()

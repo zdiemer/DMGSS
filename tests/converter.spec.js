@@ -55,9 +55,12 @@ test('converter accepts the complexity limit with FF padding and resets within t
   expect(await read(page,['ticks','pc'])).toEqual({ticks:0,pc:256});
 });
 test('converter automatic raw program continues beyond a batch',async({page})=>{
+  // Upload, active execution, pause and final readback each evaluate the larger banks.
+  test.setTimeout(90000);
   await upload(page,Buffer.from([0xFA,0,0xC0,0x3C,0xEA,0,0xC0,0x18,0xF7]),{mode:'automatic'});
   await page.locator('.power-switch').click();
-  await expect.poll(async()=> (await read(page,['ticks'])).ticks,{timeout:15000}).toBeGreaterThanOrEqual(256);
+  // The imported lookup plus full mapped-memory fetch can exceed 15s on CI.
+  await expect.poll(async()=> (await read(page,['ticks'])).ticks,{timeout:30000}).toBeGreaterThanOrEqual(256);
   await page.locator('.power-switch').click();await page.waitForTimeout(150);
   const state=await read(page,['ticks','pc','m49152','fault']);
   expect(state.pc).toBe(256);expect(state.fault).toBe(0);expect(state.m49152).toBe((state.ticks/4)%256);
@@ -100,9 +103,29 @@ test('converter runs CB operations from imported bytes',async({page})=>{
   await page.locator('.power-switch').click();await halt(page);
   expect(await read(page,['ticks','pc','a','f'])).toEqual({ticks:4,pc:263,a:3,f:176});
 });
-test('converter traps a CB prefix at the ROM boundary without retiring it',async({page})=>{
-  const rom=Buffer.alloc(32768);rom.set([0xC3,0xFF,0x7F],0x100);rom[32767]=0xCB;
-  await upload(page,rom,{format:'gb',name:'truncated-prefix.gb'});
+test('converter traps a CB prefix whose second byte is unmapped',async({page})=>{
+  await upload(page,Buffer.from([0x3E,0xCB,0xE0,0xFE,0xC3,0xFE,0xFF]));
   await page.locator('.power-switch').click();await expect(page.locator('.fault-message')).toBeVisible();
-  expect(await read(page,['ticks','pc','a','f','fault'])).toEqual({ticks:1,pc:32767,a:0,f:0,fault:1});
+  expect(await read(page,['ticks','pc','a','f','m65534','fault'])).toEqual({ticks:3,pc:65534,a:203,f:0,m65534:203,fault:1});
+});
+test('converter fetches a CB instruction across mapped ROM and VRAM',async({page})=>{
+  const rom=Buffer.alloc(32768);
+  rom.set([0x3E,0x07,0xEA,0,0x80,0x3E,0x76,0xEA,1,0x80,0x3E,0x81,0xC3,0xFF,0x7F],0x100);
+  rom[32767]=0xCB;
+  await upload(page,rom,{format:'gb',name:'cross-boundary.gb'});
+  await page.locator('.power-switch').click();await halt(page);
+  expect(await read(page,['ticks','pc','a','f','m32768','m32769'])).toEqual({ticks:8,pc:32770,a:3,f:16,m32768:7,m32769:118});
+});
+
+test('converter preserves low restart vectors and HRAM stack/data',async({page})=>{
+  const rom=Buffer.alloc(32768);rom.set([0x3C,0xC9],0x38);
+  rom.set([0x31,0xFE,0xFF,0x3E,41,0xFF,0xEA,0x80,0xFF,0xF0,0x80,0x76],0x100);
+  await upload(page,rom,{format:'gb',name:'restart.gb'});
+  await page.locator('.power-switch').click();await halt(page);
+  expect(await read(page,['ticks','pc','a','f','sp','m65408','m65532','m65533'])).toEqual({ticks:8,pc:268,a:42,f:0,sp:65534,m65408:42,m65532:6,m65533:1});
+});
+test('converter executes uploaded code copied into HRAM',async({page})=>{
+  await upload(page,Buffer.from([0x3E,0x76,0xE0,0xFE,0xC3,0xFE,0xFF]));
+  await page.locator('.power-switch').click();await halt(page);
+  expect(await read(page,['ticks','pc','m65534','fault'])).toEqual({ticks:4,pc:65535,m65534:118,fault:0});
 });

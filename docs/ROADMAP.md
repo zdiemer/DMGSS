@@ -15,7 +15,10 @@
    **CB milestone:** all 256 prefixed operations, atomic two-byte retirement,
    BIT read-only access and RAM/VRAM modification. Independent coverage now
    includes 14,848 upstream cases.
-   Next: restart vectors, high RAM and I/O addressing. See [external-test status](COMPATIBILITY.md).
+   **High RAM milestone:** all restart vectors and LDH forms, all 127 HRAM
+   bytes, executable mapped RAM, and atomic instruction-fetch validation.
+   Coverage now includes 15,232 independent cases.
+   Next: interrupt state and delivery, HALT behavior and hardware registers. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Full SM83 CPU, restart vectors, interrupts, timers and DMA, verified against test ROMs.
