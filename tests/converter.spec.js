@@ -68,7 +68,7 @@ test('converter automatic raw program continues beyond a batch',async({page})=>{
 test('converter preserves traps instead of pretending an imported ROM passes',async({page})=>{
   await upload(page,Buffer.from([0x21,0,1,0x3E,7,0x22]));await page.locator('.power-switch').click();
   await expect(page.locator('.fault-message')).toBeVisible();
-  expect(await read(page,['ticks','pc','h','l','a','fault'])).toEqual({ticks:2,pc:261,h:1,l:0,a:7,fault:1});
+  expect(await read(page,['ticks','tcycles','pc','h','l','a','fault'])).toEqual({ticks:2,tcycles:20,pc:261,h:1,l:0,a:7,fault:1});
 });
 test('converter download is one offline HTML file and metadata stays text',async({page},info)=>{
   await page.goto('/convert/');
@@ -84,7 +84,7 @@ test('converter download is one offline HTML file and metadata stays text',async
   const requests=[];page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url())});
   await page.goto(pathToFileURL(file).href);
   await page.locator('.power-switch').click();await halt(page);
-  expect(await read(page,['ticks','m49152'])).toEqual({ticks:3,m49152:42});
+  expect(await read(page,['ticks','tcycles','m49152'])).toEqual({ticks:3,tcycles:28,m49152:42});
   await reset(page);
   expect(await read(page,['ticks'])).toEqual({ticks:0});expect(requests).toEqual([]);
 });
@@ -136,7 +136,7 @@ test('converter preserves software interrupt requests and RETI',async({page})=>{
   rom.set([0x04,0xD9],0x40);
   await upload(page,rom,{format:'gb',name:'interrupt.gb'});
   await page.locator('.power-switch').click();await halt(page);
-  const expected={ticks:9,pc:268,b:1,sp:65534,ime:1,'ime-delay':0,m65295:224,m65535:1,m65532:11,m65533:1};
+  const expected={ticks:9,tcycles:96,pc:268,b:1,sp:65534,ime:1,'ime-delay':0,m65295:224,m65535:1,m65532:11,m65533:1};
   expect(await read(page,Object.keys(expected))).toEqual(expected);
 });
 test('converter fetches an operand from ROM after wrapping past IE',async({page})=>{

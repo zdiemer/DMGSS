@@ -1,4 +1,4 @@
-"""Test-only, independent single-instruction CSS fixtures; no Python emulation.
+"""Test-only single-instruction CSS fixtures; no Python emulation.
 
 Initial state is fixed at generation time. Expected state is never emitted into
 the browser document; Playwright only reads results with page JS disabled.
@@ -22,14 +22,14 @@ class FixtureROM(ROM):
     def lookup(self, key, choose, extra=None, valid=None):
         # These numeric inputs are encoded before loading, just like ROM bytes.
         data = choose(key, {address: f'calc(({value}) - 255)' for address,value in (extra or {}).items()}, 0)
-        return f'calc(255 + ({self.match(key, "input-address")}) * (var(--input-opcode) - 255) + ({self.match(key, "input-address1")}) * (var(--input-byte) - 255) + ({data}))'
+        return f'calc(255 + ({self.match(key, "input-address")}) * (var(--input-opcode) - 255) + ({self.match(key, "input-address1")}) * (var(--input-byte) - 255) + ({self.match(key, "input-address2")}) * (var(--input-upper) - 255) + ({data}))'
 
     @staticmethod
     def match(key, address):
         return f'max(0, 1 - abs(var(--{key}) - var(--{address})))'
 
     def readable(self, key, choose, addresses):
-        return f'calc(({self.match(key, "input-address")}) + ({self.match(key, "input-address1")}) + ({choose(key, dict.fromkeys(addresses, 1), 0)}))'
+        return f'calc(({self.match(key, "input-address")}) + ({self.match(key, "input-address1")}) + ({self.match(key, "input-address2")}) + ({choose(key, dict.fromkeys(addresses, 1), 0)}))'
 
 
 def cases():
@@ -60,7 +60,7 @@ def cases():
             initial.update(h=0xC0,l=0)
             final.update(h=0xC0,l=0)
         initial['m49152'] = value
-        final.update(m49152=final_value, ticks=1, fault=0, halted=0)
+        final.update(m49152=final_value, ticks=1, fault=0, halted=0, tcycles=4*len(case['cycles']))
         source = f'cb{second//64}' if opcode == 0xCB else 'sm83'
         result[source].append({'name':case['name'], 'opcode':opcode,
                               'byte':second,
@@ -87,7 +87,7 @@ def cases():
             address = 0xFF00 + (second if opcode in (0xE0,0xF0) else before['c'])
             initial[f'm{address}'] = memory[address]
             final[f'm{address}'] = output[address]
-        final.update(ticks=1, fault=0, halted=0)
+        final.update(ticks=1, fault=0, halted=0, tcycles=4*len(case['cycles']))
         result['high'].append({'name':case['name'], 'opcode':opcode, 'byte':second,
                                'initial':initial, 'final':final})
     result['interrupts'] = []
@@ -99,7 +99,7 @@ def cases():
         final = {reg:after[reg] for reg in REGISTERS}
         initial.update(pc=256, ime=before['ime'], **{'ime-delay':0})
         final.update(ime=after['ime'], **{'ime-delay':after.get('ei',0)},
-                     ticks=1, halted=0, fault=0, m49152=0, m49153=0)
+                     ticks=1, halted=0, fault=0, m49152=0, m49153=0, tcycles=4*len(case['cycles']))
         if opcode == 0xD9:
             initial['sp'] = 0xC000
             final['sp'] = 0xC000 + ((after['sp']-before['sp'])%65536)
@@ -110,6 +110,35 @@ def cases():
         else:
             final['pc'] = 256 + ((after['pc']-before['pc'])%65536)
         result['interrupts'].append(dict(name=case['name'],opcode=opcode,byte=0,initial=initial,final=final))
+    result['timing'] = []
+    for case in json.loads((ROOT / 'tests/vendor/sm83/timing.json').read_text()):
+        before = case['initial']
+        opcode = dict(before['ram'])[before['pc']]
+        # Timing-only adaptation: keep opcode and flags, put all operands in
+        # mapped memory. Duration is copied from raw upstream M-state counts;
+        # no register-result or bus-order equivalence is claimed for this set.
+        initial = dict(pc=256,sp=0xC020,h=0xC0,l=0,b=0xC0,c=0,d=0xC0,e=0,f=before['f'])
+        if opcode in (0xE2,0xF2): initial['c'] = 0x80
+        result['timing'].append(dict(name=case['name'],opcode=opcode,
+            byte=0x80 if opcode in (0xE0,0xF0) else 0,upper=0xC0,
+            initial=initial,final=dict(ticks=1,tcycles=4*len(case['cycles']),fault=0,halted=0)))
+    result['timing_edges'] = []
+    for name, opcode, second, seed, ticks, elapsed, halted, fault in [
+        ('HALT entry',0x76,0,{},1,4,1,0),
+        ('HALT sleeping freezes accounting',0,0,{'halted':1},0,0,1,0),
+        ('HALT bug entry',0x76,0,{'m65295':225,'m65535':1},1,4,0,0),
+        ('interrupt entry',0,0,{'ime':1,'m65295':225,'m65535':1},0,20,0,0),
+        ('interrupt stack failure',0,0,{'ime':1,'m65295':225,'m65535':1,'sp':0xC001},0,0,0,1),
+        ('illegal opcode',0xD3,0,{},0,0,0,1),
+        ('unsupported STOP',0x10,0,{},0,0,0,1),
+        ('CB unmapped operand',0xCB,0x06,{'h':0x90,'l':0},0,0,0,1),
+        ('word write second lane invalid',0xC5,0,{'sp':0xC041},0,0,0,1),
+        ('faulted CPU stays frozen',0,0,{'fault':1},0,0,0,1),
+        ('cycle counter wraps',0,0,{'tcycles':65532},1,4,0,0),
+    ]:
+        initial = dict(pc=256,sp=0xC020,tcycles=60,ticks=7) | seed
+        result['timing_edges'].append(dict(name=name,opcode=opcode,byte=second,initial=initial,
+            final=dict(ticks=7+ticks,tcycles=(initial['tcycles']+elapsed)%65536,halted=halted,fault=fault)))
     return result
 
 
@@ -129,7 +158,8 @@ def build(out):
                 for index, case in enumerate(vectors[offset:offset+CHUNK], offset):
                     seed = {**{f'next-{k}':v for k,v in case['initial'].items()},
                             'input-address':case['initial']['pc'], 'input-address1':(case['initial']['pc']+1)%65536,
-                            'input-opcode':case['opcode'], 'input-byte':case['byte']}
+                            'input-address2':(case['initial']['pc']+2)%65536 if 'upper' in case else -1,
+                            'input-opcode':case['opcode'], 'input-byte':case['byte'], 'input-upper':case.get('upper',0)}
                     inline = ''.join(f'--{k}:{v};' for k,v in seed.items())
                     html.append(f'<section style="{inline}"><div class="pipeline-read"><div class="pipeline-execute"><div class="pipeline-read result" data-index="{index}">case {index}</div></div></div></section>')
                 html.append('</body></html>')

@@ -205,6 +205,11 @@ if __name__ == '__main__':
             program = ROM(case['rom'], base=case['base'], compact=False) if 'base' in case else case['rom']
             build(program, ROOT / 'dist/tests' / case['name'], initial=case.get('initial'))
             build(program, ROOT / 'dist/portable/tests' / case['name'], bounded=True, initial=case.get('initial'))
+        # 128th step is BIT [HL]; the next batch modifies memory and branches.
+        # Seed near wrap to check that all modes retain a full 16-bit cycle count.
+        timing = [0x21,0,0xC0] + [0]*126 + [0xCB,0x46,0x36,0x81,0xCB,0x06,0x20,0,0x76]
+        build_checkpoint(timing, ROOT / 'dist/checkpoint/tests/timing', initial={'tcycles':65520})
+        build_automatic(timing, ROOT / 'dist/automatic/tests/timing', initial={'tcycles':65520})
         wake = next(case for case in cases if case['name'] == 'interrupt-halt-wakes-with-ime')
         build_automatic(ROM(wake['rom'],base=0), ROOT / 'dist/automatic/tests/interrupt-wake', initial=wake['initial'])
         build([0x18, 0xFE], ROOT / 'dist/portable/tests/loop', bounded=True)

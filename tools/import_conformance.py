@@ -79,10 +79,26 @@ def main():
             selected.extend(chosen)
         (out / 'sm83' / filename).write_text(json.dumps(selected, separators=(',', ':')) + '\n')
         counts.append(len(selected))
-    for file in ('mooneye/daa.json', 'mooneye/LICENSE', 'sm83/alu.json', 'sm83/cb.json', 'sm83/high.json', 'sm83/interrupts.json', 'sm83/LICENSE'):
+    # One raw example of each observed duration for every ordinary unprefixed
+    # instruction. HALT's upstream record includes idle samples; STOP is not
+    # implemented. CB durations are already covered by all 256 CB datasets.
+    timing = []
+    excluded = {0x10,0x76,0xCB,0xD3,0xDB,0xDD,0xE3,0xE4,0xEB,0xEC,0xED,0xF4,0xFC,0xFD}
+    for opcode in sorted(set(range(256)) - excluded):
+        source = (args.sm83 / f'v1/{opcode:02x}.json').read_bytes()
+        manifest['sources'][f'sm83/v1/{opcode:02x}.json'] = sha(source)
+        seen = set()
+        for case in json.loads(source):
+            count = len(case['cycles'])
+            if count not in seen:
+                seen.add(count)
+                timing.append(case)
+    assert len(timing) == 258
+    (out / 'sm83/timing.json').write_text(json.dumps(timing, separators=(',', ':')) + '\n')
+    for file in ('mooneye/daa.json', 'mooneye/LICENSE', 'sm83/alu.json', 'sm83/cb.json', 'sm83/high.json', 'sm83/interrupts.json', 'sm83/timing.json', 'sm83/LICENSE'):
         manifest['outputs'][file] = sha((out / file).read_bytes())
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    print(f'Imported {len(vectors)} hardware DAA cases and {sum(counts)} instruction vectors.')
+    print(f'Imported {len(vectors)} hardware DAA cases, {sum(counts)} instruction vectors and {len(timing)} duration cases.')
 
 
 if __name__ == '__main__':

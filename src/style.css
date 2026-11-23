@@ -64,3 +64,5 @@
 .portable-link {font-size:12px;line-height:1.5;} .intro .mode-switch {font-size:14px;}
 
 @media(max-width:360px){.cartridges{gap:3px}.cartridges a{padding-inline:3px;font-size:10px}}
+
+.timing-note{line-height:1.5;color:#4f5c55;margin:12px 0 0}

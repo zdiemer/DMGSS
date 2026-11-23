@@ -56,6 +56,8 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   initially because its unused bits read as one; IE and IME are zero. No boot ROM or
   post-boot state is synthesized. The CPU still supports 243 unprefixed and 256 CB-prefixed instructions, 64
   bytes of work RAM, 127 bytes of high RAM and one VRAM tile. DI/EI/RETI, software interrupt requests and the HALT bug are supported.
+  The Machine inspector counts T-cycles modulo 65,536; bus timing and HALT idle
+  clocks are not implemented.
   Banking, full graphics, hardware interrupt sources, timers, joypad and audio are unimplemented. Unknown instructions and unmapped
   accesses trap. HALTED means the program halted, not that a game is compatible.
 

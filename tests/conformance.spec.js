@@ -5,7 +5,7 @@ const datasets=JSON.parse(execFileSync('python3',['tools/conformance.py','--expe
 const batchSize=2048;
 for(const mode of ['math','native'])for(const [source,vectors] of Object.entries(datasets))for(let start=0;start<vectors.length;start+=batchSize){
   const end=Math.min(start+batchSize,vectors.length);
-  test(`${mode} CPU matches independent ${source} vectors ${start}–${end-1}`,async({page},info)=>{
+  test(`${mode} CPU matches ${source==='timing_edges'?'original':'independent'} ${source} vectors ${start}–${end-1}`,async({page},info)=>{
     test.skip(mode==='native'&&info.project.name==='webkit-mobile','Native CSS if() is a Chromium engine requirement');
     test.setTimeout(180000);
     const keys=Object.keys(vectors[0].final);

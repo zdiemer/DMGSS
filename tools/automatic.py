@@ -8,7 +8,7 @@ from portable import storage
 
 
 def modulus(name):
-    return 2 if name in ('halted', 'fault', 'ime', 'ime-delay', 'halt-bug') else 65536 if name in ('pc', 'sp', 'ticks') else 256
+    return 2 if name in ('halted', 'fault', 'ime', 'ime-delay', 'halt-bug') else 65536 if name in ('pc', 'sp', 'ticks', 'tcycles') else 256
 
 
 def generate(rom, initial=None):

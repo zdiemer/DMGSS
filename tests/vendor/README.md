@@ -28,7 +28,7 @@ python3 tools/import_conformance.py --mooneye /path/to/mooneye-test-suite --sm83
 The browser fixtures relocate PC to 0100 and `[HL]` data to C000. All other
 register inputs and expected outputs remain upstream values. CB memory results
 are copied directly from upstream final RAM, including read-modify-write cases. They compare
-instruction-level state, not bus cycles, interrupts, IME or IE. See
+instruction-level state and duration, not bus ordering, interrupts, IME or IE. See
 [the compatibility report](../../docs/COMPATIBILITY.md) for the exact boundary
 between these checks and running complete test ROMs.
 
@@ -38,13 +38,25 @@ upstream pushed return bytes are unchanged, while SP and its two stack bytes
 move into HRAM. LDH candidates address FF80–FFFE and exclude instruction/data
 aliases; those actual HRAM addresses and expected values are retained. The
 fixture's two ROM slots are seeded at generation time to preserve RST PCs.
-Cycles and interrupt state remain outside the comparison.
+Instruction durations use four times the upstream M-state array length; bus
+ordering and interrupt state remain outside this comparison.
 
 
 `sm83/interrupts.json` adds 96 raw DI/EI/RETI records from the same pin, selecting
 32 per opcode with every observed output-flag/initial-IME pair. RETI instruction/
 stack alias cases are excluded. The adapter preserves registers, upstream IME
 and the final `ei` latch; RETI relocates only SP/stack lanes, retaining its exact
-upstream target and byte values. As with earlier datasets, cycle arrays and the
-corpus's unrelated initial `ie` metadata are not scored. New independent total:
+upstream target and byte values. As with earlier datasets, the cycle array supplies instruction duration; its
+bus ordering and the corpus's unrelated initial `ie` metadata are not scored. New independent total:
 15,328 cases. Original multi-instruction interrupt regressions are separate.
+
+
+`sm83/timing.json` preserves 258 raw records: the first example of each observed
+M-state count for every ordinary unprefixed instruction. HALT is excluded because
+upstream includes idle samples, STOP is unsupported, and CB is already covered
+above. The timing-only adapter keeps opcode and initial flags but replaces
+registers/operands with mapped addresses; only retirement and total duration
+are compared. This covers 242 instructions and both paths of 16 conditions.
+Expected T-cycles are four times each record's `cycles` length. These are not
+additional full-state or whole-ROM passes. Original timing edge cases are
+separate and have no upstream provenance claim.
