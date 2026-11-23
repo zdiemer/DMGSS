@@ -9,7 +9,10 @@
    Tile lab now runs a pointer-based copy loop.
    **Stack milestone:** 152 opcodes, PUSH/POP, CALL/RET (including conditions),
    conditional JP, signed SP arithmetic and two-byte SP stores. Stack lab runs
-   nested subroutines. Next: remaining 8-bit ALU and CB-prefixed bit operations.
+   nested subroutines.
+   **ALU milestone:** 228 base opcodes, complete 8-bit ALU, accumulator rotates,
+   DAA and flag controls. Verified against 6,656 independent upstream cases.
+   Next: CB-prefixed bit operations. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Full SM83 CPU, restart vectors, interrupts, timers and DMA, verified against test ROMs.

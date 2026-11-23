@@ -337,3 +337,32 @@ window, 7FFF, mapped zero padding, raw programs, continuing/trapping CPU state,
 native form reset, download and offline file execution with page JS disabled.
 Unit tests cover unsupported layouts, upload parsing/limits, metadata escaping,
 no-overwrite CLI behavior and data preservation. See [usage and limits](CONVERTER.md).
+
+## 8-bit ALU and independent conformance (build 10)
+
+The base decoder now implements 228 opcodes. All ADD/ADC/SUB/SBC/AND/XOR/OR/CP
+register, immediate and `[HL]` forms use a shared operand/result network. The
+bitwise paths combine eight numeric bit extractions; Python emits expressions
+but never evaluates a ROM program. Carry and half-carry use the old accumulator,
+operand and input carry. CP changes only flags. Memory forms reuse the ordinary
+read validation, so an unmapped operand traps without changing PC, flags or A.
+
+DAA derives its correction from old A/N/H/C; subtraction uses only the H/C
+corrections. It recomputes Z, preserves N, clears H and returns the adjusted C.
+Accumulator rotates always clear Z, unlike the future CB-prefixed forms. CPL
+preserves Z/C; SCF and CCF preserve Z and clear N/H. Semantics are checked against
+[RGBDS's instruction reference](https://rgbds.gbdev.io/docs/gbz80.7) and external
+expected-state fixtures described in [compatibility evidence](COMPATIBILITY.md).
+
+`tools/conformance.py` emits independent one-instruction feed-forward cells
+using the production `machine()` and `portable.storage()` generators. Each
+cell's input ROM bytes and initial registers are numeric CSS data fixed before
+loading. Expected results are never passed to the browser page. The tests read
+state with page JavaScript disabled, covering both CSS calculation paths where
+supported. The adapter relocates PC and `[HL]` memory for our restricted map;
+it does not test bus cycles or the upstream suites' full ROM harnesses.
+
+An original ALU lab exercises the new instructions through real program flow
+and visible success/failure. Separate end-to-end programs validate flags across
+automatic and manually copied storage banks. ROM conversion retains the same
+size limits, privacy behavior and explicit external-conversion caveat.

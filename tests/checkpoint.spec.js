@@ -130,3 +130,10 @@ test('checkpoint stack lab needs no extra batch', async ({page})=>{
   expect(await read(page,['ticks','sp','m49154','halted','fault'])).toEqual({ticks:52,sp:49216,m49154:165,halted:1,fault:0});
   await expect(page.locator('.checkpoint-controls')).not.toBeVisible();
 });
+
+test('checkpoint continuation carries flags into ADC after bit saves',async({page})=>{
+  await page.goto('/checkpoint/tests/alu-carry/');await page.locator('.power-switch').click();
+  expect(await read(page,['ticks','a','f'])).toEqual({ticks:128,a:255,f:16});
+  await continueBatch(page);
+  expect(await read(page,['ticks','a','f','m49154','halted','fault'])).toEqual({ticks:131,a:0,f:176,m49154:0,halted:1,fault:0});
+});

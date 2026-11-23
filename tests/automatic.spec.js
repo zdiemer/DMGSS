@@ -173,3 +173,8 @@ test('automatic stack lab is reachable and finishes with a restored SP', async (
   expect(await page.locator('.cartridges').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await expect(page.locator('.cartridges [aria-current="page"]')).toHaveText('Stack lab');
 });
+
+test('automatic continuation carries flags into ADC after a bank transfer',async({page})=>{
+  await page.goto('/automatic/tests/alu-carry/');await toggle(page);
+  await expect.poll(()=>read(page,['ticks','a','f','m49154','halted','fault']),{timeout:15000}).toEqual({ticks:131,a:0,f:176,m49154:0,halted:1,fault:0});
+});

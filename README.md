@@ -7,8 +7,8 @@ browser automation is used only for testing.
 ## Status
 
 Early development. Not yet a general-purpose Game Boy emulator.
-The current build executes original embedded ROMs on a 152-opcode CSS CPU with
-16-bit register pairs, indirect addressing, stack/subroutines, arithmetic flags, branches and 64 bytes of writable RAM.
+The current build executes original embedded ROMs on a 228-opcode CSS CPU with
+16-bit register pairs, indirect addressing, stack/subroutines, the complete 8-bit ALU, decimal adjustment, arithmetic flags, branches and 64 bytes of writable RAM.
 Power on to run it; the screen reports success or a CPU trap. Tile lab runs a
 second original ROM that copies a four-shade tile from ROM data into 16 bytes of VRAM using pointers. Stack lab exercises nested calls and saved registers. The full
 PPU, timers, interrupts and game compatibility remain ahead.
@@ -83,3 +83,8 @@ bytes, never an execution trace. The resulting single HTML file runs the CPU in
 HTML/CSS with no runtime scripts. Server uploads are not retained; use the offline
 command to keep conversion local. Import does not imply game compatibility.
 See [converter limits and usage](docs/CONVERTER.md).
+
+[Try ALU lab](https://dmgss.zachd.duckdns.org/automatic/alu/): decimal arithmetic,
+carry, bitwise operations and rotations. The CPU is checked against 6,656
+independent cases from Mooneye and SingleStepTests. These are adapted CPU-state
+checks, not whole-ROM or timing passes; see [compatibility evidence](docs/COMPATIBILITY.md).
