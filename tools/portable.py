@@ -13,8 +13,10 @@ def storage(states):
     return '\n'.join(declarations) + '\n.pipeline-read {' + ''.join(read) + '}\n.pipeline-execute {' + ''.join(execute) + '}\n'
 
 
-def stylesheet(rom):
-    css = machine(rom, storage, arithmetic=True)
+def stylesheet(rom, initial=None):
+    def seeded(definitions):
+        return storage({name: ((initial or {}).get(name,value), expression) for name,(value,expression) in definitions.items()})
+    css = machine(rom, seeded, arithmetic=True)
     # The instruction decoder operates at every generic execution stage.
     css = css.replace('\n.machine {', '\n.pipeline-execute {')
     return css + tile_css(arithmetic=True)

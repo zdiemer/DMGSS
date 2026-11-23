@@ -18,10 +18,12 @@
    **High RAM milestone:** all restart vectors and LDH forms, all 127 HRAM
    bytes, executable mapped RAM, and atomic instruction-fetch validation.
    Coverage now includes 15,232 independent cases.
-   Next: interrupt state and delivery, HALT behavior and hardware registers. See [external-test status](COMPATIBILITY.md).
+   **Interrupt milestone:** DI, delayed EI, RETI, IE/IF register semantics,
+   priority dispatch and the HALT bug. 15,328 independent instruction cases.
+   Next: cycle accounting, timers/serial interrupt sources, STOP and broader RAM. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
-5. Full SM83 CPU, restart vectors, interrupts, timers and DMA, verified against test ROMs.
+5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.
 6. Joypad integration, sprites, scrolling, cartridge banking and game testing.
 
 Audio and persistent saves require separate feasibility research. HTML file

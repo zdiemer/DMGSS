@@ -414,3 +414,44 @@ retirement, even for an untaken conditional branch. This is essential because
 FF is now a valid RST 38: the lookup's unmapped placeholder must not act as an
 instruction. Missing bytes trap without changing PC, ticks, registers or memory.
 This remains instruction-level behavior, without hardware bus-cycle timing.
+
+
+## Build 13: interrupt control and instruction-boundary delivery
+
+The CSS CPU retains IME, a one-instruction EI delay latch, a one-fetch HALT-bug
+latch, IF and IE. This expands automatic storage to 225 words / 451 scroll cells
+and each manual bank to 1,789 bits / 3,580 total inputs including commit/power.
+IF is initialized to E0; writes retain low five bits and reads force the upper
+three to one. IE retains eight bits but dispatch considers only the low five.
+
+Pending requests are the low-five-bit intersection of IF and IE. With IME set,
+the lowest set bit selects vector 40/48/50/58/60. A synthetic internal operation
+uses the same atomic stack-write path to push current PC, clears the selected
+IF bit and IME/delay, then jumps. It runs before fetching an instruction, even
+if current PC is unmapped. It consumes one pipeline stage without incrementing
+`ticks`; the 128-stage batch therefore retires at most 128 instructions.
+The synthetic operation is not counted as a supported opcode.
+
+DI cancels both IME and scheduled EI. EI schedules enable after the next retired
+instruction; another EI does not postpone a previous enable. RETI enables at
+retirement. Failed fetches/accesses leave these latches unchanged. Sleeping
+HALT blocks retirement only while no enabled request is pending. With IME off
+and a request already pending, HALT instead sets a one-use fetch latch. Opcode
+fetch still reads PC, while operands, sequential PC and return-address math
+use PC minus that latch. Interrupt entry also uses the adjusted return PC for
+EI→HALT. Both paths consume the latch exactly once.
+
+The automatic copy gate examines pending requests in the immutable source, so
+a halted source with a request can still commit its resumed result. Tests seed
+such states only before page load. There are no asynchronous hardware sources
+yet. Interrupt entry remains atomic rather than five M-cycles; stack writes to
+IE/IF do not reproduce the hardware's cycle-by-cycle cancellation races.
+
+
+Continuous-counter inspection is expensive in Chromium: the same local probe
+on 0.11 and 0.12 measured approximately ten seconds per running computed-style
+read and twenty seconds for a native Pause input. Shared CI exceeded a fifteen-
+second read deadline. Counter progress checks allow thirty seconds per read and
+seven minutes for the repeated pause/resume scenario, preserving exact state,
+no-inspection progress, and bounded-stall assertions. Finite interrupt programs
+retain their shorter deadlines.

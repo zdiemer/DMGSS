@@ -104,9 +104,9 @@ test('converter runs CB operations from imported bytes',async({page})=>{
   expect(await read(page,['ticks','pc','a','f'])).toEqual({ticks:4,pc:263,a:3,f:176});
 });
 test('converter traps a CB prefix whose second byte is unmapped',async({page})=>{
-  await upload(page,Buffer.from([0x3E,0xCB,0xE0,0xFE,0xC3,0xFE,0xFF]));
+  await upload(page,Buffer.from([0x3E,0xCB,0xE0,0xFF,0xC3,0xFF,0xFF]));
   await page.locator('.power-switch').click();await expect(page.locator('.fault-message')).toBeVisible();
-  expect(await read(page,['ticks','pc','a','f','m65534','fault'])).toEqual({ticks:3,pc:65534,a:203,f:0,m65534:203,fault:1});
+  expect(await read(page,['ticks','pc','a','f','m65535','fault'])).toEqual({ticks:3,pc:65535,a:203,f:0,m65535:203,fault:1});
 });
 test('converter fetches a CB instruction across mapped ROM and VRAM',async({page})=>{
   const rom=Buffer.alloc(32768);
@@ -128,4 +128,21 @@ test('converter executes uploaded code copied into HRAM',async({page})=>{
   await upload(page,Buffer.from([0x3E,0x76,0xE0,0xFE,0xC3,0xFE,0xFF]));
   await page.locator('.power-switch').click();await halt(page);
   expect(await read(page,['ticks','pc','m65534','fault'])).toEqual({ticks:4,pc:65535,m65534:118,fault:0});
+});
+
+test('converter preserves software interrupt requests and RETI',async({page})=>{
+  const rom=Buffer.alloc(32768);
+  rom.set([0x31,0xFE,0xFF,0x3E,1,0xE0,0xFF,0xE0,0x0F,0xFB,0,0x76],0x100);
+  rom.set([0x04,0xD9],0x40);
+  await upload(page,rom,{format:'gb',name:'interrupt.gb'});
+  await page.locator('.power-switch').click();await halt(page);
+  const expected={ticks:9,pc:268,b:1,sp:65534,ime:1,'ime-delay':0,m65295:224,m65535:1,m65532:11,m65533:1};
+  expect(await read(page,Object.keys(expected))).toEqual(expected);
+});
+test('converter fetches an operand from ROM after wrapping past IE',async({page})=>{
+  const rom=Buffer.alloc(32768);rom[0]=42;rom[1]=0x76;
+  rom.set([0x3E,0x3E,0xE0,0xFF,0xC3,0xFF,0xFF],0x100);
+  await upload(page,rom,{format:'gb',name:'wrap.gb'});
+  await page.locator('.power-switch').click();await halt(page);
+  expect(await read(page,['ticks','pc','a','m65535'])).toEqual({ticks:5,pc:2,a:42,m65535:62});
 });

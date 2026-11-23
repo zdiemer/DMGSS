@@ -101,6 +101,36 @@ class ConformanceDataTests(unittest.TestCase):
         self.assertEqual(set(coverage), {*range(0xC7,0x100,8),0xE0,0xF0,0xE2,0xF2})
         self.assertEqual(set(coverage.values()), {32})
 
+    def test_interrupt_adapter_preserves_ime_delay_and_return_target(self):
+        raw = json.loads((ROOT / 'tests/vendor/sm83/interrupts.json').read_text())
+        vectors = cases()['interrupts']
+        self.assertEqual(len(raw), 96)
+        self.assertEqual(len(vectors), len(raw))
+        coverage = {}
+        for original, case in zip(raw,vectors):
+            before, after = original['initial'], original['final']
+            opcode = dict(before['ram'])[before['pc']]
+            coverage[opcode] = coverage.get(opcode,0)+1
+            self.assertEqual(case['initial']['ime'],before['ime'])
+            self.assertEqual(case['final']['ime'],after['ime'])
+            self.assertEqual(case['final']['ime-delay'],after.get('ei',0))
+            for reg in ('a','b','c','d','e','f','h','l'):
+                self.assertEqual(case['initial'][reg],before[reg])
+                self.assertEqual(case['final'][reg],after[reg])
+            if opcode == 0xD9:
+                self.assertEqual(case['final']['pc'],after['pc'])
+                self.assertEqual(case['initial']['sp'],0xC000)
+                self.assertEqual(case['final']['sp'],0xC002)
+                for delta in (0,1):
+                    address=(before['sp']+delta)%65536
+                    self.assertEqual(case['initial'][f'm{0xC000+delta}'],dict(before['ram'])[address])
+                    self.assertEqual(case['final'][f'm{0xC000+delta}'],dict(after['ram'])[address])
+            else:
+                self.assertEqual(case['final']['pc'],257)
+                self.assertEqual(case['initial']['sp'],before['sp'])
+                self.assertEqual(case['final']['sp'],after['sp'])
+        self.assertEqual(coverage,{0xF3:32,0xFB:32,0xD9:32})
+
 
 if __name__ == '__main__':
     unittest.main()

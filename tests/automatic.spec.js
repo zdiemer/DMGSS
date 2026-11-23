@@ -8,9 +8,10 @@ const read = (page, keys) => page.locator('.machine').evaluate((el, keys) => {
   const style = getComputedStyle(el);
   return Object.fromEntries(keys.map(k => [k, Number(style.getPropertyValue(`--${k}`))]));
 }, keys);
-// A computed-style read on the running pipeline takes ~3.2s locally and can
-// exceed 5s on shared runners. Continuation checks use the existing 15s bound;
-// all exact CPU/coherence assertions stay intact.
+// Active computed-style reads take about 10s locally on both 0.11 and 0.12.
+// Shared CI can exceed 15s before a read resolves. Bound those reads at 30s;
+// keep every exact CPU/coherence assertion and the unattended interval.
+const COUNTER_PROGRESS_TIMEOUT = 30000;
 const ticks = async page => (await read(page, ['ticks'])).ticks;
 const toggle = page => test.info().project.name.endsWith('mobile')
   ? page.locator('.power-switch').tap() : page.locator('.power-switch').click();
@@ -22,13 +23,13 @@ function assertCounter(state, initial=0) {
 }
 
 test('automatic state advances beyond 1,000 instructions with one input, then pauses/resumes/resets', async ({page}, info) => {
-  // Full HRAM expands retention from 187 to 441 cells and adds mapped-RAM
-  // fetches. Budget repeated tap/readback cycles; keep every 15s progress check.
-  test.setTimeout(300000);
+  // HRAM and interrupt state expand retention to 451 cells, with mapped-RAM
+  // fetches. Budget repeated tap/readback cycles; retain bounded progress checks.
+  test.setTimeout(420000);
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
-  expect(await page.locator('.scroll-memory').count()).toBe(441);
+  expect(await page.locator('.scroll-memory').count()).toBe(451);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   const nodes = await page.locator('*').count();
   await toggle(page);
@@ -41,7 +42,7 @@ test('automatic state advances beyond 1,000 instructions with one input, then pa
     await page.waitForTimeout(150);
     assertCounter(await read(page, counterKeys));
   }
-  await expect.poll(() => ticks(page), {timeout:15000}).toBeGreaterThanOrEqual(1024);
+  await expect.poll(() => ticks(page), {timeout:COUNTER_PROGRESS_TIMEOUT}).toBeGreaterThanOrEqual(1024);
   await toggle(page);
   await page.waitForTimeout(150); // Allow an in-flight layout/timeline sample to settle.
   const paused = await read(page, counterKeys);
@@ -51,7 +52,7 @@ test('automatic state advances beyond 1,000 instructions with one input, then pa
   expect(await read(page, counterKeys)).toEqual(paused);
   await page.locator('#power').focus();
   await page.keyboard.press('Space');
-  await expect.poll(() => ticks(page), {timeout:15000}).toBeGreaterThan(paused.ticks);
+  await expect.poll(() => ticks(page), {timeout:COUNTER_PROGRESS_TIMEOUT}).toBeGreaterThan(paused.ticks);
   await toggle(page);
   expect(await page.locator('*').count()).toBe(nodes);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -60,7 +61,7 @@ test('automatic state advances beyond 1,000 instructions with one input, then pa
   await expect.poll(() => ticks(page)).toBe(0);
   expect(await read(page, counterKeys)).toEqual({ticks:0,pc:256,a:0,m49152:0,halted:0,fault:0});
   await toggle(page);
-  await expect.poll(() => ticks(page), {timeout:15000}).toBeGreaterThanOrEqual(256);
+  await expect.poll(() => ticks(page), {timeout:COUNTER_PROGRESS_TIMEOUT}).toBeGreaterThanOrEqual(256);
   assertCounter(await read(page, counterKeys));
 });
 
@@ -110,19 +111,19 @@ test('automatic bookkeeping wraps through 65535 without losing CPU state', async
   await page.goto('/automatic/tests/tick-wrap/');
   expect(await ticks(page)).toBe(65472);
   await toggle(page);
-  await expect.poll(() => ticks(page), {timeout:15000}).toBeLessThan(4096);
+  await expect.poll(() => ticks(page), {timeout:COUNTER_PROGRESS_TIMEOUT}).toBeLessThan(4096);
   await toggle(page); await page.waitForTimeout(150);
   assertCounter(await read(page, counterKeys), 65472);
 });
 
 test('automatic repeated pause/resume preserves committed state', async ({page}) => {
   // Five complete tap/readback cycles need the same overall budget as above.
-  test.setTimeout(300000);
+  test.setTimeout(420000);
   await page.goto('/automatic/');
   for (let i=0; i<5; i++) {
     const before = await ticks(page);
     await toggle(page);
-    await expect.poll(() => ticks(page), {timeout:15000}).toBeGreaterThan(before);
+    await expect.poll(() => ticks(page), {timeout:COUNTER_PROGRESS_TIMEOUT}).toBeGreaterThan(before);
     await toggle(page); await page.waitForTimeout(100);
     const state = await read(page, counterKeys);
     assertCounter(state);
@@ -199,4 +200,20 @@ test('automatic commits all 127 HRAM bytes before stopping',async({page})=>{
   await expect.poll(()=>read(page,['ticks','pc','halted','fault']),{timeout:20000}).toEqual({ticks:129,pc:513,halted:1,fault:0});
   const keys=Array.from({length:127},(_,i)=>`m${0xFF80+i}`);
   expect(await read(page,keys)).toEqual(Object.fromEntries(keys.map(k=>[k,90])));
+});
+
+for(const [kind,expected] of [
+  ['delay',{ticks:132,pc:391,b:1,sp:65534,ime:1,'ime-delay':0,'halt-bug':0,m65295:224,m65535:1,m65532:134,m65533:1,halted:1,fault:0}],
+  ['service',{ticks:130,pc:389,b:1,sp:65534,ime:1,'ime-delay':0,'halt-bug':0,m65295:224,m65535:1,m65532:132,m65533:1,halted:1,fault:0}],
+  ['bug',{ticks:133,pc:394,b:2,sp:65534,ime:0,'ime-delay':0,'halt-bug':0,m65295:224,m65535:1,halted:1,fault:0}],
+])test(`automatic retains interrupt ${kind} across banks`,async({page})=>{
+  await page.goto(`/automatic/tests/interrupt-${kind}/`);await toggle(page);
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:15000}).toEqual(expected);
+  await page.waitForTimeout(300);
+  expect(await read(page,Object.keys(expected))).toEqual(expected);
+});
+test('automatic commits a wakeup from a seeded halted source',async({page})=>{
+  await page.goto('/automatic/tests/interrupt-wake/');await toggle(page);
+  const expected={ticks:2,pc:257,sp:65534,ime:1,m65295:224,halted:1,fault:0};
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:15000}).toEqual(expected);
 });

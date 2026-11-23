@@ -15,11 +15,20 @@ jobs:
       - name: Reject plaintext deployment values
         run: test -z "$(git ls-files '*values.local.yaml')"
   browser:
+    name: browser (${{ matrix.project }}, ${{ matrix.suite }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         project: [desktop, chromium-mobile, webkit-mobile]
+        suite: [compute, continuation]
+        # Group by measured work: default file sharding puts all slow suites
+        # together. New spec files automatically join continuation.
+        include:
+          - suite: compute
+            file_filter: '(^|/)(cpu|conformance|portable)\.spec\.js$'
+          - suite: continuation
+            file_filter: '(^|/)(?!(cpu|conformance|portable)\.spec\.js$)[^/]+\.spec\.js$'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,7 +42,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
       - run: sudo apt-get install -y shared-mime-info
-      - run: npx playwright test --project=${{ matrix.project }}
+      - run: npx playwright test --project=${{ matrix.project }} '${{ matrix.file_filter }}'
   converter:
     runs-on: ubuntu-latest
     steps:

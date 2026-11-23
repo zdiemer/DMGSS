@@ -90,6 +90,26 @@ def cases():
         final.update(ticks=1, fault=0, halted=0)
         result['high'].append({'name':case['name'], 'opcode':opcode, 'byte':second,
                                'initial':initial, 'final':final})
+    result['interrupts'] = []
+    for case in json.loads((ROOT / 'tests/vendor/sm83/interrupts.json').read_text()):
+        before, after = case['initial'], case['final']
+        memory = dict(before['ram'])
+        opcode = memory[before['pc']]
+        initial = {reg:before[reg] for reg in REGISTERS}
+        final = {reg:after[reg] for reg in REGISTERS}
+        initial.update(pc=256, ime=before['ime'], **{'ime-delay':0})
+        final.update(ime=after['ime'], **{'ime-delay':after.get('ei',0)},
+                     ticks=1, halted=0, fault=0, m49152=0, m49153=0)
+        if opcode == 0xD9:
+            initial['sp'] = 0xC000
+            final['sp'] = 0xC000 + ((after['sp']-before['sp'])%65536)
+            for delta in (0,1):
+                address = (before['sp']+delta)%65536
+                initial[f'm{0xC000+delta}'] = memory[address]
+                final[f'm{0xC000+delta}'] = dict(after['ram'])[address]
+        else:
+            final['pc'] = 256 + ((after['pc']-before['pc'])%65536)
+        result['interrupts'].append(dict(name=case['name'],opcode=opcode,byte=0,initial=initial,final=final))
     return result
 
 

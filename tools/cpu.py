@@ -3,6 +3,8 @@ from rom import ROM
 
 REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
 RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC040), *range(0xFF80, 0xFFFF)]
+IF, IE = 0xFF0F, 0xFFFF
+MEMORY = [*RAM, IF, IE]
 
 
 def choose_native(key, values, default):
@@ -76,7 +78,9 @@ def instruction_set():
     def op(code, size=1, **effects):
         ops[code] = {'size': size, **effects}
     op(0x00)
-    op(0x76, halted='1')  # Stops until reset; interrupts not yet implemented.
+    op(0x76, halted='calc(1 - var(--halt-trigger))', **{'halt-bug':'var(--halt-trigger)'})
+    op(0xF3, ime='0', **{'ime-delay':'0'})
+    op(0xFB, **{'ime-delay':'1'})
     for i, reg in enumerate(REGS):
         destination = reg or 'write'
         memory = {} if reg else {'access': '1', 'address': 'var(--hl)'}
@@ -135,10 +139,11 @@ def instruction_set():
            write2='calc(round(down, mod(var(--pc) + 3, 65536) / 256))',
            sp=f'calc(mod(var(--sp) - 2 * ({condition}), 65536))',
            pc=f'calc(mod(var(--pc) + 3 + ({condition}) * (var(--imm16) - var(--pc) - 3), 65536))')
-    for code, condition in [(0xC9, '1'), *zip((0xC0, 0xC8, 0xD0, 0xD8), conditions)]:
+    for code, condition in [(0xC9, '1'), (0xD9, '1'), *zip((0xC0, 0xC8, 0xD0, 0xD8), conditions)]:
         op(code, access=f'calc({condition})', word='1', address='var(--sp)',
            sp=f'calc(mod(var(--sp) + 2 * ({condition}), 65536))',
            pc=f'calc(mod(var(--pc) + 1 + ({condition}) * (var(--read) + 256 * var(--read2) - var(--pc) - 1), 65536))')
+    ops[0xD9].update(ime='1', **{'ime-delay':'0'})
     for code, condition in zip((0xC2, 0xCA, 0xD2, 0xDA), conditions):
         op(code, 3, pc=f'calc(mod(var(--pc) + 3 + ({condition}) * (var(--imm16) - var(--pc) - 3), 65536))')
     op(0x08, 3, access='1', word='1', write='calc(mod(var(--sp), 256))',
@@ -189,8 +194,18 @@ def instruction_set():
 def machine(rom, storage, arithmetic=False):
     choose = choose_math if arithmetic else choose_native
     ops = instruction_set()
+    # A service step is not an opcode or a retired instruction. It uses the
+    # same atomic two-lane stack path and takes one generic pipeline stage.
+    ops[256] = dict(size=0, access='1', word='1',
+        address='calc(mod(var(--sp) - 2, 65536))',
+        write='calc(mod(var(--exec-pc), 256))',
+        write2='calc(round(down, var(--exec-pc) / 256))',
+        sp='calc(mod(var(--sp) - 2, 65536))', pc='var(--irq-vector)',
+        ime='0', ticks='var(--ticks)', **{'ime-delay':'0'})
     rom = rom if isinstance(rom, ROM) else ROM(rom, compact=False)
-    props = {'opcode': 0, 'imm': 0, 'upper': 0, 'pc1': 257, 'pc2': 258,
+    props = {'opcode': 0, 'raw-opcode': 0, 'exec-pc': 256,
+             'pending-mask': 0, 'pending': 0, 'irq': 0, 'irq-mask': 0,
+             'irq-vector': 64, 'halt-trigger': 0, 'sleeping': 0, 'imm': 0, 'upper': 0, 'pc1': 257, 'pc2': 258,
              'imm16': 0, 'bc': 0, 'de': 0, 'hl': 0,
              'size': 1, 'fetch0': 0, 'fetch1': 0, 'fetch2': 0, 'fetch-valid': 0,
              'address': 0, 'signed': 0, 'z': 0, 'carry': 0, 'known': 0,
@@ -205,8 +220,17 @@ def machine(rom, storage, arithmetic=False):
                               'cb-bit','cb-mutate','cb-rotate','cb-carry','cb-result','cb-flags'), 0)}
     css = '\n'.join(f'@property --{k} {{syntax:"<integer>";inherits:true;initial-value:{v};}}' for k, v in props.items())
     expr = {
-        'pc1': 'calc(mod(var(--pc) + 1, 65536))',
-        'pc2': 'calc(mod(var(--pc) + 2, 65536))',
+        'exec-pc': 'calc(mod(var(--pc) - var(--halt-bug), 65536))',
+        'pc1': 'calc(mod(var(--exec-pc) + 1, 65536))',
+        'pc2': 'calc(mod(var(--exec-pc) + 2, 65536))',
+        'pending-mask': 'calc(' + ' + '.join(f'mod(round(down,var(--m{IF}) / {1<<bit}),2) * mod(round(down,var(--m{IE}) / {1<<bit}),2) * {1<<bit}' for bit in range(5)) + ')',
+        'pending': 'calc(min(1,var(--pending-mask)))',
+        'irq': 'calc(var(--ime) * var(--pending))',
+        'irq-mask': choose('pending-mask', {i:i & -i for i in range(1,32)}, 0),
+        'irq-vector': choose('irq-mask', {1<<i:64+8*i for i in range(5)}, 64),
+        'halt-trigger': 'calc((1 - var(--ime)) * var(--pending))',
+        'sleeping': 'calc(var(--halted) * (1 - var(--pending)))',
+        'opcode': 'calc(var(--raw-opcode) + var(--irq) * (256 - var(--raw-opcode)))',
         'imm16': 'calc(var(--imm) + 256 * var(--upper))',
         **{pair: f'calc(var(--{pair[0]}) * 256 + var(--{pair[1]}))' for pair in ('bc', 'de', 'hl')},
         'address': choose('opcode', {k: v['address'] for k, v in ops.items() if 'address' in v}, 'var(--imm16)'),
@@ -222,14 +246,14 @@ def machine(rom, storage, arithmetic=False):
         'writing': choose('opcode', {k: v.get('writing', 'var(--access)') for k, v in ops.items() if 'write' in v}, 0),
         'write': choose('opcode', {k: v['write'] for k, v in ops.items() if 'write' in v}, 0),
         'write2': choose('opcode', {k: v['write2'] for k, v in ops.items() if 'write2' in v}, 0),
-        'writable': choose('address', {i: 1 for i in RAM}, 0),
-        'readable': rom.readable('address', choose, RAM),
+        'writable': choose('address', {i: 1 for i in MEMORY}, 0),
+        'readable': rom.readable('address', choose, MEMORY),
         'valid': 'calc(var(--writing) * var(--writable) + (1 - var(--writing)) * var(--readable))',
-        'read': rom.lookup('address', choose, {i: f'var(--m{i})' for i in RAM}, 'var(--readable)'),
-        'writable2': choose('address2', {i: 1 for i in RAM}, 0),
-        'readable2': rom.readable('address2', choose, RAM),
+        'read': rom.lookup('address', choose, {i: f'var(--m{i})' for i in MEMORY}, 'var(--readable)'),
+        'writable2': choose('address2', {i: 1 for i in MEMORY}, 0),
+        'readable2': rom.readable('address2', choose, MEMORY),
         'valid2': 'calc(var(--writing) * var(--writable2) + (1 - var(--writing)) * var(--readable2))',
-        'read2': rom.lookup('address2', choose, {i: f'var(--m{i})' for i in RAM}, 'var(--readable2)'),
+        'read2': rom.lookup('address2', choose, {i: f'var(--m{i})' for i in MEMORY}, 'var(--readable2)'),
     }
     immediates = (0xC6,0xCE,0xD6,0xDE,0xE6,0xEE,0xF6,0xFE)
     operand = choose('alu-index', {i: f'var(--{reg})' if reg else 'var(--read)' for i, reg in enumerate(REGS)}, 0)
@@ -284,19 +308,23 @@ def machine(rom, storage, arithmetic=False):
         'daa-low': 'calc(max(var(--half-carry), (1 - var(--subtract)) * max(0, sign(mod(var(--a),16) - 9))))',
         'daa-result': 'calc(mod(var(--a) + (1 - 2 * var(--subtract)) * (var(--daa-high) * 96 + var(--daa-low) * 6), 256))',
     })
-    for lane, (name, pc) in enumerate([('opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]):
-        expr[f'fetch{lane}'] = rom.readable(pc, choose, RAM)
-        expr[name] = rom.lookup(pc, choose, {i: f'var(--m{i})' for i in RAM}, f'var(--fetch{lane})')
+    for lane, (name, pc) in enumerate([('raw-opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]):
+        expr[f'fetch{lane}'] = rom.readable(pc, choose, MEMORY)
+        expr[name] = rom.lookup(pc, choose, {i: f'var(--m{i})' for i in MEMORY}, f'var(--fetch{lane})')
     # FF is now RST 38: an unmapped byte must not turn into a synthetic call.
-    expr['invalid'] = 'calc(max(1 - var(--known), 1 - var(--fetch-valid), var(--access) * max(1 - var(--valid), var(--word) * (1 - var(--valid2)))))'
-    expr['enabled'] = 'calc(var(--run, 1) * (1 - max(var(--halted), var(--fault), var(--invalid))))'
+    expr['invalid'] = 'calc(max(1 - var(--known), (1 - var(--irq)) * (1 - var(--fetch-valid)), var(--access) * max(1 - var(--valid), var(--word) * (1 - var(--valid2)))))'
+    expr['enabled'] = 'calc(var(--run, 1) * (1 - max(var(--sleeping), var(--fault), var(--invalid))))'
+    for lane in ('write','write2'):
+        expr[lane] = expr[lane].replace('var(--pc)', 'var(--exec-pc)')
     css += '\n.machine {' + ''.join(f'--{k}:{v};' for k, v in expr.items()) + '}\n'
     states = {}
-    stopped = 'style(--halted:1) or style(--fault:1)'
+    stopped = 'style(--sleeping:1) or style(--fault:1)'
     invalid = 'style(--invalid:1)'
-    for name in ['pc', 'a', 'b', 'c', 'd', 'e', 'h', 'l', 'f', 'sp', 'halted', 'fault', 'ticks']:
+    for name in ['pc', 'a', 'b', 'c', 'd', 'e', 'h', 'l', 'f', 'sp', 'halted', 'fault', 'ticks', 'ime', 'ime-delay', 'halt-bug']:
         initial = 256 if name == 'pc' else 0
         default = f'var(--{name})'
+        if name in ('halted', 'halt-bug', 'ime-delay'): default = '0'
+        if name == 'ime': default = 'calc(max(var(--ime), var(--ime-delay)))'
         if name == 'ticks': default = 'calc(var(--ticks) + 1)'
         changes = {}
         for code, effects in ops.items():
@@ -304,19 +332,26 @@ def machine(rom, storage, arithmetic=False):
                 changes[code] = effects.get('pc', f'calc(mod(var(--pc) + {effects["size"]}, 65536))')
             elif name in effects: changes[code] = effects[name]
         calc = choose('opcode', changes, default) if changes else default
+        # HALT bug suppresses one opcode-fetch PC increment, including CALL/RST
+        # return addresses and relative jumps; the opcode itself still uses PC.
+        calc = calc.replace('var(--pc)', 'var(--exec-pc)') if name == 'pc' else calc
         on_invalid = '1' if name == 'fault' else f'var(--{name})'
-        result = f'if({stopped}:var(--{name});{invalid}:{on_invalid};else:{calc})'
+        result = f'if({stopped}:var(--{name});{invalid}:{on_invalid};style(--enabled:1):{calc};else:var(--{name}))'
         if arithmetic:
             result = f'calc(var(--{name}) + var(--enabled) * (({calc}) - var(--{name})))'
             if name == 'fault':
-                result = 'calc(max(var(--fault), var(--run, 1) * (1 - var(--halted)) * var(--invalid)))'
+                result = 'calc(max(var(--fault), var(--run, 1) * (1 - var(--sleeping)) * var(--invalid)))'
         states[name] = (initial, result)
-    for addr in RAM:
+    for addr in MEMORY:
         name = f'm{addr}'
         result = f'if(style(--enabled:1) and style(--writing:1) and style(--address:{addr}):var(--write);style(--enabled:1) and style(--writing:1) and style(--word:1) and style(--address2:{addr}):var(--write2);else:var(--{name}))'
         if arithmetic:
             result = f'calc(var(--{name}) + var(--enabled) * var(--writing) * (({equals("address", addr)}) * (var(--write) - var(--{name})) + var(--word) * ({equals("address2", addr)}) * (var(--write2) - var(--{name}))))'
-        states[name] = (0, result)
+        if addr == IF:
+            # Acknowledge before stack writes; an explicit IF write wins.
+            result = result.replace(f'var(--{name})', f'calc(var(--{name}) - var(--enabled) * var(--irq) * var(--irq-mask))')
+            result = f'calc(224 + mod(({result}),32))'
+        states[name] = (224 if addr == IF else 0, result)
     css += storage(states)
     for name in ['pc', 'a', 'b', 'f', 'sp', 'ticks']:
         css += f'.register-{name}::after {{counter-reset:value var(--{name});content:counter(value);}}\n'

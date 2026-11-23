@@ -2385,18 +2385,18 @@
     "rom": [
       62,
       62,
-      224,
-      254,
+      234,
+      15,
+      128,
       195,
-      254,
-      255
+      15,
+      128
     ],
     "expect": {
       "ticks": 3,
-      "pc": 65534,
+      "pc": 32783,
       "a": 62,
-      "f": 0,
-      "m65534": 62,
+      "m32783": 62,
       "fault": 1
     },
     "fault": true
@@ -2440,46 +2440,46 @@
     "fault": true
   },
   {
-    "name": "high-ie-e2-trap",
+    "name": "high-ie-e2-mapped",
     "rom": [
       62,
       42,
       14,
       255,
       55,
-      226
+      226,
+      118
     ],
     "expect": {
-      "ticks": 3,
-      "pc": 261,
+      "ticks": 5,
+      "pc": 263,
       "a": 42,
       "c": 255,
       "f": 16,
-      "m65534": 0,
-      "fault": 1
-    },
-    "fault": true
+      "m65535": 42,
+      "fault": 0
+    }
   },
   {
-    "name": "high-ie-f2-trap",
+    "name": "high-ie-f2-mapped",
     "rom": [
       62,
       42,
       14,
       255,
       55,
-      242
+      242,
+      118
     ],
     "expect": {
-      "ticks": 3,
-      "pc": 261,
-      "a": 42,
+      "ticks": 5,
+      "pc": 263,
+      "a": 0,
       "c": 255,
       "f": 16,
-      "m65534": 0,
-      "fault": 1
-    },
-    "fault": true
+      "m65535": 0,
+      "fault": 0
+    }
   },
   {
     "name": "high-rst-lower-stack-trap",
@@ -2513,7 +2513,7 @@
       224,
       254,
       49,
-      0,
+      1,
       0,
       55,
       199
@@ -2523,14 +2523,15 @@
       "pc": 264,
       "a": 42,
       "f": 16,
-      "sp": 0,
+      "sp": 1,
       "m65534": 42,
-      "fault": 1
+      "fault": 1,
+      "m65535": 0
     },
     "fault": true
   },
   {
-    "name": "high-word-ie-boundary-trap",
+    "name": "high-word-ie-transfer",
     "rom": [
       62,
       42,
@@ -2541,17 +2542,18 @@
       18,
       8,
       254,
-      255
+      255,
+      118
     ],
     "expect": {
-      "ticks": 3,
-      "pc": 263,
+      "ticks": 5,
+      "pc": 267,
       "a": 42,
       "sp": 4660,
-      "m65534": 42,
-      "fault": 1
-    },
-    "fault": true
+      "m65534": 52,
+      "m65535": 18,
+      "fault": 0
+    }
   },
   {
     "name": "high-unmapped-fetch-is-not-rst",
