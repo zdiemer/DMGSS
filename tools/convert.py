@@ -18,7 +18,7 @@ MODES = {'portable': 'Compatible · 128 instructions', 'automatic': 'Automatic c
          'checkpoint': 'Manual checkpoints', 'streaming': 'Streaming · Chromium only'}
 CAVEAT = ('Conversion uses Python outside the browser. The generated page executes CPU and memory '
           'transitions in HTML/CSS only: no JavaScript, WebAssembly, server emulation or precomputed trace.')
-LIMITS = ('Experimental CPU only: 228 opcodes, RAM C000–C03F and one VRAM tile. '
+LIMITS = ('Experimental CPU only: 228 unprefixed and 256 CB-prefixed instructions, RAM C000–C03F and one VRAM tile. '
           'No boot ROM, full PPU, interrupts, timers, audio, joypad or banking. '
           'PC starts at 0100; all other registers, including SP, start at zero. '
           'Unsupported instructions and unmapped accesses trap. Import does not imply game compatibility.')

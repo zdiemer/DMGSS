@@ -39,32 +39,35 @@ def main():
                for a,f,b,g in re.findall(rb'^\.db \$([0-9a-f]{2}), %([01]{4}), \$([0-9a-f]{2}), %([01]{4})', source, re.M)]
     assert len(vectors) == len({(a,f) for a,f,_,_ in vectors}) == 4096
     (out / 'mooneye/daa.json').write_text(json.dumps(vectors, separators=(',', ':')) + '\n')
-    selected = []
-    for opcode in OPCODES:
-        source = (args.sm83 / f'v1/{opcode:02x}.json').read_bytes()
-        manifest['sources'][f'sm83/v1/{opcode:02x}.json'] = sha(source)
-        candidates = json.loads(source)
-        # Preserve raw upstream records; relocation happens only in the fixture
-        # adapter. Exclude instruction/data aliasing for the [HL] adapter.
-        if 0x80 <= opcode < 0xC0 and opcode % 8 == 6:
-            candidates = [x for x in candidates if x['initial']['h']*256+x['initial']['l'] != x['initial']['pc']]
-        # Include every observed output flag pattern, then earliest records to 32.
-        chosen, flags = [], set()
-        for case in candidates:
-            if case['final']['f'] not in flags:
-                flags.add(case['final']['f']); chosen.append(case)
-        for case in candidates:
-            if len(chosen) == 32:
-                break
-            if case not in chosen:
-                chosen.append(case)
-        assert len(chosen) == 32
-        selected.extend(chosen)
-    (out / 'sm83/alu.json').write_text(json.dumps(selected, separators=(',', ':')) + '\n')
-    for file in ('mooneye/daa.json', 'mooneye/LICENSE', 'sm83/alu.json', 'sm83/LICENSE'):
+    counts = []
+    for filename, opcodes, prefix in [('alu.json', OPCODES, ''), ('cb.json', range(256), 'cb ')]:
+        selected = []
+        for opcode in opcodes:
+            source = (args.sm83 / f'v1/{prefix}{opcode:02x}.json').read_bytes()
+            manifest['sources'][f'sm83/v1/{prefix}{opcode:02x}.json'] = sha(source)
+            candidates = json.loads(source)
+            # Preserve raw upstream records; relocation happens only in the fixture
+            # adapter. Exclude instruction/data aliasing for the [HL] adapter.
+            if opcode % 8 == 6 and (prefix or 0x80 <= opcode < 0xC0):
+                candidates = [x for x in candidates if x['initial']['h']*256+x['initial']['l'] not in {(x['initial']['pc'] + i) % 65536 for i in range(2 if prefix else 1)}]
+            # Include every observed output flag pattern, then earliest records to 32.
+            chosen, flags = [], set()
+            for case in candidates:
+                if case['final']['f'] not in flags:
+                    flags.add(case['final']['f']); chosen.append(case)
+            for case in candidates:
+                if len(chosen) == 32:
+                    break
+                if case not in chosen:
+                    chosen.append(case)
+            assert len(chosen) == 32
+            selected.extend(chosen)
+        (out / 'sm83' / filename).write_text(json.dumps(selected, separators=(',', ':')) + '\n')
+        counts.append(len(selected))
+    for file in ('mooneye/daa.json', 'mooneye/LICENSE', 'sm83/alu.json', 'sm83/cb.json', 'sm83/LICENSE'):
         manifest['outputs'][file] = sha((out / file).read_bytes())
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    print(f'Imported {len(vectors)} hardware DAA cases and {len(selected)} instruction vectors.')
+    print(f'Imported {len(vectors)} hardware DAA cases and {sum(counts)} instruction vectors.')
 
 
 if __name__ == '__main__':

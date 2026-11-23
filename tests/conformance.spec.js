@@ -1,6 +1,6 @@
 const {test,expect}=require('@playwright/test');
 const {execFileSync}=require('node:child_process');
-const datasets=JSON.parse(execFileSync('python3',['tools/conformance.py','--expectations'],{maxBuffer:8*1024*1024}));
+const datasets=JSON.parse(execFileSync('python3',['tools/conformance.py','--expectations'],{maxBuffer:16*1024*1024}));
 for(const mode of ['math','native'])for(const [source,vectors] of Object.entries(datasets)){
   test(`${mode} CPU matches ${vectors.length} independent ${source} vectors`,async({page},info)=>{
     test.skip(mode==='native'&&info.project.name==='webkit-mobile','Native CSS if() is a Chromium engine requirement');

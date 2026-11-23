@@ -11,8 +11,11 @@
    conditional JP, signed SP arithmetic and two-byte SP stores. Stack lab runs
    nested subroutines.
    **ALU milestone:** 228 base opcodes, complete 8-bit ALU, accumulator rotates,
-   DAA and flag controls. Verified against 6,656 independent upstream cases.
-   Next: CB-prefixed bit operations. See [external-test status](COMPATIBILITY.md).
+   DAA and flag controls.
+   **CB milestone:** all 256 prefixed operations, atomic two-byte retirement,
+   BIT read-only access and RAM/VRAM modification. Independent coverage now
+   includes 14,848 upstream cases.
+   Next: restart vectors, high RAM and I/O addressing. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Full SM83 CPU, restart vectors, interrupts, timers and DMA, verified against test ROMs.

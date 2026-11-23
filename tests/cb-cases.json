@@ -1,0 +1,209 @@
+[
+  {
+    "name": "cb-two-byte-retirement",
+    "rom": [
+      6,
+      129,
+      203,
+      0,
+      118
+    ],
+    "expect": {
+      "ticks": 3,
+      "pc": 261,
+      "b": 3,
+      "f": 16
+    }
+  },
+  {
+    "name": "cb-bit-rom-read",
+    "rom": [
+      33,
+      0,
+      1,
+      55,
+      203,
+      70,
+      118
+    ],
+    "expect": {
+      "ticks": 4,
+      "pc": 263,
+      "h": 1,
+      "l": 0,
+      "f": 48
+    }
+  },
+  {
+    "name": "cb-res-rom-noop-trap",
+    "rom": [
+      33,
+      0,
+      1,
+      55,
+      203,
+      142
+    ],
+    "expect": {
+      "ticks": 2,
+      "pc": 260,
+      "h": 1,
+      "l": 0,
+      "f": 16,
+      "fault": 1
+    },
+    "fault": true
+  },
+  {
+    "name": "cb-rotate-rom-trap",
+    "rom": [
+      33,
+      0,
+      1,
+      55,
+      203,
+      6
+    ],
+    "expect": {
+      "ticks": 2,
+      "pc": 260,
+      "h": 1,
+      "l": 0,
+      "f": 16,
+      "fault": 1
+    },
+    "fault": true
+  },
+  {
+    "name": "cb-bit-unmapped-trap",
+    "rom": [
+      33,
+      0,
+      208,
+      55,
+      203,
+      70
+    ],
+    "expect": {
+      "ticks": 2,
+      "pc": 260,
+      "h": 208,
+      "l": 0,
+      "f": 16,
+      "fault": 1
+    },
+    "fault": true
+  },
+  {
+    "name": "cb-missing-second-byte",
+    "rom": [
+      203
+    ],
+    "expect": {
+      "ticks": 0,
+      "pc": 256,
+      "a": 0,
+      "f": 0,
+      "fault": 1
+    },
+    "fault": true
+  },
+  {
+    "name": "cb-truncated-after-register-write",
+    "rom": [
+      62,
+      129,
+      55,
+      203
+    ],
+    "expect": {
+      "ticks": 2,
+      "pc": 259,
+      "a": 129,
+      "f": 16,
+      "fault": 1
+    },
+    "fault": true
+  },
+  {
+    "name": "cb-hl-register-alias",
+    "rom": [
+      33,
+      128,
+      129,
+      203,
+      36,
+      203,
+      61,
+      118
+    ],
+    "expect": {
+      "ticks": 4,
+      "pc": 264,
+      "h": 2,
+      "l": 64,
+      "f": 0
+    }
+  },
+  {
+    "name": "cb-res-set-preserve-flags",
+    "rom": [
+      175,
+      55,
+      6,
+      0,
+      203,
+      248,
+      203,
+      184,
+      118
+    ],
+    "expect": {
+      "ticks": 6,
+      "pc": 265,
+      "a": 0,
+      "b": 0,
+      "f": 144
+    }
+  },
+  {
+    "name": "cb-vram-read-modify-write",
+    "rom": [
+      33,
+      15,
+      128,
+      54,
+      129,
+      203,
+      46,
+      203,
+      118,
+      118
+    ],
+    "expect": {
+      "ticks": 5,
+      "pc": 266,
+      "m32783": 192,
+      "f": 48
+    }
+  },
+  {
+    "name": "cb-memory-zero-carry",
+    "rom": [
+      33,
+      63,
+      192,
+      54,
+      128,
+      203,
+      38,
+      118
+    ],
+    "expect": {
+      "ticks": 4,
+      "pc": 264,
+      "m49215": 0,
+      "f": 144
+    }
+  }
+]

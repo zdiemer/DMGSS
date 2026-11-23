@@ -1,6 +1,6 @@
 {
   "name": "dmgss",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "HTML/CSS Game Boy emulator experiment",
   "scripts": {
     "build": "python3 tools/build.py",

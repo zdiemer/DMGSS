@@ -94,3 +94,15 @@ test('converter rejects banking and exposes the caveat on mobile',async({page},i
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('loader.png'),fullPage:true});
 });
+
+test('converter runs CB operations from imported bytes',async({page})=>{
+  await upload(page,Buffer.from([0x3E,0x81,0xCB,0x07,0xCB,0x7F,0x76]));
+  await page.locator('.power-switch').click();await halt(page);
+  expect(await read(page,['ticks','pc','a','f'])).toEqual({ticks:4,pc:263,a:3,f:176});
+});
+test('converter traps a CB prefix at the ROM boundary without retiring it',async({page})=>{
+  const rom=Buffer.alloc(32768);rom.set([0xC3,0xFF,0x7F],0x100);rom[32767]=0xCB;
+  await upload(page,rom,{format:'gb',name:'truncated-prefix.gb'});
+  await page.locator('.power-switch').click();await expect(page.locator('.fault-message')).toBeVisible();
+  expect(await read(page,['ticks','pc','a','f','fault'])).toEqual({ticks:1,pc:32767,a:0,f:0,fault:1});
+});

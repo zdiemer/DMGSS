@@ -366,3 +366,23 @@ An original ALU lab exercises the new instructions through real program flow
 and visible success/failure. Separate end-to-end programs validate flags across
 automatic and manually copied storage banks. ROM conversion retains the same
 size limits, privacy behavior and explicit external-conversion caveat.
+
+
+## Build 11: CB decoding
+
+The base decoder selects CB as one two-byte instruction. The second byte splits
+into group, operation/bit index and register index. Shared CSS expressions
+compute rotates, shifts, nibble swaps and bit masks; the generator never executes
+those instructions. Register destinations use the old state, including H/L.
+
+BIT leaves its operand unchanged and validates only readability. Other `[HL]`
+forms require writable memory even for a no-op SET/RES. The common invalid-access
+gate suppresses every state write on failure. The prefix also validates that its
+second byte is mapped ROM, so a truncated raw upload cannot execute a synthetic
+FF suffix. A CB instruction increments the instruction counter once; this is
+still not a cycle-accurate bus model.
+
+The conformance adapter retains upstream final memory for CB writes, with 32
+vectors for each of 256 opcodes. Four groups keep browser test batches bounded.
+The Bit lab and bank-boundary tests exercise the complete execution and storage
+paths, including a CB memory instruction at slot 128.
