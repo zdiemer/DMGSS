@@ -179,3 +179,8 @@ test('automatic continuation carries flags into ADC after a bank transfer',async
   await page.goto('/automatic/tests/alu-carry/');await toggle(page);
   await expect.poll(()=>read(page,['ticks','a','f','m49154','halted','fault']),{timeout:15000}).toEqual({ticks:131,a:0,f:176,m49154:0,halted:1,fault:0});
 });
+
+test('automatic retires a whole CB memory instruction before transferring its result',async({page})=>{
+  await page.goto('/automatic/tests/cb-carry/');await toggle(page);
+  await expect.poll(()=>read(page,['ticks','pc','f','m49152','halted','fault']),{timeout:15000}).toEqual({ticks:130,pc:391,f:48,m49152:192,halted:1,fault:0});
+});

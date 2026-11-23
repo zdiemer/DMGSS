@@ -43,6 +43,8 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
 - Word memory transfers validate both byte addresses before committing either.
   Untaken conditional calls/returns do not access the stack. POP AF masks the
   low nibble of F; signed SP arithmetic computes H/C from the unsigned low byte.
+- CB instructions retire both bytes atomically. BIT is read-only; other memory
+  forms validate writability even for no-op results. Truncated prefixes trap.
 - Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
   tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
 - Converter uploads stay request-local; temporary generated files use tmpfs in

@@ -159,6 +159,13 @@ def instruction_set():
     op(0x2F, a='calc(255 - var(--a))', f='calc(var(--z) * 128 + 96 + var(--carry) * 16)')
     op(0x37, f='calc(var(--z) * 128 + 16)')
     op(0x3F, f='calc(var(--z) * 128 + (1 - var(--carry)) * 16)')
+    # CB is decoded as one two-byte instruction. BIT reads but never writes;
+    # every other memory form validates a write before any state can commit.
+    op(0xCB, 2, access=f'calc({equals("cb-index", 6)})', address='var(--hl)',
+       writing='calc(var(--access) * var(--cb-mutate))', write='var(--cb-result)',
+       f='var(--cb-flags)',
+       **{reg: f'calc(var(--{reg}) + var(--cb-mutate) * ({equals("cb-index", i)}) * (var(--cb-result) - var(--{reg})))'
+          for i, reg in enumerate(REGS) if reg})
     op(0xC3, 3, pc='var(--imm16)')
     target = 'calc(mod(var(--pc) + 2 + var(--signed), 65536))'
     op(0x18, 2, pc=target)
@@ -182,7 +189,9 @@ def machine(rom, storage, arithmetic=False):
              'writable2': 0, 'readable2': 0, 'valid2': 0,
              'alu-index': 0, 'alu-op': 0, 'alu-input': 0, 'alu-cin': 0,
              'alu-sub': 0, 'alu-wide': 0, 'alu-result': 0, 'alu-flags': 0,
-             'subtract': 0, 'half-carry': 0, 'daa-high': 0, 'daa-low': 0, 'daa-result': 0}
+             'subtract': 0, 'half-carry': 0, 'daa-high': 0, 'daa-low': 0, 'daa-result': 0,
+             **dict.fromkeys(('cb-index','cb-group','cb-kind','cb-input','cb-weight',
+                              'cb-bit','cb-mutate','cb-rotate','cb-carry','cb-result','cb-flags'), 0)}
     css = '\n'.join(f'@property --{k} {{syntax:"<integer>";inherits:true;initial-value:{v};}}' for k, v in props.items())
     expr = {
         'pc1': 'calc(mod(var(--pc) + 1, 65536))',
@@ -194,10 +203,10 @@ def machine(rom, storage, arithmetic=False):
         'signed': 'calc(var(--imm) - 256 * round(down, var(--imm) / 128))',
         'z': 'calc(round(down, var(--f) / 128))',
         'carry': 'calc(mod(round(down, var(--f) / 16), 2))',
-        'known': choose('opcode', {k: 1 for k in ops}, 0),
+        'known': choose('opcode', {k: rom.readable('pc1', choose, []) if k == 0xCB else 1 for k in ops}, 0),
         'access': choose('opcode', {k: v['access'] for k, v in ops.items() if 'access' in v}, 0),
         'word': choose('opcode', {k: v['word'] for k, v in ops.items() if 'word' in v}, 0),
-        'writing': choose('opcode', {k: 'var(--access)' for k, v in ops.items() if 'write' in v}, 0),
+        'writing': choose('opcode', {k: v.get('writing', 'var(--access)') for k, v in ops.items() if 'write' in v}, 0),
         'write': choose('opcode', {k: v['write'] for k, v in ops.items() if 'write' in v}, 0),
         'write2': choose('opcode', {k: v['write2'] for k, v in ops.items() if 'write2' in v}, 0),
         'writable': choose('address', {i: 1 for i in RAM}, 0),
@@ -225,6 +234,29 @@ def machine(rom, storage, arithmetic=False):
     half_sub = 'max(0, sign(mod(var(--alu-input),16) + var(--alu-cin) - mod(var(--a),16)))'
     arithmetic_flags = f'calc({zero("var(--alu-result)")} + var(--alu-sub) * 64 + ((1 - var(--alu-sub)) * ({half_add}) + var(--alu-sub) * ({half_sub})) * 32 + ((1 - var(--alu-sub)) * round(down, var(--alu-wide) / 256) + var(--alu-sub) * max(0, sign(0 - var(--alu-wide)))) * 16)'
     expr.update({
+        'cb-index': 'calc(mod(var(--imm), 8))',
+        'cb-group': 'calc(round(down, var(--imm) / 64))',
+        'cb-kind': 'calc(mod(round(down, var(--imm) / 8), 8))',
+        'cb-input': choose('cb-index', {i: f'var(--{reg})' if reg else 'var(--read)' for i, reg in enumerate(REGS)}, 0),
+        'cb-weight': choose('cb-kind', {i: 1 << i for i in range(8)}, 1),
+        'cb-bit': 'calc(mod(round(down, var(--cb-input) / var(--cb-weight)), 2))',
+        'cb-mutate': f'calc(1 - ({equals("cb-group", 1)}))',
+        'cb-rotate': choose('cb-kind', {
+            0: 'calc(mod(var(--cb-input) * 2, 256) + round(down, var(--cb-input) / 128))',
+            1: 'calc(round(down, var(--cb-input) / 2) + mod(var(--cb-input), 2) * 128)',
+            2: 'calc(mod(var(--cb-input) * 2, 256) + var(--carry))',
+            3: 'calc(round(down, var(--cb-input) / 2) + var(--carry) * 128)',
+            4: 'calc(mod(var(--cb-input) * 2, 256))',
+            5: 'calc(round(down, var(--cb-input) / 2) + round(down, var(--cb-input) / 128) * 128)',
+            6: 'calc(mod(var(--cb-input), 16) * 16 + round(down, var(--cb-input) / 16))',
+            7: 'calc(round(down, var(--cb-input) / 2))'}, 0),
+        'cb-carry': choose('cb-kind', {i: 'calc(round(down, var(--cb-input) / 128))' for i in (0,2,4)} |
+                           {i: 'calc(mod(var(--cb-input), 2))' for i in (1,3,5,7)}, 0),
+        'cb-result': choose('cb-group', {0: 'var(--cb-rotate)',
+            2: 'calc(var(--cb-input) - var(--cb-bit) * var(--cb-weight))',
+            3: 'calc(var(--cb-input) + (1 - var(--cb-bit)) * var(--cb-weight))'}, 'var(--cb-input)'),
+        'cb-flags': choose('cb-group', {0: f'calc({zero("var(--cb-result)")} + var(--cb-carry) * 16)',
+            1: 'calc((1 - var(--cb-bit)) * 128 + 32 + var(--carry) * 16)'}, 'var(--f)'),
         'alu-index': 'calc(mod(var(--opcode), 8))',
         'alu-op': choose('opcode', {code: i for i, code in enumerate(immediates)}, 'calc(mod(round(down, var(--opcode) / 8), 8))'),
         'alu-input': choose('opcode', {code: 'var(--imm)' for code in immediates}, operand),

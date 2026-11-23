@@ -25,33 +25,37 @@ class FixtureROM(ROM):
 
 
 def cases():
-    result = {'mooneye': [], 'sm83': []}
+    result = {'mooneye': [], 'sm83': [], **{f'cb{i}': [] for i in range(4)}}
     for a,f,b,g in json.loads((ROOT / 'tests/vendor/mooneye/daa.json').read_text()):
         initial = {reg: 0 for reg in REGISTERS}
         initial.update(pc=256, a=a, f=f)
         final = {**initial, 'pc':257, 'a':b, 'f':g, 'ticks':1, 'fault':0, 'halted':0, 'm49152':0}
         result['mooneye'].append({'name':f'DAA A={a:02x} F={f:02x}', 'opcode':0x27, 'byte':0,
                                   'initial':initial, 'final':final})
-    for case in json.loads((ROOT / 'tests/vendor/sm83/alu.json').read_text()):
+    raw = json.loads((ROOT / 'tests/vendor/sm83/alu.json').read_text())
+    raw += json.loads((ROOT / 'tests/vendor/sm83/cb.json').read_text())
+    for case in raw:
         original = case['initial']
         memory = dict(original['ram'])
         opcode = memory[original['pc']]
+        second = memory.get((original['pc']+1)%65536,0)
         initial = {reg: original[reg] for reg in REGISTERS}
         final = {reg: case['final'][reg] for reg in REGISTERS}
         initial['pc'] = 256
         final['pc'] = 256 + ((final['pc'] - original['pc']) % 65536)
-        value = 0
-        if 0x80 <= opcode < 0xC0 and opcode % 8 == 6:
+        value = final_value = 0
+        if (0x80 <= opcode < 0xC0 and opcode % 8 == 6) or (opcode == 0xCB and second % 8 == 6):
             address = original['h']*256 + original['l']
             value = memory[address]
-            assert dict(case['final']['ram'])[address] == value
+            final_value = dict(case['final']['ram'])[address]
             assert (final['h'],final['l']) == (initial['h'],initial['l'])
             initial.update(h=0xC0,l=0)
             final.update(h=0xC0,l=0)
         initial['m49152'] = value
-        final.update(m49152=value, ticks=1, fault=0, halted=0)
-        result['sm83'].append({'name':case['name'], 'opcode':opcode,
-                              'byte':memory.get((original['pc']+1)%65536,0),
+        final.update(m49152=final_value, ticks=1, fault=0, halted=0)
+        source = f'cb{second//64}' if opcode == 0xCB else 'sm83'
+        result[source].append({'name':case['name'], 'opcode':opcode,
+                              'byte':second,
                               'initial':initial, 'final':final})
     return result
 

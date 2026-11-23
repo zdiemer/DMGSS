@@ -140,3 +140,10 @@ test('checkpoint continuation carries flags into ADC after bit saves',async({pag
   await continueBatch(page);
   expect(await read(page,['ticks','a','f','m49154','halted','fault'])).toEqual({ticks:131,a:0,f:176,m49154:0,halted:1,fault:0});
 });
+
+test('checkpoint transfers a complete CB memory result and carry flag',async({page})=>{
+  await page.goto('/checkpoint/tests/cb-carry/');await page.locator('.power-switch').click();
+  expect(await read(page,['ticks','pc','f','m49152'])).toEqual({ticks:128,pc:388,f:16,m49152:192});
+  await continueBatch(page);
+  expect(await read(page,['ticks','pc','f','m49152','halted','fault'])).toEqual({ticks:130,pc:391,f:48,m49152:192,halted:1,fault:0});
+});
