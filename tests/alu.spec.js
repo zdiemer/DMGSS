@@ -9,8 +9,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`ALU la
   await page.locator('.power-switch').click();
   await expect.poll(async()=>(await read(page)).halted,{timeout:20000}).toBe(1);
   const result=await read(page);
-  expect(result).toMatchObject({a:165,sp:49216,m49152:16,m49154:165,halted:1,fault:0});
-  expect(result.ticks).toBeLessThan(128);
+  expect(result).toEqual({pc:340,ticks:43,a:165,f:192,sp:49216,m49152:16,m49154:165,halted:1,fault:0});
   await expect(page.locator('.passed')).toBeVisible();
   await page.setViewportSize({width:320,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
