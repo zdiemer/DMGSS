@@ -1,0 +1,233 @@
+[
+  {
+    "name": "adc-byte-and-half-carry",
+    "rom": [
+      62,
+      255,
+      55,
+      206,
+      0,
+      118
+    ],
+    "expect": {
+      "a": 0,
+      "f": 176,
+      "pc": 262
+    }
+  },
+  {
+    "name": "sbc-full-borrow-to-zero",
+    "rom": [
+      62,
+      0,
+      55,
+      222,
+      255,
+      118
+    ],
+    "expect": {
+      "a": 0,
+      "f": 240,
+      "pc": 262
+    }
+  },
+  {
+    "name": "adc-self-reads-old-a",
+    "rom": [
+      62,
+      128,
+      55,
+      143,
+      118
+    ],
+    "expect": {
+      "a": 1,
+      "f": 16,
+      "pc": 261
+    }
+  },
+  {
+    "name": "sbc-self-with-carry",
+    "rom": [
+      62,
+      42,
+      55,
+      159,
+      118
+    ],
+    "expect": {
+      "a": 255,
+      "f": 112,
+      "pc": 261
+    }
+  },
+  {
+    "name": "and-zero-sets-half-carry",
+    "rom": [
+      62,
+      255,
+      230,
+      0,
+      118
+    ],
+    "expect": {
+      "a": 0,
+      "f": 160,
+      "pc": 261
+    }
+  },
+  {
+    "name": "or-clears-old-flags",
+    "rom": [
+      175,
+      55,
+      246,
+      1,
+      118
+    ],
+    "expect": {
+      "a": 1,
+      "f": 0,
+      "pc": 261
+    }
+  },
+  {
+    "name": "xor-register-bits",
+    "rom": [
+      62,
+      170,
+      6,
+      85,
+      168,
+      118
+    ],
+    "expect": {
+      "a": 255,
+      "b": 85,
+      "f": 0,
+      "pc": 262
+    }
+  },
+  {
+    "name": "daa-addition-wrap",
+    "rom": [
+      62,
+      153,
+      198,
+      1,
+      39,
+      118
+    ],
+    "expect": {
+      "a": 0,
+      "f": 144,
+      "pc": 262
+    }
+  },
+  {
+    "name": "daa-subtract-both-corrections",
+    "rom": [
+      49,
+      64,
+      192,
+      1,
+      112,
+      0,
+      197,
+      241,
+      39,
+      118
+    ],
+    "expect": {
+      "a": 154,
+      "f": 80,
+      "sp": 49216,
+      "pc": 266
+    }
+  },
+  {
+    "name": "accumulator-rotate-clears-zero",
+    "rom": [
+      175,
+      7,
+      118
+    ],
+    "expect": {
+      "a": 0,
+      "f": 0,
+      "pc": 259
+    }
+  },
+  {
+    "name": "complement-preserves-zero-carry",
+    "rom": [
+      175,
+      55,
+      47,
+      118
+    ],
+    "expect": {
+      "a": 255,
+      "f": 240,
+      "pc": 260
+    }
+  },
+  {
+    "name": "carry-controls-clear-half-subtract",
+    "rom": [
+      175,
+      47,
+      55,
+      63,
+      118
+    ],
+    "expect": {
+      "a": 255,
+      "f": 128,
+      "pc": 261
+    }
+  },
+  {
+    "name": "alu-reads-rom-through-hl",
+    "rom": [
+      33,
+      0,
+      1,
+      62,
+      1,
+      55,
+      142,
+      118
+    ],
+    "expect": {
+      "a": 35,
+      "f": 0,
+      "h": 1,
+      "l": 0,
+      "pc": 264
+    }
+  },
+  {
+    "name": "alu-unmapped-read-is-atomic",
+    "rom": [
+      33,
+      0,
+      208,
+      62,
+      7,
+      55,
+      142
+    ],
+    "fault": true,
+    "expect": {
+      "pc": 262,
+      "ticks": 3,
+      "a": 7,
+      "f": 16,
+      "h": 208,
+      "l": 0,
+      "m49152": 0,
+      "fault": 1
+    }
+  }
+]

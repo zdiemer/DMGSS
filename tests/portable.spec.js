@@ -1,5 +1,5 @@
 const {test, expect} = require('@playwright/test');
-const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json')];
+const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json'), ...require('./alu-cases.json')];
 const state = (page, key) => page.locator('.machine').evaluate((el,k)=>Number(getComputedStyle(el).getPropertyValue(`--${k}`)),key);
 for (const item of cases) {
   test(`portable ${item.name}`, async ({page})=>{

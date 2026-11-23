@@ -137,20 +137,28 @@ def instruction_set():
         # Flags use the unsigned immediate's low nibble/byte even for e8 < 0.
         op(code, 2, **pair_effects(pair, 'var(--sp) + var(--signed)'),
            f='calc(round(down, (mod(var(--sp), 16) + mod(var(--imm), 16)) / 16) * 32 + round(down, (mod(var(--sp), 256) + var(--imm)) / 256) * 16)')
-    for code, mode in [(0xC6, 'add'), (0xD6, 'sub'), (0xFE, 'cp')]:
-        a, b = 'var(--a)', 'var(--imm)'
-        raw = f'{a} + {b}' if mode == 'add' else f'{a} - {b}'
-        result = byte(raw)
-        if mode == 'add':
-            half = f'round(down, (mod({a},16) + mod({b},16)) / 16)'
-            carry = f'round(down, ({raw}) / 256)'
-        else:
-            half = f'max(0, sign(mod({b},16) - mod({a},16)))'
-            carry = f'max(0, sign({b} - {a}))'
-        effects = {'f': f'calc({zero(result)} + {64 if mode != "add" else 0} + ({half}) * 32 + ({carry}) * 16)'}
-        if mode != 'cp': effects['a'] = f'calc({result})'
-        op(code, 2, **effects)
-    op(0xAF, a='0', f='128')
+    # The eight ALU families share one operand/result network. Keeping bitwise
+    # arithmetic out of each opcode arm avoids multiplying the CSS expression.
+    for family, immediate in enumerate((0xC6,0xCE,0xD6,0xDE,0xE6,0xEE,0xF6,0xFE)):
+        effects = {'f': 'var(--alu-flags)'}
+        if family != 7:
+            effects['a'] = 'var(--alu-result)'
+        op(immediate, 2, **effects)
+        for index, reg in enumerate(REGS):
+            access = {} if reg else {'access': '1', 'address': 'var(--hl)'}
+            op(0x80 + family * 8 + index, **effects, **access)
+    for code, direction, through_carry in [(0x07,'left',False),(0x0F,'right',False),
+                                            (0x17,'left',True),(0x1F,'right',True)]:
+        outgoing = 'round(down, var(--a) / 128)' if direction == 'left' else 'mod(var(--a), 2)'
+        incoming = 'var(--carry)' if through_carry else outgoing
+        result = f'mod(var(--a) * 2 + ({incoming}), 256)' if direction == 'left' else f'round(down, var(--a) / 2) + ({incoming}) * 128'
+        # Unlike CB rotations, accumulator rotations always clear Z.
+        op(code, a=f'calc({result})', f=f'calc(({outgoing}) * 16)')
+    op(0x27, a='var(--daa-result)',
+       f=f'calc({zero("var(--daa-result)")} + var(--subtract) * 64 + var(--daa-high) * 16)')
+    op(0x2F, a='calc(255 - var(--a))', f='calc(var(--z) * 128 + 96 + var(--carry) * 16)')
+    op(0x37, f='calc(var(--z) * 128 + 16)')
+    op(0x3F, f='calc(var(--z) * 128 + (1 - var(--carry)) * 16)')
     op(0xC3, 3, pc='var(--imm16)')
     target = 'calc(mod(var(--pc) + 2 + var(--signed), 65536))'
     op(0x18, 2, pc=target)
@@ -171,7 +179,10 @@ def machine(rom, storage, arithmetic=False):
              'access': 0, 'writing': 0, 'writable': 0, 'readable': 0,
              'write': 0, 'valid': 0, 'read': 0, 'invalid': 0, 'enabled': 0,
              'word': 0, 'address2': 0, 'write2': 0, 'read2': 0,
-             'writable2': 0, 'readable2': 0, 'valid2': 0}
+             'writable2': 0, 'readable2': 0, 'valid2': 0,
+             'alu-index': 0, 'alu-op': 0, 'alu-input': 0, 'alu-cin': 0,
+             'alu-sub': 0, 'alu-wide': 0, 'alu-result': 0, 'alu-flags': 0,
+             'subtract': 0, 'half-carry': 0, 'daa-high': 0, 'daa-low': 0, 'daa-result': 0}
     css = '\n'.join(f'@property --{k} {{syntax:"<integer>";inherits:true;initial-value:{v};}}' for k, v in props.items())
     expr = {
         'pc1': 'calc(mod(var(--pc) + 1, 65536))',
@@ -198,6 +209,36 @@ def machine(rom, storage, arithmetic=False):
         'valid2': 'calc(var(--writing) * var(--writable2) + (1 - var(--writing)) * var(--readable2))',
         'read2': rom.lookup('address2', choose, {i: f'var(--m{i})' for i in RAM}, 'var(--readable2)'),
     }
+    immediates = (0xC6,0xCE,0xD6,0xDE,0xE6,0xEE,0xF6,0xFE)
+    operand = choose('alu-index', {i: f'var(--{reg})' if reg else 'var(--read)' for i, reg in enumerate(REGS)}, 0)
+    logic = {}
+    for kind, combine in [(4,lambda a,b: f'min({a}, {b})'),
+                          (5,lambda a,b: f'abs(({a}) - ({b}))'),
+                          (6,lambda a,b: f'max({a}, {b})')]:
+        terms = []
+        for bit in range(8):
+            a = f'mod(round(down, var(--a) / {1 << bit}), 2)'
+            b = f'mod(round(down, var(--alu-input) / {1 << bit}), 2)'
+            terms.append(f'({combine(a,b)}) * {1 << bit}')
+        logic[kind] = 'calc(' + ' + '.join(terms) + ')'
+    half_add = 'round(down, (mod(var(--a),16) + mod(var(--alu-input),16) + var(--alu-cin)) / 16)'
+    half_sub = 'max(0, sign(mod(var(--alu-input),16) + var(--alu-cin) - mod(var(--a),16)))'
+    arithmetic_flags = f'calc({zero("var(--alu-result)")} + var(--alu-sub) * 64 + ((1 - var(--alu-sub)) * ({half_add}) + var(--alu-sub) * ({half_sub})) * 32 + ((1 - var(--alu-sub)) * round(down, var(--alu-wide) / 256) + var(--alu-sub) * max(0, sign(0 - var(--alu-wide)))) * 16)'
+    expr.update({
+        'alu-index': 'calc(mod(var(--opcode), 8))',
+        'alu-op': choose('opcode', {code: i for i, code in enumerate(immediates)}, 'calc(mod(round(down, var(--opcode) / 8), 8))'),
+        'alu-input': choose('opcode', {code: 'var(--imm)' for code in immediates}, operand),
+        'alu-cin': choose('alu-op', {1: 'var(--carry)', 3: 'var(--carry)'}, 0),
+        'alu-sub': 'calc(min(1, max(0, var(--alu-op) - 1)))',
+        'alu-wide': 'calc(var(--a) + (1 - 2 * var(--alu-sub)) * (var(--alu-input) + var(--alu-cin)))',
+        'alu-result': choose('alu-op', logic, 'calc(mod(var(--alu-wide), 256))'),
+        'alu-flags': choose('alu-op', {i: f'calc({zero("var(--alu-result)")} + {32 if i == 4 else 0})' for i in (4,5,6)}, arithmetic_flags),
+        'subtract': 'calc(mod(round(down, var(--f) / 64), 2))',
+        'half-carry': 'calc(mod(round(down, var(--f) / 32), 2))',
+        'daa-high': 'calc(max(var(--carry), (1 - var(--subtract)) * max(0, sign(var(--a) - 153))))',
+        'daa-low': 'calc(max(var(--half-carry), (1 - var(--subtract)) * max(0, sign(mod(var(--a),16) - 9))))',
+        'daa-result': 'calc(mod(var(--a) + (1 - 2 * var(--subtract)) * (var(--daa-high) * 96 + var(--daa-low) * 6), 256))',
+    })
     for name, pc in [('opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]:
         expr[name] = rom.lookup(pc, choose)
     expr['invalid'] = 'calc(max(1 - var(--known), var(--access) * max(1 - var(--valid), var(--word) * (1 - var(--valid2)))))'

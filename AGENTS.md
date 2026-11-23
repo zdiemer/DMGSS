@@ -31,6 +31,11 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   and round timeline readback explicitly. No timed copy assumption or test-driven
   state writes. Scope timelines above the animated reader. Preserve fallback
   modes and the startup progress check; iOS certification remains separate.
+- Preserve independent conformance data, pins and license notices. Expected
+  results must come from upstream, never the implementation under test. Label
+  relocated single-instruction fixtures separately from whole-ROM passes.
+  Only native browser inputs drive end-to-end execution; test fixtures may seed
+  initial state at generation time, never through runtime state writes.
 - Keep README concise; track capabilities and remaining work in docs/ROADMAP.md.
 - Addressing uses old-state BC/DE/HL pairs and a separate 16-bit SP. A rejected
   data access must not update pointers, flags, memory, PC or ticks. ROM data is
