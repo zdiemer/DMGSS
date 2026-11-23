@@ -29,6 +29,9 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   state writes. Scope timelines above the animated reader. Preserve fallback
   modes and the startup progress check; iOS certification remains separate.
 - Keep README concise; track capabilities and remaining work in docs/ROADMAP.md.
+- Addressing uses old-state BC/DE/HL pairs and a separate 16-bit SP. A rejected
+  data access must not update pointers, flags, memory, PC or ticks. ROM data is
+  readable but not writable; retain explicit traps until the memory map expands.
 - Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
   tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
 - Secrets only through existing op:// references resolved at deploy time; never

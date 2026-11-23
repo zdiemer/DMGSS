@@ -21,10 +21,10 @@ explores CSS feedback. DMGSS uses its own generator and machine implementation.
 
 ## SM83 subset (build 02)
 
-84 unprefixed opcodes: NOP; HALT; register-to-register LD (excluding [HL]);
+The original subset shipped with 84 unprefixed opcodes: NOP; HALT; register-to-register LD (excluding [HL]);
 LD r8,d8; INC/DEC r8; ADD/SUB/CP d8; XOR A; JP a16; JR and all four JR
 conditions; LD [a16],A and LD A,[a16]. Z/N/H/C are packed in the F register.
-Instruction fetch reads embedded bytes at 0100. The initial registers are zero,
+The addressing milestone below expands this to 127. Instruction fetch reads embedded bytes at 0100. The initial registers are zero,
 not a boot-ROM or post-boot register image. RAM is currently C000–C03F, plus a single tile at VRAM 8000–800F.
 
 Unknown opcodes and unmapped data accesses trap without advancing PC. HALT
@@ -68,7 +68,8 @@ the very first instruction. The machine remains HTML/CSS-only.
 CI runs both modes on desktop and phone-sized Chromium, and portable execution
 plus streaming limitation checks on phone-sized WebKit. If WebKit starts advancing correctly, that suite
 fails so the support policy can be revisited. The new automatic mode below uses
-a different storage design; it still requires validation on actual iOS devices.
+a different storage design; its counter is now user-confirmed in iOS Chrome,
+with broader device/feature validation still pending.
 
 
 ## Bounded compatible mode (build 04)
@@ -107,7 +108,7 @@ validation of the new checkpoint mode below.
 ## Manual checkpoints (build 05)
 
 `/checkpoint/` feeds the same 128-stage arithmetic CPU from one of two reusable
-native HTML checkbox banks. Each bank stores 738 bits: PC (16), eight 8-bit
+native HTML checkbox banks. Each bank now stores 754 bits: PC and SP (16 each), eight 8-bit
 registers including F, HALT/fault (one each), instruction bookkeeping (16),
 and the current 80 bytes of RAM/VRAM. A commit checkbox selects the source bank.
 No DOM nodes are appended: every run uses the same inputs and CPU stages.
@@ -129,7 +130,7 @@ without raising the stage budget or precomputing a ROM execution trace.
 
 This is not automatic state capture: one tap/key activation is needed per
 changed bit, plus commit. The counter demo usually takes a few saves per batch;
-a program rewriting most of memory can require up to 738. Visually hidden storage
+a program rewriting most of memory can require up to 754. Visually hidden storage
 inputs hold their native checked state.
 There is no disk persistence. Reset/reload restores both banks to their defaults;
 pause keeps a partial copy and displays the last committed source state.
@@ -157,7 +158,7 @@ using touch input; current WebKit and Chromium receive the full regression suite
 with CSS scroll snapping and scroll-driven animations. No click sequence, script,
 server request or precomputed ROM trace clocks the machine after Run.
 
-There are two banks of 92 scroll cells: the CPU registers/bookkeeping and 80 bytes
+There are now two banks of 93 scroll cells (including the newly added SP): the CPU registers/bookkeeping and 80 bytes
 of RAM/VRAM. Each cell's native vertical scroll offset stores an integer. A marker
 is positioned at the desired value in pixels; mandatory scroll snapping moves
 the offset to it after layout. A named scroll timeline reads the offset into a
@@ -166,7 +167,7 @@ range match (255 for a byte, 65,535 for a word, 1 for a bit). Explicit rounding
 removes small interpolation errors observed in WebKit. Initial values are encoded
 as zero offsets, including PC 0100, so no scripted initialization is needed.
 
-A 185th scroll cell stores which bank is selected. The selected bank is immutable
+A 187th scroll cell stores which bank is selected. The selected bank is immutable
 while the CSS pipeline executes from it. Output markers update only the inactive
 bank. CSS compares **every** returned register and memory value to the output;
 the selector flips only after they all match. Then the next batch executes from
@@ -192,6 +193,9 @@ establish working storage. A first-instruction trap takes precedence over the
 startup warning. Older browsers can use compatible/manual modes. Tests run with
 page JavaScript disabled on desktop/mobile Chromium and Linux WebKit 2388;
 these do not certify Safari/iOS behavior or guarantee full-speed execution.
+The user subsequently confirmed that the automatic counter keeps counting in
+their iOS Chrome setup. Browser/OS versions were not supplied; pause/resume,
+other ROMs and this new addressing milestone are not yet device-confirmed.
 A separate check with older WebKit 2083 rejects the missing timeline features,
 leaves the automatic clock disabled, and successfully runs the checkpoint fallback.
 
@@ -200,3 +204,40 @@ defines snap retention when content moves. WebKit's [scroll-driven animation gui
 describes named timelines and scope. Their combination as CPU storage is an
 experimental design validated by our state-transition tests, not a claim that
 every browser must support arbitrary CSS feedback reliably.
+
+
+## Register pairs and indirect addressing (build 07)
+
+The CPU now implements 127 unprefixed opcodes. The 43 additions are `LD rr,d16`,
+`INC/DEC rr` and `ADD HL,rr` for BC/DE/HL/SP; `LD SP,HL`; `JP HL`; loads/stores
+between A and [BC]/[DE]/[HL+]/[HL-]; all register/[HL] byte transfers;
+`LD [HL],d8`; and `INC/DEC [HL]`. Pair operations split a wrapped 16-bit result
+into simultaneous high/low writes from the old state. SP is an independent
+16-bit state word retained by every storage mode. Initial SP is zero, consistent
+with our other zeroed registers rather than a boot-ROM register image.
+
+The decoder separates immediate words from the effective data address. Its
+memory bus selects a read value, write value and write-enable from the opcode.
+Embedded ROM bytes can be read as data; only existing RAM C000–C03F and VRAM
+8000–800F are writable. Reads outside those regions and the supplied ROM bytes
+trap. Writes to ROM also trap, with no MBC behavior yet. A rejected access leaves
+PC, registers, flags, memory and the instruction count unchanged while setting
+fault. In particular, a failed [HL+] or [HL-] access does not update HL. This is
+the experiment's explicit unmapped-access policy, not an emulation of the full
+hardware memory map. Instruction fetch remains ROM-only.
+
+The original tile image is now embedded after the cartridge's HALT instruction.
+HL reads its 16 bytes with post-increment, DE writes them to VRAM, and B controls
+the loop. This takes 84 instructions and halts at PC 010F. Python encodes the
+ROM/data layout; it never performs the copy or generates its execution trace.
+
+New ROM cases cover each indirect register transfer (including H/L aliasing),
+word wrap, flag preservation/carries, post-update boundaries, ROM reads and
+rejected writes, read-modify-write flags, and JP HL. A 344-instruction automatic
+case fills all 64 RAM bytes through a pointer, then copies the last 16 backwards
+to VRAM across bank swaps. A manual checkpoint case retains SP FEDC and HL
+across the 128-step boundary. No new RAM capacity or stack operations are claimed:
+PUSH/POP/CALL/RET, signed SP arithmetic and `LD [a16],SP` remain unimplemented.
+
+Semantics reference: [RGBDS Game Boy instruction manual](https://github.com/gbdev/rgbds/blob/master/man/gbz80.7).
+Instruction sizes were also checked against [gbdev's opcode data](https://github.com/gbdev/gb-opcodes/blob/master/Opcodes.json).

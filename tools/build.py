@@ -117,7 +117,7 @@ def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
     html = html.replace('<a href="/">Switch to streaming mode</a>', '<a href="/portable/">Back to compatible mode</a>')
     html = html.replace('<div><dt>F</dt>', '<div><dt>RAM C000</dt><dd class="automatic-memory"></dd></div><div><dt>F</dt>')
     html = html.replace('Your browser executes the ROM through 128 CSS stages. No JavaScript. No execution trace generated ahead of time.', 'Press Run once. CSS executes the ROM and automatically carries its state into the next batch. Pause keeps your place; Reset starts over.')
-    html = re.sub(r'<div class="compat-warning">.*?</div>', '<div class="compat-warning"><strong>Automatic continuation experiment.</strong> Tested in Chromium and Linux WebKit with scroll timelines. This new mode needs verification on iOS. If it cannot advance, try <a href="/checkpoint/">manual checkpoints</a> or <a href="/portable/">compatible mode</a>. The instruction counter wraps at 65,536; this is not a full-speed or game-ready emulator.</div>', html)
+    html = re.sub(r'<div class="compat-warning">.*?</div>', '<div class="compat-warning"><strong>Automatic continuation experiment.</strong> Tested in Chromium and Linux WebKit with scroll timelines. The counter is user-confirmed on iOS Chrome; other features still need device checks. If it cannot advance, try <a href="/checkpoint/">manual checkpoints</a> or <a href="/portable/">compatible mode</a>. The instruction counter wraps at 65,536; this is not a full-speed or game-ready emulator.</div>', html)
     html = re.sub(r'<div class="unsupported-screen">.*?</div>', '<div class="unsupported-screen"><strong>BROWSER LIMIT</strong><span>This mode needs CSS scroll timelines.</span><a class="portable-link" href="/checkpoint/">Try manual checkpoints</a></div>', html)
     html = html.replace('Evaluating CSS stages…', 'Testing automatic storage…')
     html = html.replace('Reset view clears the run. Cartridge state is not saved.', 'State lasts until reset or navigation. No persistent saves yet.')
@@ -141,7 +141,8 @@ if __name__ == '__main__':
     build_automatic(tile_rom(), ROOT / 'dist/automatic/tile', tile=True)
     if args.fixtures:
         import json
-        for case in json.loads((ROOT / 'tests/cpu-cases.json').read_text()):
+        cases = json.loads((ROOT / 'tests/cpu-cases.json').read_text()) + json.loads((ROOT / 'tests/addressing-cases.json').read_text())
+        for case in cases:
             build(case['rom'], ROOT / 'dist/tests' / case['name'])
             build(case['rom'], ROOT / 'dist/portable/tests' / case['name'], bounded=True)
         build([0x18, 0xFE], ROOT / 'dist/portable/tests/loop', bounded=True)
@@ -160,3 +161,15 @@ if __name__ == '__main__':
         build_automatic([0xD3], ROOT / 'dist/automatic/tests/trap')
         build_automatic(retained, ROOT / 'dist/automatic/tests/register-vram')
         build_automatic(checkpoint.counter_rom(), ROOT / 'dist/automatic/tests/tick-wrap', initial={'ticks':65472})
+        # Runtime loop fills RAM through HL, then reads backwards into VRAM via
+        # DE. 344 instructions cross two bank swaps; SP must retain all 16 bits.
+        addressing = [0x31,0xDC,0xFE,0x21,0,0xC0,0x06,64,0x3E,0,
+                      0x22,0x3C,0x05,0x20,0xFB,
+                      0x21,0x3F,0xC0,0x11,0,0x80,0x06,16,
+                      0x3A,0x12,0x13,0x05,0x20,0xFA,0x76]
+        build_automatic(addressing, ROOT / 'dist/automatic/tests/addressing-loop')
+        # A short checkpoint fixture keeps bit copying practical while testing
+        # that a word-sized SP survives a real bank transfer.
+        pointer_checkpoint = [0x31,0xDC,0xFE,0x21,0,0xC0] + [0] * 126 + [0x36,42,0x2A,0x76]
+        build_checkpoint(pointer_checkpoint, ROOT / 'dist/checkpoint/tests/addressing')
+        build_automatic([0x21,0,1,0x3E,7,0x22], ROOT / 'dist/automatic/tests/addressing-trap')

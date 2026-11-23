@@ -16,6 +16,10 @@ jobs:
         run: test -z "$(git ls-files '*values.local.yaml')"
   browser:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop, chromium-mobile, webkit-mobile]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,7 +31,7 @@ jobs:
           python-version: '3.12'
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
-      - run: npm test
+      - run: npx playwright test --project=${{ matrix.project }}
   chart:
     runs-on: ubuntu-latest
     steps:

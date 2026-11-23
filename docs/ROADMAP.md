@@ -4,6 +4,9 @@
 2. **Shipped:** responsive console shell, standalone CSS clock and state storage.
 3. **Shipped (subset):** embedded original diagnostic ROM: instruction fetch/decode, registers,
    arithmetic/flags, branches, writable memory and visible results.
+   **Addressing milestone:** 127 opcodes, BC/DE/HL/SP word operations, indirect
+   byte loads/stores, HL post-increment/decrement, and readable embedded ROM data.
+   Tile lab now runs a pointer-based copy loop. Next: stack and subroutine support.
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Full SM83 CPU, stack, interrupts, timers and DMA, verified against test ROMs.
@@ -29,5 +32,7 @@ remains available for browsers without the scroll timelines used below.
 CPU state across reusable 128-instruction batches, with no further input after
 Run. Chromium and current Linux WebKit tests cover ongoing execution, pause,
 reset, branches, retained registers/VRAM, HALT, traps and bookkeeping wraparound.
-Practical game speed and actual iOS validation remain open; this is not a complete
+The user confirmed the automatic counter keeps advancing in their iOS Chrome
+setup. Other features, pause/resume and broader device coverage remain unverified
+on actual iOS. Practical game speed remains open; this is not a complete
 Game Boy emulator. See [automatic storage](ARCHITECTURE.md#automatic-scroll-storage-build-06).
