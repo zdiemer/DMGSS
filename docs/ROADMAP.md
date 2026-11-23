@@ -20,7 +20,10 @@
    Coverage now includes 15,232 independent cases.
    **Interrupt milestone:** DI, delayed EI, RETI, IE/IF register semantics,
    priority dispatch and the HALT bug. 15,328 independent instruction cases.
-   Next: cycle accounting, timers/serial interrupt sources, STOP and broader RAM. See [external-test status](COMPATIBILITY.md).
+   **Cycle milestone:** instruction-duration accounting, conditional timing,
+   CB memory timing and 20-T-cycle interrupt entry, retained across all modes.
+   258 additional independent timing cases; existing SM83 cases now score durations.
+   Next: timers/serial interrupt sources, bus timing, STOP and broader RAM. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.

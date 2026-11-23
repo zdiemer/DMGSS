@@ -87,7 +87,7 @@ See [converter limits and usage](docs/CONVERTER.md).
 [Try ALU lab](https://dmgss.zachd.duckdns.org/automatic/alu/): decimal arithmetic,
 carry, bitwise operations and rotations. The CPU is checked against 15,328
 independent cases from Mooneye and SingleStepTests. These are adapted CPU-state
-checks, not whole-ROM or timing passes; see [compatibility evidence](docs/COMPATIBILITY.md).
+checks, not whole-ROM passes; see [compatibility evidence](docs/COMPATIBILITY.md).
 
 [Try Bit lab](https://dmgss.zachd.duckdns.org/automatic/bits/): all CB families,
 including register operations and RAM/VRAM read-modify-write instructions.
@@ -97,5 +97,6 @@ vectors, high-memory loads, stack returns and a routine written into RAM.
 
 [Try Interrupts](https://dmgss.zachd.duckdns.org/automatic/interrupts/): software
 requests exercise all five priority vectors, delayed EI, RETI and the HALT bug.
-Interrupts currently run at instruction boundaries; hardware timing and sources
-are still missing.
+The Machine inspector now shows T-cycles for instructions and interrupt entry.
+This 16-bit counter survives batch transfers and wraps at 65,536. Bus timing,
+HALT idle time and hardware interrupt sources are still missing.

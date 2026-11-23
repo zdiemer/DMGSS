@@ -1,5 +1,6 @@
 """Emit SM83 instruction semantics as CSS expressions (not an execution trace)."""
 from rom import ROM
+from timing import duration
 
 REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
 RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC040), *range(0xFF80, 0xFFFF)]
@@ -203,7 +204,7 @@ def machine(rom, storage, arithmetic=False):
         sp='calc(mod(var(--sp) - 2, 65536))', pc='var(--irq-vector)',
         ime='0', ticks='var(--ticks)', **{'ime-delay':'0'})
     rom = rom if isinstance(rom, ROM) else ROM(rom, compact=False)
-    props = {'opcode': 0, 'raw-opcode': 0, 'exec-pc': 256,
+    props = {'opcode': 0, 'raw-opcode': 0, 'exec-pc': 256, 'duration': 0,
              'pending-mask': 0, 'pending': 0, 'irq': 0, 'irq-mask': 0,
              'irq-vector': 64, 'halt-trigger': 0, 'sleeping': 0, 'imm': 0, 'upper': 0, 'pc1': 257, 'pc2': 258,
              'imm16': 0, 'bc': 0, 'de': 0, 'hl': 0,
@@ -220,6 +221,7 @@ def machine(rom, storage, arithmetic=False):
                               'cb-bit','cb-mutate','cb-rotate','cb-carry','cb-result','cb-flags'), 0)}
     css = '\n'.join(f'@property --{k} {{syntax:"<integer>";inherits:true;initial-value:{v};}}' for k, v in props.items())
     expr = {
+        'duration': duration(choose),
         'exec-pc': 'calc(mod(var(--pc) - var(--halt-bug), 65536))',
         'pc1': 'calc(mod(var(--exec-pc) + 1, 65536))',
         'pc2': 'calc(mod(var(--exec-pc) + 2, 65536))',
@@ -320,12 +322,13 @@ def machine(rom, storage, arithmetic=False):
     states = {}
     stopped = 'style(--sleeping:1) or style(--fault:1)'
     invalid = 'style(--invalid:1)'
-    for name in ['pc', 'a', 'b', 'c', 'd', 'e', 'h', 'l', 'f', 'sp', 'halted', 'fault', 'ticks', 'ime', 'ime-delay', 'halt-bug']:
+    for name in ['pc', 'a', 'b', 'c', 'd', 'e', 'h', 'l', 'f', 'sp', 'halted', 'fault', 'ticks', 'tcycles', 'ime', 'ime-delay', 'halt-bug']:
         initial = 256 if name == 'pc' else 0
         default = f'var(--{name})'
         if name in ('halted', 'halt-bug', 'ime-delay'): default = '0'
         if name == 'ime': default = 'calc(max(var(--ime), var(--ime-delay)))'
         if name == 'ticks': default = 'calc(var(--ticks) + 1)'
+        if name == 'tcycles': default = 'calc(mod(var(--tcycles) + var(--duration), 65536))'
         changes = {}
         for code, effects in ops.items():
             if name == 'pc':
@@ -353,7 +356,7 @@ def machine(rom, storage, arithmetic=False):
             result = f'calc(224 + mod(({result}),32))'
         states[name] = (224 if addr == IF else 0, result)
     css += storage(states)
-    for name in ['pc', 'a', 'b', 'f', 'sp', 'ticks']:
+    for name in ['pc', 'a', 'b', 'f', 'sp', 'ticks', 'tcycles']:
         css += f'.register-{name}::after {{counter-reset:value var(--{name});content:counter(value);}}\n'
     for pair in ('bc', 'de', 'hl'):
         css += f'.register-{pair}::after {{counter-reset:value calc(var(--{pair[0]}) * 256 + var(--{pair[1]}));content:counter(value);}}\n'

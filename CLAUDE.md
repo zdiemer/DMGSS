@@ -57,6 +57,10 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   and does not increment the retired-instruction counter. IF upper bits read as
   one; IE retains all eight bits, only low five participate in dispatch. Keep
   instruction-level entry distinct from missing bus timing and hardware sources.
+- Keep instruction ticks separate from T-cycle accounting. Successful steps add
+  opcode duration modulo 65,536; interrupt entry adds 20 without a tick. Failed
+  accesses and sleeping/paused/faulted states preserve the cycle count. Retain
+  it atomically in every bank. This is not bus timing or a HALT idle clock.
 - Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
   tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
 - Converter uploads stay request-local; temporary generated files use tmpfs in

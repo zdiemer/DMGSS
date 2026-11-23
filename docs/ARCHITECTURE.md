@@ -455,3 +455,28 @@ second read deadline. Counter progress checks allow thirty seconds per read and
 seven minutes for the repeated pause/resume scenario, preserving exact state,
 no-inspection progress, and bounded-stall assertions. Finite interrupt programs
 retain their shorter deadlines.
+
+
+## Build 14: instruction-duration accounting
+
+`tools/timing.py` emits `--duration` in T-cycles from the current opcode, flags
+and CB operand kind. `--tcycles` adds that duration modulo 65,536 through the
+same successful-transition gate as registers and PC. Interrupt entry adds 20
+while `ticks` remains unchanged; HALT entry adds 4, then freezes until wakeup.
+The counter records accepted CPU work, not wall time or a bus-level timeline.
+Atomic fetch/transfer failures leave it unchanged. No Python executes a ROM.
+
+This adds one 16-bit retained word: 226 state fields, 453 automatic scroll cells,
+1,805 bits per manual bank and 3,612 native inputs including commit and power.
+Every mode uses the same 16-bit cycle wrap. The complete-bank readiness
+handshake includes the cycle word; partial manual copies cannot affect the
+active result. The public Machine inspector exposes the count and its limits.
+
+Existing SM83 fixtures now compare durations from their upstream M-state arrays.
+A separate timing-only set retains one raw record per observed duration for all
+242 non-HALT unprefixed instructions, including both conditional outcomes.
+A third immutable ROM-byte slot lets those fixtures exercise 16-bit immediates.
+Their operands are adapted to mapped addresses; expected cycle totals remain
+outside the page. Original tests cover interrupt entry, HALT, traps, wraparound,
+retention and the 24-instruction / 196-T-cycle diagnostic. Full bus ordering,
+HALT idle clocks, register-write races and peripheral clocks remain future work.

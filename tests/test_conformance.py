@@ -131,6 +131,30 @@ class ConformanceDataTests(unittest.TestCase):
                 self.assertEqual(case['final']['sp'],after['sp'])
         self.assertEqual(coverage,{0xF3:32,0xFB:32,0xD9:32})
 
+    def test_duration_adapter_uses_independent_m_cycle_counts(self):
+        vectors = cases()
+        for file, adapted in [('alu',vectors['sm83']),
+                              ('cb',sum((vectors[f'cb{i}'] for i in range(4)), [])),
+                              ('high',vectors['high']),('interrupts',vectors['interrupts']),
+                              ('timing',vectors['timing'])]:
+            raw = json.loads((ROOT / f'tests/vendor/sm83/{file}.json').read_text())
+            self.assertEqual(len(raw),len(adapted))
+            for original, case in zip(raw,adapted):
+                self.assertEqual(case['name'],original['name'])
+                self.assertEqual(case['final']['tcycles'],4*len(original['cycles']))
+                if file == 'timing':
+                    self.assertEqual(case['initial']['f'],original['initial']['f'])
+                    self.assertEqual(case['opcode'],dict(original['initial']['ram'])[original['initial']['pc']])
+        coverage = {}
+        for case in vectors['timing']:
+            coverage.setdefault(case['opcode'],set()).add(case['final']['tcycles'])
+        excluded={0x10,0x76,0xCB,0xD3,0xDB,0xDD,0xE3,0xE4,0xEB,0xEC,0xED,0xF4,0xFC,0xFD}
+        self.assertEqual(set(coverage),set(range(256))-excluded)
+        conditional={0x20,0x28,0x30,0x38,0xC0,0xC8,0xD0,0xD8,
+                     0xC2,0xCA,0xD2,0xDA,0xC4,0xCC,0xD4,0xDC}
+        self.assertEqual({code for code,counts in coverage.items() if len(counts)==2},conditional)
+        self.assertEqual(len(vectors['timing']),258)
+
 
 if __name__ == '__main__':
     unittest.main()
