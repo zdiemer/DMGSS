@@ -39,6 +39,19 @@ test('converter maps cartridge offsets 0000 through 7FFF and zero padding',async
   await page.locator('.power-switch').click();await halt(page);
   expect(await read(page,['ticks','pc','m49152','m49153','m49154'])).toEqual({ticks:8,pc:16403,m49152:77,m49153:88,m49154:0});
 });
+test('converter accepts the complexity limit with FF padding and resets within the request limit',async({page})=>{
+  const rom=Buffer.alloc(32768,255);
+  rom.set([0xFA,0,0x20,0xEA,0,0xC0,0x76],0x100);
+  for(const address of [0x143,0x147,0x148,0x149])rom[address]=0;
+  rom.fill(0,0x1000,0x1000+1013); // Exactly 1024 bytes differ from FF.
+  await upload(page,rom,{format:'gb',name:'padded.gb'});
+  await page.locator('.power-switch').click();await halt(page);
+  expect(await read(page,['ticks','m49152'])).toEqual({ticks:3,m49152:255});
+  const request=page.waitForRequest(r=>r.method()==='POST');
+  await page.locator('.reset').click();
+  expect((await request).postDataBuffer().length).toBeLessThanOrEqual(65536);
+  expect(await read(page,['ticks','pc'])).toEqual({ticks:0,pc:256});
+});
 test('converter automatic raw program continues beyond a batch',async({page})=>{
   await upload(page,Buffer.from([0xFA,0,0xC0,0x3C,0xEA,0,0xC0,0x18,0xF7]),{mode:'automatic'});
   await page.locator('.power-switch').click();

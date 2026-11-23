@@ -124,6 +124,7 @@ class ServerTests(unittest.TestCase):
 
     def test_cross_origin_post_is_rejected(self):
         self.assertTrue(self.request(self.reset_body(), HTTP_ORIGIN='https://elsewhere.test')['status'].startswith('403'))
+        self.assertTrue(self.request(self.reset_body(), HTTP_ORIGIN='https://[')['status'].startswith('403'))
 
     def test_errors_do_not_echo_rom_or_markup(self):
         result = self.request(self.reset_body(mode='<script>bad</script>'))

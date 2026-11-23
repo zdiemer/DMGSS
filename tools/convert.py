@@ -102,7 +102,7 @@ def convert(data, name='Imported cartridge', format='gb', mode='portable', onlin
     document = document.replace('href="./"', 'href=""')
     document = document.replace('<a class="wordmark" href="">', '<a class="wordmark" href="#about">')
     if online:
-        fields = {'payload': base64.b64encode(data).decode(), 'name': name, 'format': format, 'mode': mode, 'delivery': 'open'}
+        fields = {'payload': base64.urlsafe_b64encode(data).decode(), 'name': name, 'format': format, 'mode': mode, 'delivery': 'open'}
         inputs = ''.join(f'<input type="hidden" name="{k}" value="{html.escape(v, quote=True)}">' for k, v in fields.items())
         document = document.replace('<a class="reset" href="">RESET</a>',
             '<form class="import-reset" method="post" action="/convert/">' + inputs + '<button class="reset" type="submit">RESET</button></form>')

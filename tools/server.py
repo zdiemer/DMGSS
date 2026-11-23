@@ -107,7 +107,7 @@ def application(environ, start_response):
             if ('rom' in fields) == ('payload' in fields):
                 raise ConversionError('Choose one ROM file.')
             if 'payload' in fields:
-                data = base64.b64decode(fields['payload'], validate=True)
+                data = base64.b64decode(fields['payload'], altchars=b'-_', validate=True)
                 filename = fields.get('name', b'Imported cartridge').decode('utf-8')
             else:
                 data = fields['rom']
