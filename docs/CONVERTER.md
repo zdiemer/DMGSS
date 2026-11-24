@@ -52,13 +52,14 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   remain mapped data; they are compressed as a CSS lookup default, not removed.
   Dense ROMs are rejected before generating an unwieldy stylesheet.
 - Server requests are limited to 64 KiB including multipart/form overhead.
-- PC starts at 0100; CPU registers including SP start at zero. IF reads E0
-  initially because its unused bits read as one; IE and IME are zero. No boot ROM or
+- PC starts at 0100; CPU registers including SP start at zero. IF reads E0 and
+  TAC reads F8 initially because their unused bits read as one; IE and IME are zero. No boot ROM or
   post-boot state is synthesized. The CPU still supports 243 unprefixed and 256 CB-prefixed instructions, 64
   bytes of work RAM, 127 bytes of high RAM and one VRAM tile. DI/EI/RETI, software interrupt requests and the HALT bug are supported.
-  The Machine inspector counts T-cycles modulo 65,536; bus timing and HALT idle
-  clocks are not implemented.
-  Banking, full graphics, hardware interrupt sources, timers, joypad and audio are unimplemented. Unknown instructions and unmapped
+  The Machine inspector counts T-cycles modulo 65,536; bus timing is approximate and HALT idle
+  clocks are excluded from that CPU-work counter. DIV/TIMA/TMA/TAC and timer
+  interrupts, including HALT wakeup, are supported at M-cycle boundaries.
+  Banking, full graphics, serial, joypad and audio are unimplemented. Unknown instructions and unmapped
   accesses trap. HALTED means the program halted, not that a game is compatible.
 
 The online result is also self-contained for execution. Reset resubmits its

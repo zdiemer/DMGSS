@@ -14,7 +14,7 @@
 }
 .copy-remaining::after {counter-reset:n var(--copy-remaining);content:counter(n)}
 .save-hint {font:11px/1.6 ui-monospace,monospace;color:#4f5c55;text-align:center;margin:10px 0 0}
-@container style(--halted:1) or style(--fault:1) {
+@container (style(--halted:1) and style(--resume:0)) or style(--fault:1) {
   body[data-checkpoint] .power:checked ~ .clock .checkpoint-controls {display:none}
 }
 body[data-checkpoint] .cartridges a {background:transparent;color:inherit}

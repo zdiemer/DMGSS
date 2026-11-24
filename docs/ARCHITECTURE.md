@@ -480,3 +480,37 @@ Their operands are adapted to mapped addresses; expected cycle totals remain
 outside the page. Original tests cover interrupt entry, HALT, traps, wraparound,
 retention and the 24-instruction / 196-T-cycle diagnostic. Full bus ordering,
 HALT idle clocks, register-write races and peripheral clocks remain future work.
+
+
+## Build 15: timer circuitry and HALT waits
+
+`tools/timer.py` emits six generic M-cycle lanes. Each lane advances the divider
+by four T-cycles if selected by the current instruction's duration, computes a
+selected-bit falling edge, updates TIMA or performs the previous lane's pending
+reload, and accumulates a timer request. The current operation remains atomic;
+these lanes are timer circuitry, not CPU bus micro-operations. Data reads use
+the last active lane. Final-boundary writes apply DIV/TAC edge effects and
+TIMA/TMA reload rules. IF acknowledgement precedes a timer request; explicit
+CPU IF writes then win. See the compatibility report for the remaining races.
+
+DIV's high byte is retained as FF04; `div-low` supplies the lower eight bits.
+FF05–FF07 retain TIMA/TMA/TAC, with one `timer-reload` bit for the next M-cycle.
+All generated phases are multiples of four; fixtures must use aligned seeds.
+The `clocked` bit records accepted CPU or timer-only progress, so the startup
+check can distinguish a working timer wait from a stalled scroll-storage bank.
+These seven additional fields produce 233 state fields, 467 automatic scroll
+cells, 1,847 bits per manual bank and 3,696 total native inputs.
+
+Sleeping CPU state is unchanged during a timer-only lane, including `ticks`
+and `tcycles`. Timer-enabled or reload-pending HALT sources remain eligible for
+a complete automatic bank commit. Manual controls remain available while an
+event can resume execution. The display says WAITING for that state. When no
+live timer/reload or enabled request remains, HALT becomes quiescent and all
+clocks stop. Faults and user Pause also freeze timer state. The original Timer
+lab runs within one batch; the boundary fixture places HALT and overflow at
+stage 128, then transfers the pending reload before servicing the timer.
+
+Mooneye fixture assembly uses a strict whitelist, retains the original test
+body, copies expected registers from upstream assertions and substitutes only
+the result harness. Full CPU state, flag and duration conformance checks remain
+separate; they have not been replaced by timer-only expectations.

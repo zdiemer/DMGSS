@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+from timer_fixtures import NAMES as TIMER_NAMES
 
 ROOT = Path(__file__).resolve().parents[1]
 PINS = {'mooneye': '31510e12eea6286d36eea060a6adde755e1067aa',
@@ -95,6 +96,12 @@ def main():
                 timing.append(case)
     assert len(timing) == 258
     (out / 'sm83/timing.json').write_text(json.dumps(timing, separators=(',', ':')) + '\n')
+    (out / 'mooneye/timer').mkdir(exist_ok=True)
+    for name in TIMER_NAMES:
+        source = (args.mooneye / f'acceptance/timer/{name}.s').read_bytes()
+        manifest['sources'][f'mooneye/acceptance/timer/{name}.s'] = sha(source)
+        (out / f'mooneye/timer/{name}.s').write_bytes(source)
+        manifest['outputs'][f'mooneye/timer/{name}.s'] = sha(source)
     for file in ('mooneye/daa.json', 'mooneye/LICENSE', 'sm83/alu.json', 'sm83/cb.json', 'sm83/high.json', 'sm83/interrupts.json', 'sm83/timing.json', 'sm83/LICENSE'):
         manifest['outputs'][file] = sha((out / file).read_bytes())
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')

@@ -35,7 +35,7 @@ body[data-automatic] .cartridges a[aria-current="page"] { background: #343e3a; c
     body[data-automatic].tile-mode .lcd .tile-preview { display: flex; }
     body[data-automatic] .power:checked ~ .clock .startup-check { animation: finish-startup-check 0s 3s forwards; }
     body[data-automatic] .power:checked ~ .clock .stall-message { animation: report-stalled-engine 0s 3s forwards; }
-    @container style(--ticks:0) and style(--fault:0) {
+    @container style(--clocked:0) and style(--fault:0) {
       body[data-automatic] .power:checked ~ .clock .on-screen,
       body[data-automatic].tile-mode .power:checked ~ .clock .tile-preview { display: none; }
       body[data-automatic] .power:checked ~ .clock .startup-screen { display: flex; }

@@ -139,6 +139,8 @@ def cases():
         initial = dict(pc=256,sp=0xC020,tcycles=60,ticks=7) | seed
         result['timing_edges'].append(dict(name=name,opcode=opcode,byte=second,initial=initial,
             final=dict(ticks=7+ticks,tcycles=(initial['tcycles']+elapsed)%65536,halted=halted,fault=fault)))
+    from timer_cases import cases as timer_cases
+    result['timer_edges'] = timer_cases()
     return result
 
 
@@ -157,6 +159,7 @@ def build(out):
                         '<link rel="stylesheet" href="machine.css"><title>CPU conformance fixture</title></head><body>']
                 for index, case in enumerate(vectors[offset:offset+CHUNK], offset):
                     seed = {**{f'next-{k}':v for k,v in case['initial'].items()},
+                            'run':case.get('run',1),
                             'input-address':case['initial']['pc'], 'input-address1':(case['initial']['pc']+1)%65536,
                             'input-address2':(case['initial']['pc']+2)%65536 if 'upper' in case else -1,
                             'input-opcode':case['opcode'], 'input-byte':case['byte'], 'input-upper':case.get('upper',0)}

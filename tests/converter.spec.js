@@ -146,3 +146,17 @@ test('converter fetches an operand from ROM after wrapping past IE',async({page}
   await page.locator('.power-switch').click();await halt(page);
   expect(await read(page,['ticks','pc','a','m65535'])).toEqual({ticks:5,pc:2,a:42,m65535:62});
 });
+
+for(const mode of ['portable','automatic'])test(`converter timer interrupt wakes uploaded HALT in ${mode}`,async({page})=>{
+  const rom=Buffer.alloc(32768);
+  rom.set([0x31,0xFE,0xFF,0x3E,4,0xE0,255,0x3E,42,0xE0,6,
+    0x3E,0xFC,0xE0,5,0xAF,0xE0,4,0x3E,6,0xE0,7,0xFB,0,0x76,
+    0x3E,0xA5,0xEA,2,0xC0,0x76],0x100);
+  rom.set([0xAF,0xE0,7,0x04,0xD9],0x50);
+  await upload(page,rom,{format:'gb',mode,name:'timer.gb'});
+  await page.locator('.power-switch').click();
+  const expected={b:1,m49154:165,m65287:248,m65295:224,halted:1,fault:0};
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:30000}).toEqual(expected);
+  await expect(page.locator('.halt-message')).toHaveText('HALTED');
+  expect(await page.locator('.passed').count()).toBe(0);
+});

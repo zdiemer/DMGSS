@@ -15,21 +15,22 @@ const COUNTER_PROGRESS_TIMEOUT = 30000;
 const ticks = async page => (await read(page, ['ticks'])).ticks;
 const toggle = page => test.info().project.name.endsWith('mobile')
   ? page.locator('.power-switch').tap() : page.locator('.power-switch').click();
-const counterKeys = ['ticks','tcycles','pc','a','m49152','halted','fault'];
+const counterKeys = ['ticks','tcycles','m65284','div-low','pc','a','m49152','halted','fault'];
 function assertCounter(state, initial=0) {
   expect(state.ticks % 128).toBe(initial % 128);
   const value = ((state.ticks - initial + 65536) % 65536 / 4) % 256;
-  expect(state).toEqual({ticks:state.ticks, tcycles:((state.ticks-initial+65536)%65536*12)%65536, pc:256, a:value, m49152:value, halted:0, fault:0});
+  const cycles=((state.ticks-initial+65536)%65536*12)%65536;
+  expect(state).toEqual({ticks:state.ticks, tcycles:cycles, m65284:Math.floor(cycles/256), 'div-low':cycles%256, pc:256, a:value, m49152:value, halted:0, fault:0});
 }
 
 test('automatic state advances beyond 1,000 instructions with one input, then pauses/resumes/resets', async ({page}, info) => {
-  // HRAM and interrupt state expand retention to 453 cells, with mapped-RAM
+  // HRAM and interrupt state expand retention to 467 cells, with mapped-RAM
   // fetches. Budget repeated tap/readback cycles; retain bounded progress checks.
   test.setTimeout(420000);
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
-  expect(await page.locator('.scroll-memory').count()).toBe(453);
+  expect(await page.locator('.scroll-memory').count()).toBe(467);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   const nodes = await page.locator('*').count();
   await toggle(page);
@@ -59,7 +60,7 @@ test('automatic state advances beyond 1,000 instructions with one input, then pa
   await page.screenshot({path:`test-results/automatic-${info.project.name}.png`,fullPage:true});
   await page.locator('.reset').click();
   await expect.poll(() => ticks(page)).toBe(0);
-  expect(await read(page, counterKeys)).toEqual({ticks:0,tcycles:0,pc:256,a:0,m49152:0,halted:0,fault:0});
+  expect(await read(page, counterKeys)).toEqual({ticks:0,tcycles:0,m65284:0,'div-low':0,pc:256,a:0,m49152:0,halted:0,fault:0});
   await toggle(page);
   await expect.poll(() => ticks(page), {timeout:COUNTER_PROGRESS_TIMEOUT}).toBeGreaterThanOrEqual(256);
   assertCounter(await read(page, counterKeys));

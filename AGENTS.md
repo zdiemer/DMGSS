@@ -47,7 +47,7 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   forms validate writability even for no-op results. Truncated prefixes trap.
 - Instruction fetch uses mapped ROM/RAM and validates every required byte.
   FF is RST 38, never a substitute for an unmapped fetch. HRAM ends at FFFE;
-  IF (FF0F) and IE (FFFF) are mapped; other I/O remains unsupported.
+  Timer registers FF04–FF07, IF (FF0F) and IE (FFFF) are mapped; other I/O traps.
 - EI takes effect after the following retired instruction; DI cancels the delay,
   RETI enables immediately, and interrupt entry clears IME/delay. Preserve both
   latches and the HALT bug across banks. Pending low IE/IF bits wake HALT even
@@ -60,7 +60,20 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
 - Keep instruction ticks separate from T-cycle accounting. Successful steps add
   opcode duration modulo 65,536; interrupt entry adds 20 without a tick. Failed
   accesses and sleeping/paused/faulted states preserve the cycle count. Retain
-  it atomically in every bank. This is not bus timing or a HALT idle clock.
+  it atomically in every bank. The divider includes timer-driven HALT idle clocks;
+  the CPU-work counter excludes them. This is not full bus timing.
+- Timer lanes advance in 4-T-cycle units, up to six per accepted CPU operation.
+  DIV is the high divider byte; resets also clear its low byte. Preserve TAC's
+  high read bits, DMG falling-edge glitches, the one-M-cycle reload latch and
+  IF bit 2 requests. Data reads observe the final M-cycle; writes occur at the
+  retirement boundary. Word transfers are still atomic, not bus-ordered.
+- HALT waits continue while TAC is enabled or reload is pending, including with
+  IME/IE off. With no timer/reload and no pending enabled interrupt, halt is
+  quiescent and the experiment stops all clocks. Pause/fault/traps freeze timer
+  state. Do not claim STOP/CGB, arbitrary T-phase or general bus-race accuracy.
+- Keep timer state and the clock-progress latch in the complete-bank handshake.
+  Startup detection must recognize timer progress even with zero instructions.
+  Manual controls remain usable while HALT is waiting for a timer.
 - Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
   tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
 - Converter uploads stay request-local; temporary generated files use tmpfs in
