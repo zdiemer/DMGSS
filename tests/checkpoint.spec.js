@@ -46,6 +46,9 @@ test('checkpoint reuses two banks across nine batches and byte wrap', async ({pa
   await page.screenshot({path:`test-results/checkpoint-${info.project.name}.png`,fullPage:true});
 });
 test('checkpoint preserves branches and flags until a later HALT', async ({page})=>{
+  // Two complete manual transfers now include changing divider bits. Shared
+  // WebKit runners exceeded the old 120s total; each bit keeps its 5s bound.
+  test.setTimeout(180000);
   await page.goto('/checkpoint/tests/long-loop/'); await page.locator('.power-switch').click();
   expect((await read(page,['ticks'])).ticks).toBe(128);
   await continueBatch(page); await continueBatch(page);
