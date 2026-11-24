@@ -49,7 +49,7 @@
   .power:checked ~ .clock .stall-message {
     animation: report-stalled-engine 0s 3s forwards;
   }
-  @container style(--ticks:0) {
+  @container style(--clocked:0) {
     .power:checked ~ .clock .on-screen,
     .tile-mode .power:checked ~ .clock .tile-preview { display: none; }
     .power:checked ~ .clock .startup-screen { display: flex; }
@@ -66,3 +66,8 @@
 @media(max-width:360px){.cartridges{gap:3px}.cartridges a{padding-inline:3px;font-size:10px}}
 
 .timing-note{line-height:1.5;color:#4f5c55;margin:12px 0 0}
+
+.timer-message{display:none}
+.cartridges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.console>.power-switch{position:relative;float:right;top:auto;right:auto;margin-top:-42px;margin-bottom:12px}
+.clock{clear:both}

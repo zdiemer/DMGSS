@@ -23,7 +23,10 @@
    **Cycle milestone:** instruction-duration accounting, conditional timing,
    CB memory timing and 20-T-cycle interrupt entry, retained across all modes.
    258 additional independent timing cases; existing SM83 cases now score durations.
-   Next: timers/serial interrupt sources, bus timing, STOP and broader RAM. See [external-test status](COMPATIBILITY.md).
+   **Timer milestone:** DIV/TIMA/TMA/TAC, all four rates, DMG falling-edge
+   effects, delayed reload and timer-driven HALT wakeup. Eleven reduced Mooneye
+   timer bodies retain their hardware-verified assertions.
+   Next: serial output, full bus timing, STOP and broader RAM. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.

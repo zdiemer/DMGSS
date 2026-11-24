@@ -1,6 +1,6 @@
 const {test, expect} = require('@playwright/test');
 // Manual bank transfers perform many native bit saves and full-pipeline style
-// reads across 1,805-bit banks. Each bit still has its own progress bound.
+// reads across 1,847-bit banks. Each bit still has its own progress bound.
 test.describe.configure({timeout:120000});
 const read = (page, keys, selector='.machine') => page.locator(selector).evaluate((el,keys)=>Object.fromEntries(keys.map(k=>[k,Number(getComputedStyle(el).getPropertyValue(`--${k}`))])),keys);
 const copyState = page => read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
@@ -15,10 +15,10 @@ async function saveBit(page, keyboard=false) {
   await expect.poll(async ()=>(await copyState(page))['copy-remaining']).toBe(before['copy-remaining']-1);
 }
 async function continueBatch(page) {
-  const state = await read(page,['ticks','tcycles','pc','a','b','f','m49152']);
+  const state = await read(page,['ticks','tcycles','m65284','div-low','pc','a','b','f','m49152']);
   let saved = 0;
   while ((await copyState(page))['copy-remaining']) {
-    expect(saved++).toBeLessThan(1805);
+    expect(saved++).toBeLessThan(1847);
     await expect(page.locator('.commit-control')).not.toBeVisible();
     await saveBit(page);
     // Partial writes to the inactive bank must never alter this batch's result.
@@ -34,7 +34,7 @@ test('checkpoint reuses two banks across nine batches and byte wrap', async ({pa
   await page.goto('/checkpoint/');
   expect(await page.locator('script').count()).toBe(0);
   const inputs=await page.locator('input').count();
-  expect(inputs).toBe(3612); // 2 × 1805 bits, commit, power; no growing trace.
+  expect(inputs).toBe(3696); // 2 × 1847 bits, commit, power; no growing trace.
   await page.locator('.power-switch').click();
   for(let batch=1;batch<=9;batch++) {
     expect(await read(page,['ticks','pc','a','m49152','halted','fault'])).toEqual({ticks:batch*128,pc:256,a:(batch*32)%256,m49152:(batch*32)%256,halted:0,fault:0});

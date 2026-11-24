@@ -11,7 +11,7 @@ The current build executes original embedded ROMs on a CSS CPU supporting 243 un
 16-bit register pairs, indirect addressing, stack/subroutines, the complete 8-bit ALU, decimal adjustment, arithmetic flags, branches and 64 bytes of work RAM plus 127 bytes of high RAM.
 Power on to run it; the screen reports success or a CPU trap. Tile lab runs a
 second original ROM that copies a four-shade tile from ROM data into 16 bytes of VRAM using pointers. Stack lab exercises nested calls and saved registers. The full
-PPU, timers, hardware interrupt sources and game compatibility remain ahead.
+PPU, serial/joypad interrupt sources and game compatibility remain ahead.
 See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 
 ## Development
@@ -98,5 +98,9 @@ vectors, high-memory loads, stack returns and a routine written into RAM.
 [Try Interrupts](https://dmgss.zachd.duckdns.org/automatic/interrupts/): software
 requests exercise all five priority vectors, delayed EI, RETI and the HALT bug.
 The Machine inspector now shows T-cycles for instructions and interrupt entry.
-This 16-bit counter survives batch transfers and wraps at 65,536. Bus timing,
-HALT idle time and hardware interrupt sources are still missing.
+This 16-bit CPU-work counter survives batch transfers and wraps at 65,536.
+
+[Try Timers](https://dmgss.zachd.duckdns.org/automatic/timers/): DIV/TIMA/TMA/TAC
+produce a timer interrupt that wakes HALT and returns through the handler.
+Eleven reduced Mooneye timer programs check rates, DIV effects and reloads.
+Timer clocks advance during active HALT waits; full bus timing remains ahead.

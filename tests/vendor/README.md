@@ -60,3 +60,13 @@ are compared. This covers 242 instructions and both paths of 16 conditions.
 Expected T-cycles are four times each record's `cycles` length. These are not
 additional full-state or whole-ROM passes. Original timing edge cases are
 separate and have no upstream provenance claim.
+
+
+`mooneye/timer/*.s` contains eleven unchanged sources from the same pinned MIT
+suite. Their comments report hardware-verified assertions. `timer_fixtures.py`
+assembles the `test:` body verbatim in instruction order at 0100, replacing the
+setup_assertions/printing tail with XOR A, LDH [TAC],A, HALT. That tail preserves
+all upstream assertion registers. The independent expected registers are read
+from the source; uppercase hex is supported. No boot/setup/printing harness or
+whole-ROM compatibility is claimed. Each source and output has a manifest hash;
+regeneration uses the same import command above.
