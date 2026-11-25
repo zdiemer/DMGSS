@@ -71,3 +71,5 @@
 .cartridges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
 .console>.power-switch{position:relative;float:right;top:auto;right:auto;margin-top:-42px;margin-bottom:12px}
 .clock{clear:both}
+
+.serial-monitor{margin-top:18px;font-size:13px;color:#34463d}.serial-monitor summary{cursor:pointer}.serial-monitor p{line-height:1.5}.serial-bytes{display:flex;flex-wrap:wrap;gap:4px;background:#b6c782;color:#20321b;padding:10px;min-height:36px;white-space:pre-wrap}.serial-text{font-size:18px;gap:0}.serial-hex{font-size:12px;border-top:1px solid #72834c}.serial-hex span{width:calc((100% - 28px)/8)}

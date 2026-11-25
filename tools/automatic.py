@@ -8,6 +8,10 @@ from portable import storage
 
 
 def modulus(name):
+    if name == 'serial-phase': return 512
+    if name == 'serial-bits': return 8
+    if name == 'serial-length': return 32
+    if name == 'serial-count': return 65536
     return 2 if name in ('halted', 'fault', 'ime', 'ime-delay', 'halt-bug', 'timer-reload', 'clocked') else 65536 if name in ('pc', 'sp', 'ticks', 'tcycles') else 256
 
 
@@ -65,9 +69,9 @@ def generate(rom, initial=None):
         display.append(f'--{name}:var(--seed-{name});')
     rules.append('body[data-automatic] .clock {' + ''.join(seed) + '}')
     # Commit a halted/faulted RESULT before stopping. A halted SOURCE may still
-    # wake on an enabled request or advance a live timer / pending reload.
+    # wake on an enabled request or advance a live peripheral / pending reload.
     pending = ' + '.join(f'mod(round(down,var(--seed-m65295) / {1<<bit}),2) * mod(round(down,var(--seed-m65535) / {1<<bit}),2)' for bit in range(5))
-    pending += ' + mod(round(down,var(--seed-m65287) / 4),2) + var(--seed-timer-reload)'
+    pending += ' + mod(round(down,var(--seed-m65287) / 4),2) + var(--seed-timer-reload) + round(down,var(--seed-m65282) / 128) * mod(var(--seed-m65282),2)'
     rules.append('.auto-output {--enabled-copy:calc(var(--run) * (1 - max(var(--seed-halted) * (1 - min(1,' + pending + ')), var(--seed-fault))));' +
                  '--ready:calc(1 - min(1, ' + ' + '.join(differences) + '));}')
     rules.append('body[data-automatic] .machine {' + ''.join(display) + '}')

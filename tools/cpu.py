@@ -2,11 +2,12 @@
 from rom import ROM
 from timing import duration
 from timer import DIV, TIMA, TMA, TAC, circuit
+from serial_io import SB, SC, circuit as serial_circuit, monitor_css
 
 REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
 RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC040), *range(0xFF80, 0xFFFF)]
 IF, IE = 0xFF0F, 0xFFFF
-MEMORY = [*RAM, IF, IE, DIV, TIMA, TMA, TAC]
+MEMORY = [*RAM, IF, IE, DIV, TIMA, TMA, TAC, SB, SC]
 
 
 def choose_native(key, values, default):
@@ -196,11 +197,13 @@ def instruction_set():
 def machine(rom, storage, arithmetic=False):
     choose = choose_math if arithmetic else choose_native
     timer_expr, timer_states = circuit(choose, equals)
+    serial_expr, serial_states = serial_circuit(equals)
     read_memory = {i: f'var(--m{i})' for i in MEMORY}
-    # Timer data reads observe the final M-cycle. Opcode/immediate fetch still
+    # Peripheral data reads observe the final M-cycle. Opcode/immediate fetch still
     # uses the old bank; full bus scheduling is a separate milestone.
     read_memory.update({DIV:'calc(round(down,var(--timer-end) / 256))',
-                        TIMA:'var(--timer-t6)', IF:'var(--timer-if)'})
+                        TIMA:'var(--timer-t6)', IF:'var(--hardware-if)',
+                        SB:'var(--serial-sb)', SC:'var(--serial-sc)'})
     ops = instruction_set()
     # A service step is not an opcode or a retired instruction. It uses the
     # same atomic two-lane stack path and takes one generic pipeline stage.
@@ -227,7 +230,8 @@ def machine(rom, storage, arithmetic=False):
              **dict.fromkeys(('cb-index','cb-group','cb-kind','cb-input','cb-weight',
                               'cb-bit','cb-mutate','cb-rotate','cb-carry','cb-result','cb-flags'), 0)}
     props.update(dict.fromkeys(timer_expr,0))
-    props.update({'timer-if':224,'resume':0})
+    props.update(dict.fromkeys(serial_expr,0))
+    props.update({'timer-if':224,'hardware-if':224,'resume':0})
     css = '\n'.join(f'@property --{k} {{syntax:"<integer>";inherits:true;initial-value:{v};}}' for k, v in props.items())
     expr = {
         'duration': duration(choose),
@@ -328,8 +332,10 @@ def machine(rom, storage, arithmetic=False):
     for lane in ('write','write2'):
         expr[lane] = expr[lane].replace('var(--pc)', 'var(--exec-pc)')
     expr.update(timer_expr)
+    expr.update(serial_expr)
     acknowledged = f'(var(--m{IF}) - var(--enabled) * var(--irq) * var(--irq-mask))'
     expr['timer-if'] = f'calc({acknowledged} + var(--timer-request6) * (1 - mod(round(down,{acknowledged} / 4),2)) * 4)'
+    expr['hardware-if'] = 'calc(var(--timer-if) + 8 * var(--serial-done) * (1 - mod(round(down,var(--timer-if) / 8),2)))'
     css += '\n.machine {' + ''.join(f'--{k}:{v};' for k, v in expr.items()) + '}\n'
     states = {}
     stopped = 'style(--sleeping:1) or style(--fault:1)'
@@ -358,21 +364,22 @@ def machine(rom, storage, arithmetic=False):
                 result = 'calc(max(var(--fault), var(--run, 1) * (1 - var(--sleeping)) * var(--invalid)))'
         states[name] = (initial, result)
     for addr in MEMORY:
-        if addr in (DIV,TIMA,TMA,TAC): continue
+        if addr in (DIV,TIMA,TMA,TAC,SB,SC): continue
         name = f'm{addr}'
         result = f'if(style(--enabled:1) and style(--writing:1) and style(--address:{addr}):var(--write);style(--enabled:1) and style(--writing:1) and style(--word:1) and style(--address2:{addr}):var(--write2);else:var(--{name}))'
         if arithmetic:
             result = f'calc(var(--{name}) + var(--enabled) * var(--writing) * (({equals("address", addr)}) * (var(--write) - var(--{name})) + var(--word) * ({equals("address2", addr)}) * (var(--write2) - var(--{name}))))'
         if addr == IF:
             # Acknowledge before stack writes; an explicit IF write wins.
-            result = result.replace(f'var(--{name})', 'var(--timer-if)')
+            result = result.replace(f'var(--{name})', 'var(--hardware-if)')
             result = f'calc(224 + mod(({result}),32))'
         states[name] = (224 if addr == IF else 0, result)
     states.update(timer_states)
+    states.update(serial_states)
     css += storage(states)
     pending = ' + '.join(f'mod(round(down,var(--m{IF}) / {1<<bit}),2) * mod(round(down,var(--m{IE}) / {1<<bit}),2)' for bit in range(5))
-    css += '\n.machine{--resume:calc(min(1,' + pending + f' + mod(round(down,var(--m{TAC}) / 4),2) + var(--timer-reload)));}}\n'
-    for name in ['pc', 'a', 'b', 'f', 'sp', 'ticks', 'tcycles', *[f'm{i}' for i in (DIV,TIMA,TMA,TAC)]]:
+    css += '\n.machine{--resume:calc(min(1,' + pending + f' + mod(round(down,var(--m{TAC}) / 4),2) + var(--timer-reload) + round(down,var(--m{SC}) / 128) * mod(var(--m{SC}),2)));}}\n'
+    for name in ['pc', 'a', 'b', 'f', 'sp', 'ticks', 'tcycles', *[f'm{i}' for i in (DIV,TIMA,TMA,TAC,SB,SC)]]:
         css += f'.register-{name}::after {{counter-reset:value var(--{name});content:counter(value);}}\n'
     for pair in ('bc', 'de', 'hl'):
         css += f'.register-{pair}::after {{counter-reset:value calc(var(--{pair[0]}) * 256 + var(--{pair[1]}));content:counter(value);}}\n'
@@ -382,7 +389,7 @@ def machine(rom, storage, arithmetic=False):
 @container style(--m49154:165) {.halt-message .passed{display:inline-block}.halt-message .stopped{display:none}}
 @container style(--halted:1) and style(--resume:1) {.halt-message{display:none}.timer-message{display:block}}
 '''
-    return css
+    return css + monitor_css()
 
 
 TILE = [

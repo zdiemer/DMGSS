@@ -6,13 +6,13 @@ CPU stages; it never emulates ROM instructions or precomputes their execution.
 
 ## Current evidence
 
-Build 15 supports 243 unprefixed instructions and all 256 CB-prefixed
+Build 16 supports 243 unprefixed instructions and all 256 CB-prefixed
 operations: RLC/RRC/RL/RR, SLA/SRA/SRL, SWAP, BIT, RES and SET. Earlier
 8-bit ALU, accumulator rotates, decimal adjustment, load, branch, register-pair
 and stack support is retained.
 All eight RST vectors and four LDH forms are implemented. HRAM FF80–FFFE
 is readable, writable and executable; mapped work RAM and VRAM are executable
-too. Timer registers (FF04–FF07), IE (FFFF) and IF (FF0F) are mapped. Other
+too. Serial registers (FF01–FF02), timer registers (FF04–FF07), IE (FFFF) and IF (FF0F) are mapped. Other
 I/O addresses remain unmapped and trap. DI, delayed EI, RETI, interrupt priority
 and instruction-level HALT behavior are implemented.
 Unknown opcodes, missing instruction bytes and unsupported accesses trap atomically.
@@ -65,8 +65,8 @@ arithmetic, carry, bitwise logic and rotations without JavaScript.
 
 ## Next milestones
 
-1. Serial output and additional interrupt sources;
-   STOP behavior and broader work RAM. STOP still traps explicitly.
+1. Broader work RAM and additional interrupt sources;
+   STOP behavior. STOP still traps explicitly.
 2. Scalable dense ROM lookup and cartridge controllers. Do not silently patch
    headers or bypass the converter's bounds to make a suite appear accepted.
 3. Unmodified CPU test ROMs with their actual completion protocol, plus
@@ -107,8 +107,8 @@ These original reduced tests do not run those suites' full harnesses.
 Interrupt entry is one atomic CSS transition, with no retired instruction tick.
 It accounts for 20 T-cycles (five M-cycles), but does not model their individual
 bus operations, interrupt cancellation during stack writes, or general IE/IF races.
-The timer now requests interrupts independently and wakes HALT. LCD, serial and
-joypad sources remain unimplemented. Original seeded wakeup regressions are
+Timers and internal serial transfers request interrupts independently and wake HALT.
+LCD and joypad sources remain unimplemented. Original seeded wakeup regressions are
 retained alongside the timer-driven programs.
 IF starts at E0 (unused bits read as one); IE and IME start at zero. This is an
 explicit test start state, not a boot-ROM/post-boot hardware state.
@@ -140,7 +140,7 @@ including wraparound at a boundary. The original diagnostic retires 24
 instructions in 196 T-cycles. Tests check that total in all four execution modes,
 as well as pause/reset, halted stability, malformed accesses and offline imports.
 This counter accounts for instruction/entry work, not idle time or wall time.
-The 0.14 timer circuit below advances separately during HALT waits. Serial,
+The timer and serial circuits below advance separately during HALT waits.
 PPU, DMA and a complete CPU bus scheduler remain future work.
 
 
@@ -179,11 +179,52 @@ phases or all IF/write races. Explicit IF writes win at the final boundary.
 STOP and CGB timer differences remain unsupported. A rejected fetch/transfer
 freezes the timer as part of the experiment's atomic-trap contract.
 
-HALT consumes one four-T-cycle timer step while TAC is enabled or a reload is
-pending, without retiring an instruction or increasing the CPU-work counter.
+HALT consumes one four-T-cycle timer step while TAC is enabled, a reload is
+pending, or an internal serial transfer is active, without retiring an instruction or increasing the CPU-work counter.
 Timer requests wake HALT with IME off too, if IE enables the request. With no
-live timer/reload and no enabled pending request, the experiment is quiescent:
+live timer/reload/internal serial transfer and no enabled pending request, the experiment is quiescent:
 all clocks freeze, including DIV. It does not represent free-running hardware
 observed by future external inputs. Pause freezes all clocks. Timer waits and
 interrupt entries share the 128-stage batch budget; the instruction count can
 stay below 128 while a bounded run still exhausts that budget.
+
+
+## Serial milestone and limits
+
+SB (FF01) and SC (FF02) implement a disconnected DMG serial port. With internal
+clock selected, each 512 accepted T-cycles shifts one outgoing bit, MSB first,
+and shifts in one. Eight shifts receive FF, clear SC bit 7 and request IF bit 3.
+SC bits 1–6 read as one. External-clock transfers stay armed without progress;
+there is no cable peer or source of external pulses. Internal transfers advance
+while HALT waits, even with IE/IME off, and can wake the CPU through the existing
+interrupt dispatcher. Timer and serial requests can coexist.
+
+The behavior follows [Pan Docs serial transfer](https://gbdev.io/pandocs/Serial_Data_Transfer_(Link_Cable).html).
+The unused-bit expectations also match the pinned Mooneye
+[unused_hwio-GS source](https://github.com/Gekkio/mooneye-test-suite/blob/31510e12eea6286d36eea060a6adde755e1067aa/acceptance/bits/unused_hwio-GS.s).
+Original tests check shifts, rates, masks, requests, atomic/rejected writes,
+partial-byte retention, pauses, resets, IF arbitration and log rollover. These
+are not whole-ROM serial-suite passes. The upstream boot_sclk_align test needs
+boot state and clock alignment that this experiment does not implement.
+
+The serial monitor is diagnostic state, not additional Game Boy memory. It
+keeps the latest 16 completed outgoing bytes, oldest first, alongside a 16-bit
+wrapping transfer count. Printable ASCII is shown as text, LF/CR/TAB as marks,
+and other bytes as dots; the hex row preserves exact values. Actual shifted-out
+bits are recorded, including SB changes during a transfer. Incomplete/aborted
+transfers never append a byte. The monitor also works in uploaded and offline
+converted pages, without requests or scripts during execution.
+
+Timing remains approximate: every SC write resets the transfer phase and bit
+counter; the first internally clocked bit follows 512 T-cycles later. This is
+not the hardware's free-running divider alignment, DIV-write coupling, active
+SC-write race behavior, or CGB fast serial. Reads see the final instruction
+boundary, then explicit writes apply. Completion at that boundary is recorded
+before a simultaneous CPU write. CPU-work T-cycles still exclude HALT idle time;
+Pause/fault/atomic traps freeze both peripherals.
+
+[Serial lab](https://dmgss.zachd.duckdns.org/automatic/serial/) sends OK using
+HALT/interrupt return and SC polling. A byte takes 4,096 T-cycles, so the lab
+needs multiple batches. Compatible mode correctly stops with a partial
+transfer; it does not fake completion to fit 128 stages. Automatic mode runs
+the whole lab, manual mode needs repeated bit saves, and streaming mode is slow.

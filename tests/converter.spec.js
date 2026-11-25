@@ -160,3 +160,29 @@ for(const mode of ['portable','automatic'])test(`converter timer interrupt wakes
   await expect(page.locator('.halt-message')).toHaveText('HALTED');
   expect(await page.locator('.passed').count()).toBe(0);
 });
+
+for(const offline of [false,true])test(`converter serial output runs ${offline?'offline':'online'} without runtime requests`,async({page},info)=>{
+  test.setTimeout(120000);
+  // Send '<', poll SC until the hardware clears it, then halt. No fake fast-serial hook.
+  const buffer=Buffer.from([0x3E,60,0xE0,1,0x3E,0x81,0xE0,2,0xF0,2,0xE6,0x80,0x20,0xFA,0x76]);
+  if(offline){
+    await page.goto('/convert/');
+    await page.locator('#rom').setInputFiles({name:'serial.bin',mimeType:'application/octet-stream',buffer});
+    await page.locator('#format').selectOption('raw');await page.locator('#mode').selectOption('automatic');
+    const promise=page.waitForEvent('download');await page.locator('button[value=download]').click();
+    const file=info.outputPath('serial.html');await (await promise).saveAs(file);
+    const document=await fs.readFile(file,'utf8');expect(document).not.toContain('<script');
+    await page.goto(pathToFileURL(file).href);
+  }else await upload(page,buffer,{mode:'automatic',name:'serial.bin'});
+  const requests=[];page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url())});
+  await page.locator('.power-switch').click();await halt(page,90000);
+  const expected={m65281:255,m65282:127,m65295:232,'serial-count':1,'serial-length':1,'serial-log0':60};
+  expect(await read(page,Object.keys(expected))).toEqual(expected);
+  expect(await page.locator('.passed').count()).toBe(0);
+  await page.locator('.serial-monitor summary').click();
+  await expect(page.locator('.serial-text span:visible')).toHaveCount(1);
+  expect(requests).toEqual([]);
+  await reset(page);
+  expect(await read(page,['serial-count','serial-length','m65282'])).toEqual({'serial-count':0,'serial-length':0,m65282:126});
+  if(offline)expect(requests).toEqual([]);
+});

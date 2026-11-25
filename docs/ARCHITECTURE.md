@@ -514,3 +514,31 @@ Mooneye fixture assembly uses a strict whitelist, retains the original test
 body, copies expected registers from upstream assertions and substitutes only
 the result harness. Full CPU state, flag and duration conformance checks remain
 separate; they have not been replaced by timer-only expectations.
+
+
+## Build 16: disconnected serial and output retention
+
+`tools/serial_io.py` emits SB/SC and transfer state. `serial-live` joins timer
+activity when deciding whether a halted stage advances four T-cycles. A 9-bit
+phase counts accepted clocks; an operation is at most 24 T-cycles, so it can
+cross at most one 512-T-cycle serial edge. Each edge shifts SB left with a high
+input and accumulates the outgoing MSB. The eighth edge clears SC bit 7,
+requests IF bit 3 and appends the accumulated byte to a fixed 16-byte log.
+Explicit CPU writes occur after that boundary. SC writes reset transfer
+progress. External clock selection supplies no edges. See the compatibility
+report for the intentionally unmodeled divider coupling and active-write races.
+
+The serial request is ORed with the timer request after IRQ acknowledgement;
+an explicit IF write still wins. Data reads use clocked SB/SC/IF values. Fetches
+use the old bank, as before. All new state participates in the full-bank copy
+handshake: 256 fields, 513 scroll cells, 2,032 manual bits per bank and 4,066
+native inputs. Phase uses nine bits, bit count three, output length five and
+completed-byte count sixteen. The bounded log and partial outgoing byte use
+ordinary eight-bit cells. Custom counter styles render fixed ASCII/hex tables;
+ROM bytes never become markup. No runtime JS or server emulation is involved.
+
+The original Serial lab sends two bytes with real waiting. Seeded boundary
+fixtures isolate completion/IRQ dispatch, output eviction/count wrap and a
+partially shifted byte with a nonzero sub-bit phase. Seeds are generation-time
+inputs, not accelerated serial clocks or execution traces. Converted programs
+also poll the actual SC completion bit in online and file:// runs.

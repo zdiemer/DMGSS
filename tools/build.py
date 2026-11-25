@@ -13,6 +13,8 @@ from bits import bits_rom
 from high import high_rom, high_continuation, high_fill
 from interrupts import interrupt_rom, interrupt_continuation
 from timers import timer_rom
+from serial_io import monitor_html
+from serial_lab import serial_rom, boundary_rom as serial_boundary, boundary_seed as serial_seed
 from rom import ROM
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,7 +40,7 @@ def storage(states):
         '@keyframes execute {0%,100% {' + ''.join(execute) + '}}\n'
 
 
-def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False, interrupts=False, timers=False, initial=None):
+def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False, interrupts=False, timers=False, serial=False, initial=None):
     out = out or ROOT / 'dist'
     if out.exists():
         shutil.rmtree(out)
@@ -46,7 +48,7 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
     for file in (ROOT / 'src').iterdir():
         if file.is_file():
             shutil.copyfile(file, out / file.name)
-    html = (out / 'index.html').read_text()
+    html = (out / 'index.html').read_text().replace('<!-- SERIAL MONITOR -->', monitor_html())
     html = html.replace('<!-- PIXELS -->', ''.join(f'<i class="pixel-{i}"></i>' for i in range(64)))
     html = html.replace('</aside>', '<p class="automatic-link"><a href="/automatic/">Try automatic continuation →</a></p></aside>')
     if tile:
@@ -59,6 +61,10 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         html = html.replace('SYSTEM DIAGNOSTIC', 'BITS / ROTATE + SHIFT')
     if interrupts:
         html = html.replace('SYSTEM DIAGNOSTIC', 'INTERRUPTS / REQUEST + RETURN')
+    if serial:
+        html = html.replace('SYSTEM DIAGNOSTIC', 'SERIAL / SEND + RECEIVE')
+        html = html.replace('<details class="serial-monitor">', '<details class="serial-monitor" open>')
+        html = html.replace('</aside>', '<p class="serial-note">Serial lab sends OK, first waking HALT and then polling completion. A full byte needs 4,096 T-cycles, so this program needs multiple batches. <a href="/automatic/serial/">Use automatic mode</a> for the complete run; streaming is slow and compatible mode stops partway.</p></aside>')
     if timers:
         html = html.replace('SYSTEM DIAGNOSTIC', 'TIMER / OVERFLOW + WAKE')
     if high:
@@ -70,7 +76,7 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         html = html.replace('</head>', '<link rel="stylesheet" href="portable.css"></head>')
         html = html.replace('POWER ON', 'RUN').replace('POWER OFF', 'RESET VIEW').replace('class="start">POWER', 'class="start">RUN / RESET')
         html = html.replace('STREAMING MODE / TILE MEMORY', 'COMPATIBLE MODE / 128 STEPS')
-        html = html.replace('href="/"', 'href="/portable/"').replace('href="/tile/"', 'href="/portable/tile/"').replace('href="/stack/"', 'href="/portable/stack/"').replace('href="/alu/"', 'href="/portable/alu/"').replace('href="/bits/"', 'href="/portable/bits/"').replace('href="/high/"', 'href="/portable/high/"').replace('href="/interrupts/"', 'href="/portable/interrupts/"').replace('href="/timers/"', 'href="/portable/timers/"')
+        html = html.replace('href="/"', 'href="/portable/"').replace('href="/tile/"', 'href="/portable/tile/"').replace('href="/stack/"', 'href="/portable/stack/"').replace('href="/alu/"', 'href="/portable/alu/"').replace('href="/bits/"', 'href="/portable/bits/"').replace('href="/high/"', 'href="/portable/high/"').replace('href="/interrupts/"', 'href="/portable/interrupts/"').replace('href="/timers/"', 'href="/portable/timers/"').replace('href="/serial/"', 'href="/portable/serial/"')
         html = html.replace('<a href="/portable/">Switch to compatible mode</a>', '<a href="/">Switch to streaming mode</a>')
         html = html.replace('>RUNNING<', '>STEP LIMIT<').replace('CPU WRITING VRAM', '128-STEP LIMIT')
         html = html.replace('Testing CSS state storage…', 'Evaluating CSS stages…')
@@ -86,12 +92,12 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         def seeded(definitions):
             return storage({name: ((initial or {}).get(name,value), expression) for name,(value,expression) in definitions.items()})
         (out / 'machine.css').write_text(machine(program, seeded) + tile_css())
-    active = ('/portable' if bounded else '') + ('/timers/' if timers else '/interrupts/' if interrupts else '/high/' if high else '/bits/' if bits else '/alu/' if alu else '/stack/' if stack else '/tile/' if tile else '/')
+    active = ('/portable' if bounded else '') + ('/serial/' if serial else '/timers/' if timers else '/interrupts/' if interrupts else '/high/' if high else '/bits/' if bits else '/alu/' if alu else '/stack/' if stack else '/tile/' if tile else '/')
     (out / 'index.html').write_text(current_cartridge(html, active))
 
 
 def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
-    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers')
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial')
     css, inputs, controls = checkpoint.generate(rom, initial=initial)
     (out / 'machine.css').write_text(css)
     html = (out / 'index.html').read_text()
@@ -111,7 +117,8 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
     html = html.replace('href="/portable/high/"', 'href="/checkpoint/high/"')
     html = html.replace('href="/portable/interrupts/"', 'href="/checkpoint/interrupts/"')
     html = html.replace('href="/portable/timers/"', 'href="/checkpoint/timers/"')
-    active = '/checkpoint/timers/' if cartridge == 'timers' else '/checkpoint/interrupts/' if cartridge == 'interrupts' else '/checkpoint/high/' if cartridge == 'high' else '/checkpoint/bits/' if cartridge == 'bits' else '/checkpoint/alu/' if cartridge == 'alu' else '/checkpoint/stack/' if cartridge == 'stack' else '/checkpoint/tile/' if tile else '/checkpoint/diagnostic/' if cartridge == 'diagnostic' else '/checkpoint/'
+    html = html.replace('href="/portable/serial/"', 'href="/checkpoint/serial/"')
+    active = '/checkpoint/serial/' if cartridge == 'serial' else '/checkpoint/timers/' if cartridge == 'timers' else '/checkpoint/interrupts/' if cartridge == 'interrupts' else '/checkpoint/high/' if cartridge == 'high' else '/checkpoint/bits/' if cartridge == 'bits' else '/checkpoint/alu/' if cartridge == 'alu' else '/checkpoint/stack/' if cartridge == 'stack' else '/checkpoint/tile/' if tile else '/checkpoint/diagnostic/' if cartridge == 'diagnostic' else '/checkpoint/'
     html = current_cartridge(html, active)
     if cartridge == 'counter' and not tile:
         html = html.replace('SYSTEM DIAGNOSTIC', 'RAM C000: <span class="checkpoint-memory"></span>')
@@ -124,7 +131,7 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
 
 
 def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
-    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers')
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial')
     # Keep the shared shell's streaming-mode visibility/clock rules below this
     # mode's rules, including when its capability gate fails.
     shell = (out / 'style.css').read_text()
@@ -150,7 +157,8 @@ def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
     html = html.replace('href="/portable/high/"', 'href="/automatic/high/"')
     html = html.replace('href="/portable/interrupts/"', 'href="/automatic/interrupts/"')
     html = html.replace('href="/portable/timers/"', 'href="/automatic/timers/"')
-    active = '/automatic/timers/' if cartridge == 'timers' else '/automatic/interrupts/' if cartridge == 'interrupts' else '/automatic/high/' if cartridge == 'high' else '/automatic/bits/' if cartridge == 'bits' else '/automatic/alu/' if cartridge == 'alu' else '/automatic/stack/' if cartridge == 'stack' else '/automatic/tile/' if tile else '/automatic/diagnostic/' if cartridge == 'diagnostic' else '/automatic/'
+    html = html.replace('href="/portable/serial/"', 'href="/automatic/serial/"')
+    active = '/automatic/serial/' if cartridge == 'serial' else '/automatic/timers/' if cartridge == 'timers' else '/automatic/interrupts/' if cartridge == 'interrupts' else '/automatic/high/' if cartridge == 'high' else '/automatic/bits/' if cartridge == 'bits' else '/automatic/alu/' if cartridge == 'alu' else '/automatic/stack/' if cartridge == 'stack' else '/automatic/tile/' if tile else '/automatic/diagnostic/' if cartridge == 'diagnostic' else '/automatic/'
     html = current_cartridge(html, active)
     if cartridge == 'counter' and not tile:
         html = html.replace('SYSTEM DIAGNOSTIC', 'RAM C000: <span class="automatic-memory"></span>')
@@ -203,7 +211,21 @@ if __name__ == '__main__':
     build(timer_rom(), ROOT / 'dist/portable/timers', bounded=True, timers=True)
     build_checkpoint(timer_rom(), ROOT / 'dist/checkpoint/timers', cartridge='timers')
     build_automatic(timer_rom(), ROOT / 'dist/automatic/timers', cartridge='timers')
+    build(serial_rom(), ROOT / 'dist/serial', serial=True)
+    build(serial_rom(), ROOT / 'dist/portable/serial', bounded=True, serial=True)
+    build_checkpoint(serial_rom(), ROOT / 'dist/checkpoint/serial', cartridge='serial')
+    build_automatic(serial_rom(), ROOT / 'dist/automatic/serial', cartridge='serial')
     if args.fixtures:
+        build_automatic(serial_boundary(), ROOT / 'dist/automatic/tests/serial-boundary', initial=serial_seed())
+        build_checkpoint(serial_boundary(), ROOT / 'dist/checkpoint/tests/serial-boundary', initial=serial_seed())
+        midbit=serial_seed() | {'serial-phase':128,'serial-bits':6,'serial-tx':16,'m65281':127}
+        build_checkpoint(serial_boundary(), ROOT / 'dist/checkpoint/tests/serial-midbit', initial=midbit)
+        near=serial_seed() | {'serial-phase':508}
+        build(serial_boundary(), ROOT / 'dist/tests/serial-boundary', initial=near)
+        build(serial_boundary(), ROOT / 'dist/portable/tests/serial-boundary', bounded=True, initial=near)
+        build_automatic(ROM([0x76]), ROOT / 'dist/automatic/tests/serial-idle', initial={'halted':1,'m65281':65,'m65282':255})
+        build_automatic(ROM([0x76]), ROOT / 'dist/automatic/tests/serial-external', initial={'m65281':65,'m65282':254})
+
         import timer_fixtures
         for case in timer_fixtures.cases():
             build_automatic(ROM(case['rom']), ROOT / f'dist/automatic/tests/mooneye-{case["name"]}')

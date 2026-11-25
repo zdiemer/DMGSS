@@ -47,7 +47,7 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   forms validate writability even for no-op results. Truncated prefixes trap.
 - Instruction fetch uses mapped ROM/RAM and validates every required byte.
   FF is RST 38, never a substitute for an unmapped fetch. HRAM ends at FFFE;
-  Timer registers FF04–FF07, IF (FF0F) and IE (FFFF) are mapped; other I/O traps.
+  Serial registers FF01–FF02, timer registers FF04–FF07, IF (FF0F) and IE (FFFF) are mapped; other I/O traps.
 - EI takes effect after the following retired instruction; DI cancels the delay,
   RETI enables immediately, and interrupt entry clears IME/delay. Preserve both
   latches and the HALT bug across banks. Pending low IE/IF bits wake HALT even
@@ -67,13 +67,26 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   high read bits, DMG falling-edge glitches, the one-M-cycle reload latch and
   IF bit 2 requests. Data reads observe the final M-cycle; writes occur at the
   retirement boundary. Word transfers are still atomic, not bus-ordered.
-- HALT waits continue while TAC is enabled or reload is pending, including with
-  IME/IE off. With no timer/reload and no pending enabled interrupt, halt is
+- HALT waits continue while TAC is enabled, reload is pending, or an internal
+  serial transfer is active, including with
+  IME/IE off. With no timer/reload/internal serial transfer and no pending enabled interrupt, halt is
   quiescent and the experiment stops all clocks. Pause/fault/traps freeze timer
   state. Do not claim STOP/CGB, arbitrary T-phase or general bus-race accuracy.
 - Keep timer state and the clock-progress latch in the complete-bank handshake.
   Startup detection must recognize timer progress even with zero instructions.
   Manual controls remain usable while HALT is waiting for a timer.
+- Serial is disconnected DMG behavior: SC bits 1–6 read high, SB shifts MSB
+  first with incoming ones, internal bits take 512 T-cycles, completion clears
+  SC bit 7 and raises IF bit 3. External transfers never invent clock pulses.
+  Each SC write resets the experiment's transfer phase/bit count; this is an
+  explicit approximation, not DIV/serial alignment or active-write race accuracy.
+- Clocked SB/SC reads precede final-boundary CPU writes. Timer and serial requests
+  combine after IRQ acknowledgement; explicit IF writes win. Retain the partial
+  byte, sub-bit phase and output log through the complete-bank handshake.
+- Serial output records actual shifted-out bits only upon completion. Keep the
+  log bounded to the latest 16 bytes, with exact hex and printable-text views;
+  control bytes are marks, never HTML. Count wraps at 65,536 independently of
+  log length. Imported ROMs never inherit TEST PASSED from output or RAM values.
 - Run ./build.sh before ./upgrade.sh when image inputs change. Use a new image
   tag; keep Chart.yaml appVersion and values.yaml image.tag in sync.
 - Converter uploads stay request-local; temporary generated files use tmpfs in

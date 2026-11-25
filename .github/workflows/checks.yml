@@ -21,14 +21,18 @@ jobs:
       fail-fast: false
       matrix:
         project: [desktop, chromium-mobile, webkit-mobile]
-        suite: [compute, continuation]
-        # Group by measured work: default file sharding puts all slow suites
-        # together. New spec files automatically join continuation.
+        suite: [compute, automatic, checkpoint, integration]
+        # Manual transfers alone can take 26 minutes on shared runners. Keep
+        # each retention file independent; every new spec joins integration.
         include:
           - suite: compute
             file_filter: '(^|/)(cpu|conformance|portable)\.spec\.js$'
-          - suite: continuation
-            file_filter: '(^|/)(?!(cpu|conformance|portable)\.spec\.js$)[^/]+\.spec\.js$'
+          - suite: automatic
+            file_filter: '(^|/)automatic\.spec\.js$'
+          - suite: checkpoint
+            file_filter: '(^|/)checkpoint\.spec\.js$'
+          - suite: integration
+            file_filter: '(^|/)(?!(cpu|conformance|portable|automatic|checkpoint)\.spec\.js$)[^/]+\.spec\.js$'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
