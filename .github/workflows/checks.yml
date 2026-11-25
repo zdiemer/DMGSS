@@ -21,14 +21,16 @@ jobs:
       fail-fast: false
       matrix:
         project: [desktop, chromium-mobile, webkit-mobile]
-        suite: [compute, retention, integration]
-        # The former continuation job took 32 minutes. Separate the two slow
-        # bank-transfer files from integration checks; every new file joins integration.
+        suite: [compute, automatic, checkpoint, integration]
+        # Manual transfers alone can take 26 minutes on shared runners. Keep
+        # each retention file independent; every new spec joins integration.
         include:
           - suite: compute
             file_filter: '(^|/)(cpu|conformance|portable)\.spec\.js$'
-          - suite: retention
-            file_filter: '(^|/)(automatic|checkpoint)\.spec\.js$'
+          - suite: automatic
+            file_filter: '(^|/)automatic\.spec\.js$'
+          - suite: checkpoint
+            file_filter: '(^|/)checkpoint\.spec\.js$'
           - suite: integration
             file_filter: '(^|/)(?!(cpu|conformance|portable|automatic|checkpoint)\.spec\.js$)[^/]+\.spec\.js$'
     steps:
