@@ -19,8 +19,8 @@ MODES = {'portable': 'Compatible · 128 instructions', 'automatic': 'Automatic c
 CAVEAT = ('Conversion uses Python outside the browser. The generated page executes CPU and memory '
           'transitions in HTML/CSS only: no JavaScript, WebAssembly, server emulation or precomputed trace.')
 LIMITS = ('Experimental CPU only: 243 unprefixed and 256 CB-prefixed instructions, RAM C000–C03F, HRAM FF80–FFFE and one VRAM tile. '
-          'Instruction durations, software interrupts and DIV/TIMA/TMA/TAC timer interrupts are supported; no boot ROM, full PPU, serial, audio, joypad or banking. Bus timing is approximate. '
-          'PC starts at 0100; other CPU registers, including SP, start at zero. IF reads E0 and TAC reads F8 initially. '
+          'Instruction durations, software interrupts and DIV/TIMA/TMA/TAC timer interrupts and disconnected SB/SC serial transfers are supported; no boot ROM, full PPU, cable peer, audio, joypad or banking. Bus timing and serial clock phase are approximate. A serial byte needs multiple batches; the monitor keeps the last 16 completed bytes. '
+          'PC starts at 0100; other CPU registers, including SP, start at zero. IF reads E0, SC reads 7E and TAC reads F8 initially. '
           'Unsupported instructions and unmapped accesses trap. Import does not imply game compatibility.')
 
 

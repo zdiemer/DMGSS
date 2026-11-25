@@ -11,7 +11,7 @@ The current build executes original embedded ROMs on a CSS CPU supporting 243 un
 16-bit register pairs, indirect addressing, stack/subroutines, the complete 8-bit ALU, decimal adjustment, arithmetic flags, branches and 64 bytes of work RAM plus 127 bytes of high RAM.
 Power on to run it; the screen reports success or a CPU trap. Tile lab runs a
 second original ROM that copies a four-shade tile from ROM data into 16 bytes of VRAM using pointers. Stack lab exercises nested calls and saved registers. The full
-PPU, serial/joypad interrupt sources and game compatibility remain ahead.
+PPU, joypad interrupt sources and game compatibility remain ahead.
 See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 
 ## Development
@@ -104,3 +104,11 @@ This 16-bit CPU-work counter survives batch transfers and wraps at 65,536.
 produce a timer interrupt that wakes HALT and returns through the handler.
 Eleven reduced Mooneye timer programs check rates, DIV effects and reloads.
 Timer clocks advance during active HALT waits; full bus timing remains ahead.
+
+
+[Try Serial](https://dmgss.zachd.duckdns.org/automatic/serial/): an original ROM
+sends **OK**, using both HALT wakeup and completion polling. The console's
+serial monitor retains the latest 16 completed bytes as text and hex, including
+for converted ROMs. This models a disconnected DMG port, not a link-cable peer;
+clock phase and bus-write timing remain approximate. Use automatic mode for a
+complete run: a serial byte needs more than one compatible-mode batch.

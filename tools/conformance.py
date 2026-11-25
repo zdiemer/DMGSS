@@ -141,6 +141,8 @@ def cases():
             final=dict(ticks=7+ticks,tcycles=(initial['tcycles']+elapsed)%65536,halted=halted,fault=fault)))
     from timer_cases import cases as timer_cases
     result['timer_edges'] = timer_cases()
+    from serial_cases import cases as serial_cases
+    result['serial_edges'] = serial_cases()
     return result
 
 

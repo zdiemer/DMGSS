@@ -26,7 +26,10 @@
    **Timer milestone:** DIV/TIMA/TMA/TAC, all four rates, DMG falling-edge
    effects, delayed reload and timer-driven HALT wakeup. Eleven reduced Mooneye
    timer bodies retain their hardware-verified assertions.
-   Next: serial output, full bus timing, STOP and broader RAM. See [external-test status](COMPATIBILITY.md).
+   **Serial milestone:** disconnected SB/SC transfers, 512-T-cycle bit periods,
+   completion interrupts and HALT wakeup, with a bounded text/hex output monitor.
+   Internal transfers continue across banks; external transfers wait for a clock.
+   Next: broader RAM and scalable ROM lookup, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.
