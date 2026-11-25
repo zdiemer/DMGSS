@@ -45,9 +45,11 @@ test('serial lab sends OK through HALT and polling',async({page})=>{
   await page.goto('/automatic/');
   await page.getByRole('link',{name:'Serial',exact:true}).click();
   await page.locator('.power-switch').click();
-  await expect(page.locator('.passed')).toBeVisible({timeout:150000});
-  const expected={b:2,sp:65534,m65281:255,m65282:127,m65295:224,'serial-count':2,'serial-length':2,'serial-log0':79,'serial-log1':75,halted:1,fault:0};
-  expect(await read(page,Object.keys(expected))).toEqual(expected);
+  const expected={b:2,sp:65534,m65281:255,m65282:127,m65295:224,m49154:165,'serial-count':2,'serial-length':2,'serial-log0':79,'serial-log1':75,'serial-phase':0,'serial-bits':0,'serial-tx':75,halted:1,fault:0};
+  // Frequent visibility polls force expensive active-pipeline layout on shared
+  // runners. Leave time for native rendering and report actual state on failure.
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:150000,intervals:[5000]}).toEqual(expected);
+  await expect(page.locator('.passed')).toBeVisible();
   await expect(page.locator('.serial-text span:visible')).toHaveCount(2);
   await page.locator('.power-switch').click();await page.locator('.power-switch').click();
   expect(await read(page,Object.keys(expected))).toEqual(expected);
