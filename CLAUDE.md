@@ -108,3 +108,10 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   with a clear error because its animation banks did not initialize reliably.
   Small/direct lookup graphs stay unchanged. Do not imply cartridge banking or
   whole-ROM compatibility merely because a dense file can now be converted.
+
+- Work RAM is C000–C0FF with E000–E0FF echo aliases. Canonicalize each fetch/data
+  bus lane independently; keep PC, pointers and stack return addresses logical.
+  Echo aliases share physical state and never get their own copy cells. Reject
+  unimplemented physical RAM and its echoes, including word operations with
+  either lane absent. FE00 and above must not alias. All added physical bytes
+  participate in the complete-bank handshake and manual copy selector.

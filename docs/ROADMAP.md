@@ -32,7 +32,9 @@
    **Dense ROM milestone:** full-density 32 KiB ROM-only cartridges and 4 KiB raw
    programs use paged CSS lookup in Compatible, Automatic and Manual modes,
    including cross-page fetches and retained execution. Streaming keeps its sparse limit.
-   Next: broader RAM, cartridge banking, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
+   **Work RAM milestone:** 256 physical bytes at C000–C0FF with their E000–E0FF
+   echo aliases, including execution, stack/interrupt access and retained copies.
+   Next: full work RAM, cartridge banking, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.

@@ -47,7 +47,7 @@ for(const mode of ['automatic','checkpoint'])test(`timer overflow and HALT cross
     while(true){
       const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!copy['copy-remaining'])break;
-      expect(saves++).toBeLessThan(2032);
+      expect(saves++).toBeLessThan(3568);
       await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
       expect(await read(page,Object.keys(before))).toEqual(before);
     }

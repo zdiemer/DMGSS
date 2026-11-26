@@ -34,6 +34,6 @@
   {"name":"rom-rmw-trap","rom":[62,255,198,1,33,0,1,52],"expect":{"a":0,"h":1,"l":0,"f":176,"fault":1,"pc":263,"ticks":3},"fault":true},
   {"name":"indirect-read-trap","rom":[33,0,208,42],"expect":{"h":208,"l":0,"fault":1,"pc":259,"ticks":1},"fault":true},
   {"name":"indirect-write-trap","rom":[1,0,208,62,7,2],"expect":{"b":208,"c":0,"a":7,"fault":1,"pc":261,"ticks":2},"fault":true},
-  {"name":"post-store-then-boundary-trap","rom":[33,63,192,62,42,34,42],"expect":{"h":192,"l":64,"a":42,"m49215":42,"fault":1,"pc":262,"ticks":3},"fault":true},
+  {"name":"post-store-then-boundary-trap","rom":[33,255,192,62,42,34,42],"expect":{"h":193,"l":0,"a":42,"m49407":42,"fault":1,"pc":262,"ticks":3},"fault":true},
   {"name":"post-decrement-then-boundary-trap","rom":[33,0,192,62,43,50,58],"expect":{"h":191,"l":255,"a":43,"m49152":43,"fault":1,"pc":262,"ticks":3},"fault":true}
 ]

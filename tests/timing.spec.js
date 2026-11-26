@@ -36,7 +36,7 @@ for(const mode of ['checkpoint','automatic'])test(`cycle accounting crosses a ${
     while(true){
       const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!copy['copy-remaining'])break;
-      expect(saves++).toBeLessThan(2032);
+      expect(saves++).toBeLessThan(3568);
       await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
       // Incomplete copies must not leak cycle bits into the active result.
       expect(await read(page,['ticks','tcycles'])).toEqual({ticks:128,tcycles:512});

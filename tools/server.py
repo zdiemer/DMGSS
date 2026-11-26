@@ -11,6 +11,7 @@ from build import ROOT
 from convert import ConversionError, MAX_ROM, convert
 from cpu import stack_rom
 from dense_rom import sample_rom as dense_sample_rom
+from work_ram import sample_rom as ram_sample_rom
 
 MAX_REQUEST = 65536
 CSP = "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
@@ -91,6 +92,8 @@ def application(environ, start_response):
         return respond('200 OK', b'ok\n', 'text/plain')
     if path == '/convert/sample.gb' and method in ('GET', 'HEAD'):
         return respond('200 OK', sample_rom(), 'application/octet-stream', [('Content-Disposition', 'attachment; filename="dmgss-stack.gb"')])
+    if path == '/convert/ram.gb' and method in ('GET', 'HEAD'):
+        return respond('200 OK', ram_sample_rom(), 'application/octet-stream', [('Content-Disposition', 'attachment; filename="dmgss-ram.gb"')])
     if path == '/convert/dense.gb' and method in ('GET', 'HEAD'):
         return respond('200 OK', dense_sample_rom(), 'application/octet-stream', [('Content-Disposition', 'attachment; filename="dmgss-dense.gb"')])
     if path == '/convert/' and method in ('GET', 'HEAD'):

@@ -134,7 +134,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b'role="alert"', result['body'])
 
     def test_form_sample_and_health_are_gettable(self):
-        for path in ('/convert/', '/convert/sample.gb', '/convert/dense.gb', '/healthz'):
+        for path in ('/convert/', '/convert/sample.gb', '/convert/dense.gb', '/convert/ram.gb', '/healthz'):
             with self.subTest(path=path):
                 self.assertEqual(self.request(REQUEST_METHOD='GET', PATH_INFO=path)['status'], '200 OK')
         sample = self.request(REQUEST_METHOD='GET', PATH_INFO='/convert/sample.gb')['body']

@@ -6,6 +6,6 @@ module.exports = defineConfig({
   projects: [
     { name: 'desktop', use: { browserName: 'chromium', viewport: { width: 1440, height: 1000 } } },
     { name: 'chromium-mobile', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
-    { name: 'webkit-mobile', testMatch: /(compatibility|portable|checkpoint|automatic|converter|conformance|alu|bits|high|interrupts|timing|timer|serial|rom)\.spec\.js/, use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+    { name: 'webkit-mobile', testMatch: /(compatibility|portable|checkpoint|automatic|converter|conformance|alu|bits|high|interrupts|timing|timer|serial|rom|memory)\.spec\.js/, use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
   ],
 });
