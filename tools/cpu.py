@@ -214,6 +214,7 @@ def machine(rom, storage, arithmetic=False):
         sp='calc(mod(var(--sp) - 2, 65536))', pc='var(--irq-vector)',
         ime='0', ticks='var(--ticks)', **{'ime-delay':'0'})
     rom = rom if isinstance(rom, ROM) else ROM(rom, compact=False)
+    rom.lookup_expr.clear()
     props = {'opcode': 0, 'raw-opcode': 0, 'exec-pc': 256, 'duration': 0,
              'pending-mask': 0, 'pending': 0, 'irq': 0, 'irq-mask': 0,
              'irq-vector': 64, 'halt-trigger': 0, 'sleeping': 0, 'imm': 0, 'upper': 0, 'pc1': 257, 'pc2': 258,
@@ -326,6 +327,9 @@ def machine(rom, storage, arithmetic=False):
     for lane, (name, pc) in enumerate([('raw-opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]):
         expr[f'fetch{lane}'] = rom.readable(pc, choose, MEMORY)
         expr[name] = rom.lookup(pc, choose, {i: f'var(--m{i})' for i in MEMORY}, f'var(--fetch{lane})')
+    # ROM helpers belong to this combinational stage, not its descendants or banks.
+    css += '\n' + '\n'.join(f'@property --{name} {{syntax:"<integer>";inherits:false;initial-value:0;}}' for name in rom.lookup_expr)
+    expr.update(rom.lookup_expr)
     # FF is now RST 38: an unmapped byte must not turn into a synthetic call.
     expr['invalid'] = 'calc(max(1 - var(--known), (1 - var(--irq)) * (1 - var(--fetch-valid)), var(--access) * max(1 - var(--valid), var(--word) * (1 - var(--valid2)))))'
     expr['enabled'] = 'calc(var(--run, 1) * (1 - max(var(--sleeping), var(--fault), var(--invalid))))'

@@ -320,7 +320,8 @@ is data compression, independent of the program's execution path. It does not
 add cartridge banking, interrupt vectors/RST semantics, a boot ROM or new RAM.
 Small built-in cartridges retain their original direct lookup expressions:
 their automatic-stage dependency graph stays unchanged and is timing-sensitive.
-Imported cartridges use the bounded compact representation and may run slower.
+Sparse imported cartridges use the compact direct representation and may run slower.
+Dense imports use the paged representation described below.
 
 `tools/server.py` accepts bounded multipart uploads or the generated page's
 native reset form. It returns inline HTML or an attachment. Online Reset posts
@@ -542,3 +543,22 @@ fixtures isolate completion/IRQ dispatch, output eviction/count wrap and a
 partially shifted byte with a nonzero sub-bit phase. Seeds are generation-time
 inputs, not accelerated serial clocks or execution traces. Converted programs
 also poll the actual SC completion bit in online and file:// runs.
+
+## Paged ROM selectors (0.16.0)
+
+Above 1,024 exceptional bytes, ROM data is partitioned into absolute 256-byte
+pages and little-endian 16-bit byte pairs. Each page selects one of at most 128
+pairs, using its own frequent-pair default. Identical pages reuse a selector.
+Five independent combinational readers serve opcode, two immediate and two
+data lanes; each computes its page, pair offset, packed value and byte. All
+intermediates are non-inheriting registered integers local to each stage,
+preventing a monolithic expanded CSS
+expression. They are recomputed from the live address, never stored in a bank.
+
+The existing validity gates still distinguish mapped ROM from absent bytes;
+internal pair padding does not make a missing raw operand readable. RAM and I/O
+overrides remain separate, including ROM/VRAM word reads and IE-to-ROM fetch
+wraparound. Dense encoding is entirely data-driven, with no reachable-code
+analysis, CPU execution or precomputed trace. Small cartridges retain their
+previous expressions and all four storage engines retain their existing bank
+sizes. Tests cover worst-case output budgets and identical-page compression.

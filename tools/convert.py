@@ -13,7 +13,6 @@ from build import build, build_automatic, build_checkpoint
 
 MAX_ROM = 32768
 MAX_RAW = 4096
-MAX_EXCEPTIONS = 1024
 MODES = {'portable': 'Compatible · 128 instructions', 'automatic': 'Automatic continuation',
          'checkpoint': 'Manual checkpoints', 'streaming': 'Streaming · Chromium only'}
 CAVEAT = ('Conversion uses Python outside the browser. The generated page executes CPU and memory '
@@ -43,8 +42,6 @@ def load_rom(data, format):
         rom = ROM(data, 0)
     else:
         raise ConversionError('Choose Game Boy ROM or raw test program.')
-    if len(rom.exceptions) > MAX_EXCEPTIONS:
-        raise ConversionError('ROM too dense for this experimental CSS engine: at most 1024 bytes may differ from its most common byte. Use a small test program.')
     return rom
 
 

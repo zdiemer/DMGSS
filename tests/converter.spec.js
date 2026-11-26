@@ -41,7 +41,7 @@ test('converter maps cartridge offsets 0000 through 7FFF and zero padding',async
   await page.locator('.power-switch').click();await halt(page);
   expect(await read(page,['ticks','pc','m49152','m49153','m49154'])).toEqual({ticks:8,pc:16403,m49152:77,m49153:88,m49154:0});
 });
-test('converter accepts the complexity limit with FF padding and resets within the request limit',async({page})=>{
+test('converter preserves the direct-lookup boundary with FF padding and resets within the request limit',async({page})=>{
   const rom=Buffer.alloc(32768,255);
   rom.set([0xFA,0,0x20,0xEA,0,0xC0,0x76],0x100);
   for(const address of [0x143,0x147,0x148,0x149])rom[address]=0;

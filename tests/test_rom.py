@@ -1,0 +1,38 @@
+"""Output budgets for worst-case ROM data; browser tests verify decoding."""
+from pathlib import Path
+import random
+import sys
+import unittest
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
+from convert import convert,load_rom
+from dense_rom import sample_rom
+
+
+class DenseROMTests(unittest.TestCase):
+    def test_worst_case_documents_remain_bounded_in_every_mode(self):
+        data=bytearray(random.Random(16).randbytes(32768))
+        for address in (0x143,0x147,0x148,0x149):
+            data[address]=0
+        for mode in ('portable','automatic','checkpoint','streaming'):
+            with self.subTest(mode=mode):
+                document=convert(data,'dense.gb','gb',mode)
+                self.assertLess(len(document.encode()),12*1024*1024)
+                self.assertNotIn('<script',document)
+                self.assertNotIn('<link',document)
+                self.assertNotIn('TEST PASSED',document)
+
+    def test_repeated_dense_pages_keep_download_small(self):
+        # Raw format avoids header edits breaking an otherwise identical page.
+        data=bytes(range(256))*16
+        document=convert(data,'repeated.bin','raw','portable')
+        self.assertLess(len(document.encode()),1024*1024)
+
+    def test_original_dense_sample_header_and_bounds(self):
+        data=sample_rom()
+        self.assertEqual(len(data),32768)
+        self.assertEqual(data[0x104:0x134],bytes(48))
+        self.assertEqual(data[0x147:0x14A],bytes(3))
+        self.assertEqual(data[0x14D],(-sum(data[0x134:0x14D])-25)&255)
+        self.assertEqual(int.from_bytes(data[0x14E:0x150],'big'),(sum(data[:0x14E])+sum(data[0x150:]))&65535)
+        self.assertEqual(load_rom(data,'gb').data,data)

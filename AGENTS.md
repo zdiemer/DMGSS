@@ -97,3 +97,12 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
 - Secrets only through existing op:// references resolved at deploy time; never
   create values.local.yaml. Static deployment should need no application secret.
 - Push app commits before moving the deployed selfhosted submodule pin.
+
+- Imported dense ROMs use paged CSS selectors and exact 16-bit byte pairs.
+  All bytes remain mapped data, including unreachable bytes and padding. Keep
+  intermediates registered and non-inheriting so expressions stay local and bounded; share identical pages.
+  ROM helpers are combinational, never retained CPU state. Preserve fetch/data
+  range validation and RAM/I/O overrides at page, word and 16-bit wrap boundaries.
+  The 32 KiB ROM-only and 4 KiB raw input bounds remain; density is not a limit.
+  Small/direct lookup graphs stay unchanged. Do not imply cartridge banking or
+  whole-ROM compatibility merely because a dense file can now be converted.

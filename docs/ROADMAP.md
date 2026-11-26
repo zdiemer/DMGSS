@@ -29,7 +29,9 @@
    **Serial milestone:** disconnected SB/SC transfers, 512-T-cycle bit periods,
    completion interrupts and HALT wakeup, with a bounded text/hex output monitor.
    Internal transfers continue across banks; external transfers wait for a clock.
-   Next: broader RAM and scalable ROM lookup, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
+   **Dense ROM milestone:** full-density 32 KiB ROM-only cartridges and 4 KiB raw
+   programs use paged CSS lookup, including cross-page fetches and retained execution.
+   Next: broader RAM, cartridge banking, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.
@@ -39,7 +41,7 @@ Audio and persistent saves require separate feasibility research. HTML file
 inputs cannot expose ROM bytes to CSS: local import needs a JS loader or an
 external conversion step. **Shipped:** offline Python conversion plus a native
 HTML upload/download form. Both generate a self-contained HTML/CSS page for
-small test programs or unbanked 32 KiB ROMs, subject to a CSS complexity limit.
+small test programs or unbanked 32 KiB ROMs, regardless of byte density.
 The converter never executes the program; importing does not imply game
 compatibility. See [the converter](CONVERTER.md). No full-speed promise.
 

@@ -6,7 +6,7 @@ CPU stages; it never emulates ROM instructions or precomputes their execution.
 
 ## Current evidence
 
-Build 16 supports 243 unprefixed instructions and all 256 CB-prefixed
+Build 17 supports 243 unprefixed instructions and all 256 CB-prefixed
 operations: RLC/RRC/RL/RR, SLA/SRA/SRL, SWAP, BIT, RES and SET. Earlier
 8-bit ALU, accumulator rotates, decimal adjustment, load, branch, register-pair
 and stack support is retained.
@@ -58,8 +58,8 @@ arithmetic, carry, bitwise logic and rotations without JavaScript.
 
 | Upstream suite | Intended use | Current status |
 | --- | --- | --- |
-| [Mooneye](https://github.com/Gekkio/mooneye-test-suite) (MIT) | CPU and hardware behavior verified on real devices | DAA table is used above. The unmodified DAA ROM additionally needs broader work RAM and hardware I/O, a larger ROM lookup, and its result/printing harness. Eleven reduced timer bodies are also used below. The complete ROM harness still needs the broader hardware/memory map. |
-| [Blargg CPU tests](https://github.com/retrio/gb-test-roms/tree/c240dd7d700e5c0b00a7bbba52b53e4ee67b5f15/cpu_instrs) | Broad instruction behavior and checksums | Not run or bundled. Inspected `01-special.gb` and `04-op r,imm.gb` declare MBC1 and exceed our 1,024-exception lookup limit (1,815 and 2,640 exceptions respectively). The harness also needs additional CPU, memory and hardware behavior. No header patch or synthetic pass is applied. |
+| [Mooneye](https://github.com/Gekkio/mooneye-test-suite) (MIT) | CPU and hardware behavior verified on real devices | DAA table is used above. The unmodified DAA ROM additionally needs broader work RAM and hardware I/O, its result/printing harness and cartridge setup. Dense lookup now accepts full 32 KiB ROM-only images. Eleven reduced timer bodies are also used below. The complete ROM harness still needs the broader hardware/memory map. |
+| [Blargg CPU tests](https://github.com/retrio/gb-test-roms/tree/c240dd7d700e5c0b00a7bbba52b53e4ee67b5f15/cpu_instrs) | Broad instruction behavior and checksums | Not run or bundled. Inspected `01-special.gb` and `04-op r,imm.gb` declare MBC1, which the converter still rejects. The former density blocker (1,815 and 2,640 exceptions respectively) is removed by paged lookup. The harness also needs additional CPU, memory and hardware behavior. No header patch or synthetic pass is applied. |
 | [GBMicrotest](https://github.com/aappleby/GBMicrotest/tree/463eb6bc0fe31d61781ef63060ad6d74090c0255) (MIT) | Small cycle-accuracy and hardware-quirk tests | Deferred: upstream explicitly assumes an already functional emulator. Current gaps include most I/O, interrupt bus timing, PPU and cycle-by-cycle peripheral timing; its headers also declare cartridge hardware we reject. |
 | [dmg-acid2](https://github.com/mattcurrie/dmg-acid2) | DMG graphics output | Future target after a real PPU, tile maps, sprites and LCD registers exist. A one-tile viewer cannot establish a pass. |
 
@@ -67,7 +67,7 @@ arithmetic, carry, bitwise logic and rotations without JavaScript.
 
 1. Broader work RAM and additional interrupt sources;
    STOP behavior. STOP still traps explicitly.
-2. Scalable dense ROM lookup and cartridge controllers. Do not silently patch
+2. Cartridge controllers (dense ROM lookup is implemented). Do not silently patch
    headers or bypass the converter's bounds to make a suite appear accepted.
 3. Unmodified CPU test ROMs with their actual completion protocol, plus
    cycle-accurate interrupt entry, register-write races and HALT timing.
@@ -228,3 +228,28 @@ HALT/interrupt return and SC polling. A byte takes 4,096 T-cycles, so the lab
 needs multiple batches. Compatible mode correctly stops with a partial
 transfer; it does not fake completion to fit 128 stages. Automatic mode runs
 the whole lab, manual mode needs repeated bit saves, and streaming mode is slow.
+
+## Dense ROM lookup (0.16.0)
+
+The converter accepts any byte density within its existing 32 KiB ROM-only and
+4 KiB raw bounds. Files with more than 1,024 exceptions to their most common
+byte use 256-byte pages. Two bytes share a 16-bit value; CSS selects a page and
+pair, then extracts the addressed byte. Identical pages share selectors. All
+bytes are encoded independently of execution, including unreachable bytes.
+The compiler never runs the ROM or patches its header.
+
+Original browser probes compare scattered addresses, every page edge and all
+byte offsets against the input bytes in both arithmetic and native CSS paths.
+End-to-end dense programs exercise immediate fetch across pages, both word-read
+lanes, ROM/VRAM crossings, wrap from IE to ROM, invalid writes, raw-range traps,
+automatic continuation, manual continuation with dense repeating pages, reset
+and offline downloads. The original dense
+sample checks nine scattered bytes; it is not an upstream suite pass. Existing
+instruction and hardware suites remain the independent CPU evidence above.
+
+No extra writable memory, banking, boot state, hardware accuracy or game-speed
+claim accompanies this change. Worst-case documents stay below a tested 12 MiB
+budget; large files still cost browser time and memory. Numeric precision in
+[CSS Values](https://www.w3.org/TR/css-values-4/#numeric-types) is implementation-defined;
+packed values stay within 0–65,535 and are tested on Chromium and Linux WebKit.
+Actual iOS validation remains separate.
