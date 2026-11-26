@@ -21,10 +21,16 @@ is not exposed by the Service. No new public route bypasses authentication.
 
 `./build.sh` builds/pushes both Docker targets (`web` and `converter`). nginx
 limits and buffers upload bodies to 64 KiB; responses are not spilled to disk.
-The converter has a separate 16 MiB memory-backed `/tmp` and a read-only root
+The converter has a separate 32 MiB memory-backed `/tmp` and a read-only root
 filesystem. Temporary generated files are removed before returning the response;
 no ROM/artifact volume or database is used. Both containers must be ready for a
 pod to receive traffic. Changing either image requires a fresh shared tag.
+
+Dense conversion can produce an 8 MiB checkpoint document. A local worst-case
+run peaked around 131 MiB RSS, so the converter requests 128 MiB and allows
+512 MiB for its two workers and temporary files. The 32 MiB temporary volume
+allows two full-size conversions concurrently; generated files are still
+request-local and removed before the response returns.
 
 Bump Chart.yaml version/appVersion and values.yaml image.tag together before
 building changed image inputs. Never reuse tags with IfNotPresent. Merge the app
