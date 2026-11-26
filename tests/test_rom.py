@@ -5,22 +5,33 @@ import sys
 import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
-from convert import convert,load_rom
+from convert import ConversionError,convert,load_rom
 from dense_rom import sample_rom
 
 
 class DenseROMTests(unittest.TestCase):
-    def test_worst_case_documents_remain_bounded_in_every_mode(self):
+    def test_worst_case_documents_remain_bounded_in_supported_modes(self):
         data=bytearray(random.Random(16).randbytes(32768))
         for address in (0x143,0x147,0x148,0x149):
             data[address]=0
-        for mode in ('portable','automatic','checkpoint','streaming'):
+        for mode in ('portable','automatic','checkpoint'):
             with self.subTest(mode=mode):
                 document=convert(data,'dense.gb','gb',mode)
                 self.assertLess(len(document.encode()),12*1024*1024)
                 self.assertNotIn('<script',document)
                 self.assertNotIn('<link',document)
                 self.assertNotIn('TEST PASSED',document)
+
+    def test_dense_streaming_is_rejected_before_generation(self):
+        for data,format in [(sample_rom(),'gb'),(bytes(range(256))*16,'raw')]:
+            with self.subTest(format=format), self.assertRaisesRegex(ConversionError,'Dense ROMs require Compatible'):
+                convert(data,'dense',format,'streaming')
+
+    def test_sparse_streaming_limit_is_inclusive(self):
+        direct=bytes([1])*1024+bytes(3072)
+        self.assertIn('Streaming · Chromium only',convert(direct,'sparse.bin','raw','streaming'))
+        with self.assertRaisesRegex(ConversionError,'Dense ROMs require Compatible'):
+            convert(bytes([1])*1025+bytes(3071),'dense.bin','raw','streaming')
 
     def test_repeated_dense_pages_keep_download_small(self):
         # Raw format avoids header edits breaking an otherwise identical page.

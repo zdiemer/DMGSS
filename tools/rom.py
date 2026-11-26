@@ -14,6 +14,10 @@ class ROM:
         self.exceptions = {base + i: b for i, b in enumerate(self.data) if not compact or b != self.fill}
         self.lookup_expr = {}
 
+    @property
+    def paged(self):
+        return self.compact and len(self.exceptions) > DIRECT_LIMIT
+
     def paged_lookup(self, key, choose):
         """Pure byte encoding: 256-byte pages, with exact 16-bit packed pairs.
 
@@ -59,7 +63,7 @@ class ROM:
             # Avoid new range dependencies in the already timing-sensitive
             # automatic pipeline when a large address range is not needed.
             return choose(key, table, 255)
-        if len(self.exceptions) > DIRECT_LIMIT:
+        if self.paged:
             selected = choose(key, extra or {}, self.paged_lookup(key, choose))
         else:
             selected = choose(key, table, self.fill)

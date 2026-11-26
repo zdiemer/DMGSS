@@ -562,3 +562,9 @@ wraparound. Dense encoding is entirely data-driven, with no reachable-code
 analysis, CPU execution or precomputed trace. Small cartridges retain their
 previous expressions and all four storage engines retain their existing bank
 sizes. Tests cover worst-case output budgets and identical-page compression.
+
+Dense conversion is restricted to the three feed-forward modes. Streaming
+retains its prior 1,024-exception cap: a shared Chromium runner failed to
+initialize its animation state with the large lookup graph. Native decoder
+probes still verify individual lookups; they do not establish reliable streaming
+storage. The converter reports the unsupported combination explicitly.

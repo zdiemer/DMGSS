@@ -48,11 +48,14 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   are rejected. Logo and header checksums are not a boot/compatibility test and
   are not enforced. See [Pan Docs](https://gbdev.io/pandocs/The_Cartridge_Header.html).
 - `raw`: 1–4,096 bytes, loaded at 0100. No header is interpreted.
-- Density is no longer restricted: all bytes in a valid-size file are encoded.
+- Compatible, Automatic and Manual modes accept every byte density: all bytes
+  in a valid-size file are encoded.
   Dense ROMs use paged CSS lookup; sparse files keep the smaller direct lookup.
   Generated HTML can be several MiB. Prefer Compatible or Automatic mode;
-  Streaming and manual bit copying can be very slow with dense data.
-  A worst-case 32 KiB file is checked against a 12 MiB HTML budget in all modes.
+  Manual bit copying can be very slow with many distinct pages. Streaming
+  accepts at most 1,024 bytes differing from the most common byte; larger
+  lookup graphs failed to initialize reliably in its animation banks.
+  A worst-case 32 KiB file is checked against a 12 MiB HTML budget in the three supported modes.
 - Server requests are limited to 64 KiB including multipart/form overhead.
 - PC starts at 0100; CPU registers including SP start at zero. IF reads E0, SC reads 7E and
   TAC reads F8 initially because their unused bits read as one; IE and IME are zero. No boot ROM or

@@ -103,6 +103,8 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   intermediates registered and non-inheriting so expressions stay local and bounded; share identical pages.
   ROM helpers are combinational, never retained CPU state. Preserve fetch/data
   range validation and RAM/I/O overrides at page, word and 16-bit wrap boundaries.
-  The 32 KiB ROM-only and 4 KiB raw input bounds remain; density is not a limit.
+  The 32 KiB ROM-only and 4 KiB raw input bounds remain. Dense imports require
+  Compatible, Automatic or Manual mode; reject dense Streaming conversions
+  with a clear error because its animation banks did not initialize reliably.
   Small/direct lookup graphs stay unchanged. Do not imply cartridge banking or
   whole-ROM compatibility merely because a dense file can now be converted.

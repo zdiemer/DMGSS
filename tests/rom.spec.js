@@ -28,23 +28,22 @@ for(const mode of ['math','native'])test(`dense ROM lookup decodes page edges an
   expect(results.length).toBeGreaterThan(750);
   for(const [address,value] of results)expect(value,`address ${address}`).toBe(address>=0&&address<data.length?data[address]:address===32768?17:address===65535?203:255);
 });
-for(const mode of ['portable','automatic','checkpoint','streaming'])test(`dense ROM executes in ${mode}`,async({page},info)=>{
-  test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming is Chromium-only');
-  test.setTimeout(mode==='streaming'?180000:90000);
-  const rom=await sample(page);
-  // Streaming's animation banks are much slower. Exercise real far/zero-page
-  // reads in a short program; the feed-forward modes run the whole diagnostic.
-  if(mode==='streaming')rom.set([0xFA,0xFF,0x7F,0xEA,0,0xC0,0xFA,0,0,0x47,0x76],0x100);
-  await upload(page,rom,mode);
+for(const mode of ['portable','automatic','checkpoint'])test(`dense ROM executes in ${mode}`,async({page})=>{
+  test.setTimeout(90000);
+  await upload(page,await sample(page),mode);
   expect(await page.locator('script').count()).toBe(0);
   const requests=[];page.on('request',r=>requests.push(r.url()));
   await page.locator('.power-switch').click();
   // The final equal CP sets both Z and N; LD/HALT preserve those flags.
-  const expected=mode==='streaming'?{ticks:5,tcycles:56,pc:267,a:0,b:0,m49152:42}:{ticks:31,tcycles:332,pc:405,a:165,f:192,m49154:165};
-  await stopped(page,expected,mode==='streaming'?150000:45000);
+  await stopped(page,{ticks:31,tcycles:332,pc:405,a:165,f:192,m49154:165});
   expect(await page.locator('.passed').count()).toBe(0);expect(requests).toEqual([]);
   await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.locator('.reset').click()]);
   expect(await read(page,['ticks','m49154'])).toEqual({ticks:0,m49154:0});
+});
+test('dense streaming conversion gives an actionable mode error',async({page})=>{
+  await upload(page,await sample(page),'streaming');
+  await expect(page.getByRole('alert')).toContainText('Dense ROMs require Compatible, Automatic or Manual checkpoints');
+  expect(await page.locator('.machine').count()).toBe(0);
 });
 test('dense page crossing covers immediate fetch, post-increment and both word lanes',async({page})=>{
   const rom=await sample(page);rom.set([0xC3,0xFF,1],0x100);

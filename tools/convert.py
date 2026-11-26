@@ -54,6 +54,8 @@ def convert(data, name='Imported cartridge', format='gb', mode='portable', onlin
     if mode not in MODES:
         raise ConversionError('Choose a supported execution mode.')
     rom = load_rom(data, format)
+    if mode == 'streaming' and rom.paged:
+        raise ConversionError('Dense ROMs require Compatible, Automatic or Manual checkpoints. Streaming supports only sparse ROMs (at most 1024 bytes differing from the most common byte).')
     name = display_name(name)
     # Existing builders write generated assets only in this disposable directory.
     # In the service /tmp is tmpfs. Neither input filenames nor ROM instructions

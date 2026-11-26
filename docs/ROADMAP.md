@@ -30,7 +30,8 @@
    completion interrupts and HALT wakeup, with a bounded text/hex output monitor.
    Internal transfers continue across banks; external transfers wait for a clock.
    **Dense ROM milestone:** full-density 32 KiB ROM-only cartridges and 4 KiB raw
-   programs use paged CSS lookup, including cross-page fetches and retained execution.
+   programs use paged CSS lookup in Compatible, Automatic and Manual modes,
+   including cross-page fetches and retained execution. Streaming keeps its sparse limit.
    Next: broader RAM, cartridge banking, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.

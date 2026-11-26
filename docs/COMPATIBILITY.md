@@ -231,12 +231,16 @@ the whole lab, manual mode needs repeated bit saves, and streaming mode is slow.
 
 ## Dense ROM lookup (0.16.0)
 
-The converter accepts any byte density within its existing 32 KiB ROM-only and
-4 KiB raw bounds. Files with more than 1,024 exceptions to their most common
+Compatible, Automatic and Manual modes accept any byte density within the
+existing 32 KiB ROM-only and 4 KiB raw bounds. Files with more than 1,024 exceptions to their most common
 byte use 256-byte pages. Two bytes share a 16-bit value; CSS selects a page and
 pair, then extracts the addressed byte. Identical pages share selectors. All
 bytes are encoded independently of execution, including unreachable bytes.
-The compiler never runs the ROM or patches its header.
+The compiler never runs the ROM or patches its header. Streaming retains its
+1,024-exception limit: CI observed its animation banks failing to initialize
+a dense document even though isolated native lookup probes passed. Conversion
+rejects this combination with a mode-selection message instead of emitting an
+unreliable run.
 
 Original browser probes compare scattered addresses, every page edge and all
 byte offsets against the input bytes in both arithmetic and native CSS paths.
