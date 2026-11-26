@@ -82,6 +82,9 @@ python3 tools/convert.py demo.bin --format raw --mode automatic -o demo.html
 bytes, never an execution trace. The resulting single HTML file runs the CPU in
 HTML/CSS with no runtime scripts. Server uploads are not retained; use the offline
 command to keep conversion local. Import does not imply game compatibility.
+Compatible, Automatic and Manual modes support dense 32 KiB ROM-only files
+and full 4 KiB raw programs. Streaming retains its sparse-data limit.
+The loader includes an original dense sample that checks scattered ROM reads.
 See [converter limits and usage](docs/CONVERTER.md).
 
 [Try ALU lab](https://dmgss.zachd.duckdns.org/automatic/alu/): decimal arithmetic,

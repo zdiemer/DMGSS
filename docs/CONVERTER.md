@@ -48,9 +48,14 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   are rejected. Logo and header checksums are not a boot/compatibility test and
   are not enforced. See [Pan Docs](https://gbdev.io/pandocs/The_Cartridge_Header.html).
 - `raw`: 1–4,096 bytes, loaded at 0100. No header is interpreted.
-- At most 1,024 bytes may differ from the file's most frequent byte. The rest
-  remain mapped data; they are compressed as a CSS lookup default, not removed.
-  Dense ROMs are rejected before generating an unwieldy stylesheet.
+- Compatible, Automatic and Manual modes accept every byte density: all bytes
+  in a valid-size file are encoded.
+  Dense ROMs use paged CSS lookup; sparse files keep the smaller direct lookup.
+  Generated HTML can be several MiB. Prefer Compatible or Automatic mode;
+  Manual bit copying can be very slow with many distinct pages. Streaming
+  accepts at most 1,024 bytes differing from the most common byte; larger
+  lookup graphs failed to initialize reliably in its animation banks.
+  A worst-case 32 KiB file is checked against a 12 MiB HTML budget in the three supported modes.
 - Server requests are limited to 64 KiB including multipart/form overhead.
 - PC starts at 0100; CPU registers including SP start at zero. IF reads E0, SC reads 7E and
   TAC reads F8 initially because their unused bits read as one; IE and IME are zero. No boot ROM or
@@ -79,3 +84,10 @@ python3 -m gunicorn --chdir tools --bind 127.0.0.1:8080 --workers 2 --no-control
 
 Open `/convert/`. For normal static-only preview, `python3 -m http.server` still
 works for built-in cartridges, but it cannot handle conversion POSTs.
+
+The loader also offers an original **dense ROM sample**, containing a full 32 KiB
+of varied data and a short diagnostic that checks scattered reads. On success
+Machine inspector shows 31 instructions and A=165 (decimal); the program also
+writes 165 to RAM C002. Imported
+pages deliberately show HALTED rather than TEST PASSED. This is a lookup test,
+not a whole-ROM compatibility suite or a game.

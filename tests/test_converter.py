@@ -30,11 +30,12 @@ class ConverterTests(unittest.TestCase):
             with self.subTest(offset=offset), self.assertRaises(ConversionError):
                 load_rom(data, 'gb')
 
-    def test_bounds_css_complexity_even_for_valid_size(self):
+    def test_dense_roms_and_full_raw_programs_are_accepted(self):
         data = bytearray(range(256)) * 128
         data[0x143] = data[0x147] = data[0x148] = data[0x149] = 0
-        with self.assertRaisesRegex(ConversionError, 'too dense'):
-            load_rom(data, 'gb')
+        self.assertEqual(load_rom(data, 'gb').data, bytes(data))
+        raw = bytes(range(256)) * 16
+        self.assertEqual(load_rom(raw, 'raw').data, raw)
 
     def test_all_engines_are_self_contained_and_metadata_is_text(self):
         for mode in ('portable', 'automatic', 'checkpoint', 'streaming'):
@@ -133,7 +134,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b'role="alert"', result['body'])
 
     def test_form_sample_and_health_are_gettable(self):
-        for path in ('/convert/', '/convert/sample.gb', '/healthz'):
+        for path in ('/convert/', '/convert/sample.gb', '/convert/dense.gb', '/healthz'):
             with self.subTest(path=path):
                 self.assertEqual(self.request(REQUEST_METHOD='GET', PATH_INFO=path)['status'], '200 OK')
         sample = self.request(REQUEST_METHOD='GET', PATH_INFO='/convert/sample.gb')['body']
