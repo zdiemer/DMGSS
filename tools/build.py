@@ -216,6 +216,8 @@ if __name__ == '__main__':
     build_checkpoint(serial_rom(), ROOT / 'dist/checkpoint/serial', cartridge='serial')
     build_automatic(serial_rom(), ROOT / 'dist/automatic/serial', cartridge='serial')
     if args.fixtures:
+        import packing_fixtures
+        packing_fixtures.build(build_automatic, ROOT / 'dist/automatic/tests/packing')
         import rom_fixtures
         rom_fixtures.build(ROOT / 'dist/tests/rom-lookup')
         build_automatic(serial_boundary(), ROOT / 'dist/automatic/tests/serial-boundary', initial=serial_seed())

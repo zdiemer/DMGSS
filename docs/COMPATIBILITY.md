@@ -6,7 +6,7 @@ CPU stages; it never emulates ROM instructions or precomputes their execution.
 
 ## Current evidence
 
-Version 0.17.0 supports 243 unprefixed instructions and all 256 CB-prefixed
+Version 0.18.0 supports 243 unprefixed instructions and all 256 CB-prefixed
 operations: RLC/RRC/RL/RR, SLA/SRA/SRL, SWAP, BIT, RES and SET. Earlier
 8-bit ALU, accumulator rotates, decimal adjustment, load, branch, register-pair
 and stack support is retained.
@@ -275,3 +275,18 @@ and manual runs retain the added addresses through bank swaps. The loader's
 original RAM sample halts after 24 instructions with A=165; it is not a new
 upstream ROM pass. Existing upstream vectors remain unchanged; original trap
 fixtures move from the former C040 boundary to C100.
+
+
+## Compact automatic storage (0.18.0)
+
+Automatic mode now stores two adjacent physical RAM bytes per 16-bit scroll
+cell. Its storage uses 499 cells instead of 897 while preserving all 448 CPU
+fields. Work RAM remains 256 bytes; this change prepares storage for later
+expansion. Other execution modes and their memory maps are unchanged.
+
+Original browser checks exercise exact offset 65,535, wrapped initial values,
+three-batch low/high byte changes, independent FFFE/FFFF state, cross-pair word
+writes, atomic traps and reset. Existing whole-page RAM/HRAM fills and CPU,
+interrupt, timer and serial checks remain required. Automatic downloads are
+also exercised offline. This adds storage evidence, not new upstream ROM passes
+or a real-device iOS certification. Fewer cells do not imply real-time speed.

@@ -34,6 +34,9 @@
    including cross-page fetches and retained execution. Streaming keeps its sparse limit.
    **Work RAM milestone:** 256 physical bytes at C000–C0FF with their E000–E0FF
    echo aliases, including execution, stack/interrupt access and retained copies.
+   **Compact automatic storage:** adjacent physical RAM bytes share exact 16-bit
+   scroll cells. The same memory map now needs 499 cells instead of 897; CPU
+   byte semantics and manual checkpoints are unchanged.
    Next: full work RAM, cartridge banking, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
