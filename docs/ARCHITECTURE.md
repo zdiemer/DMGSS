@@ -162,8 +162,9 @@ using touch input; current WebKit and Chromium receive the full regression suite
 with CSS scroll snapping and scroll-driven animations. No click sequence, script,
 server request or precomputed ROM trace clocks the machine after Run.
 
-There are now two banks of 448 scroll cells plus one commit cell (897 total),
-covering CPU, memory and peripheral state. Each cell's native vertical scroll offset stores an integer. A marker
+There are now two banks of 249 scroll cells plus one commit cell (499 total),
+covering 448 CPU, memory and peripheral fields. Adjacent physical RAM bytes
+share one 16-bit cell; CPU reads and writes remain byte-addressed. Each cell's native vertical scroll offset stores an integer. A marker
 is positioned at the desired value in pixels; mandatory scroll snapping moves
 the offset to it after layout. A named scroll timeline reads the offset into a
 registered numeric property on the ancestor clock. Scroll range and animation
@@ -596,3 +597,35 @@ commit/power. Every added byte participates in copy readiness. Tests fill all
 through native manual inputs while checking source-bank immutability. Larger
 banks cost browser work and can make manual copying slow; full 8 KiB WRAM is
 not claimed. The converter still never executes ROM instructions.
+
+
+## Compact automatic RAM storage (0.18.0)
+
+Automatic mode combines adjacent, even-aligned physical RAM bytes as
+`low + 256 * high` in a single scroll cell. The 399 RAM/VRAM/HRAM bytes become
+199 pairs and one unpaired byte. Other CPU/peripheral fields retain their
+existing cells and widths. Both banks now use 499 cells including commit,
+down from 897 (about 44% fewer). The CPU pipeline still has 448 byte/register
+fields; the mapped work RAM remains C000–C0FF with its echo aliases. Manual
+checkpoints keep 3,568 bits per bank and 7,138 inputs.
+
+A cell stores the offset from its packed initial value modulo 65,536. Timeline
+readback is explicitly rounded, the initial value restored modulo 65,536,
+and each byte extracted before seeding the CPU. Registered intermediate words
+prevent repeated expansion of that decoding expression. The final HRAM byte
+FFFE stays separate from IE at FFFF; I/O, timers and serial state are never
+paired. The compiler encodes state layout and initial values, never CPU steps.
+
+Readiness compares every packed result against the inactive bank. Because two
+8-bit bytes encode uniquely in 16 bits, equality covers both bytes before a
+bank switch. Source immutability, pause/resume and final HALT/fault commit keep
+the existing handshake. The physical storage range is still 0–65,535, already
+used by PC/SP and counters; tests explicitly reach 65,535 from zero and a
+wrapped nonzero seed, then decode exact bytes through CPU instructions.
+
+Original programs cover three-batch lane writes, nonzero initial words, both
+byte extremes, echo access, cross-pair word stores, atomic boundary traps and
+reset. Existing RAM/HRAM fills, executable RAM, stacks, interrupt, timer and
+serial tests continue to inspect byte-level CPU state. Downloaded automatic
+HTML runs offline without scripts or network requests. Reduced cells/styles
+are a storage footprint improvement, not a game-speed claim or extra RAM.

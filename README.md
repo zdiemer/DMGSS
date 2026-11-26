@@ -25,7 +25,7 @@ See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 
 Four execution modes share the same CPU:
 
-- **Automatic continuation** (`/automatic/`): press Run once to keep executing
+- **Automatic continuation** (`/automatic/`): compact paired RAM storage; press Run once to keep executing
   through reusable CSS scroll-storage banks. Pause retains state; Reset clears it.
   Tested in Chromium and current Linux WebKit. Requires scroll timelines;
   the user confirmed its counter keeps advancing in iOS Chrome. Other features

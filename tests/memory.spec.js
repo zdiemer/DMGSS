@@ -33,7 +33,7 @@ test('all 256 work RAM bytes survive automatic banks with distinct values',async
   await expect.poll(()=>read(page,['ticks','pc','h','l','f','halted','fault']),{timeout:210000,intervals:[1000,5000]}).toEqual({ticks:770,pc:264,h:192,l:0,f:160,halted:1,fault:0});
   const expected=Object.fromEntries(Array.from({length:256},(_,i)=>['m'+(49152+i),i]));
   expect(await read(page,Object.keys(expected))).toEqual(expected);
-  expect(await page.locator('.scroll-memory').count()).toBe(897);
+  expect(await page.locator('.scroll-memory').count()).toBe(499);
 });
 for(const mode of ['automatic','checkpoint'])test(`new work RAM and echo survive a ${mode} bank`,async({page},info)=>{
   test.setTimeout(180000);
@@ -87,12 +87,35 @@ for(const address of [0xC100,0xE100,0xFDFF,0xFE00])test(`unimplemented memory ${
   await upload(page,[0x3E,0x5A,0xEA,address&255,address>>8]);
   await run(page,{ticks:1,pc:258,a:90,m49152:0,m49407:0,halted:0,fault:1});
 });
-test('downloaded RAM diagnostic executes offline with no requests',async({page},info)=>{
+for(const mode of ['portable','automatic'])test(`downloaded RAM diagnostic executes offline in ${mode} with no requests`,async({page},info)=>{
   const bytes=await (await page.request.get('/convert/ram.gb')).body();
-  const download=await upload(page,bytes,'portable','gb',true);
+  const download=await upload(page,bytes,mode,'gb',true);
   const file=info.outputPath('ram.html');await download.saveAs(file);
   const requests=[];page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url())});
   await page.goto(pathToFileURL(file).href);
   await run(page,{ticks:24,a:165,m49407:120,halted:1,fault:0});
   expect(requests).toEqual([]);
+});
+
+for(const [seed,target] of [[0,65535],[65535,0],[65280,255],[255,65280]])test(`packed RAM preserves byte lanes and seeded offsets ${seed}`,async({page})=>{
+  await page.goto(`/automatic/tests/packing/lanes-${seed}/`);
+  expect(await read(page,['m49152','m49153','m65534','m65535'])).toEqual({m49152:seed&255,m49153:seed>>8,m65534:90,m65535:160});
+  const low=((target&255)+1)&255;
+  await run(page,{ticks:260,pc:542,sp:target,a:66,b:target&255,c:target>>8,d:low,e:target>>8,h:low,l:0,
+    m49152:low,m49153:66,m65532:171,m65533:205,m65534:165,m65535:192,halted:1,fault:0});
+  expect(await page.locator('.memory-b0-m65534,.memory-b0-m65535').count()).toBe(2);
+  expect(await page.locator('.memory-b0-ram65534').count()).toBe(0);
+  await page.locator('.reset').click();
+  expect(await read(page,['ticks','m49152','m49153','m65534','m65535'])).toEqual({ticks:0,m49152:seed&255,m49153:seed>>8,m65534:90,m65535:160});
+});
+for(const [seed,target] of [[0,65535],[1,0]])test(`packed RAM reaches exact scroll offset 65535 from seed ${seed}`,async({page})=>{
+  await page.goto(`/automatic/tests/packing/max-${seed}/`);
+  await run(page,{ticks:133,pc:397,sp:target,a:target>>8,b:target&255,c:target>>8,m49152:target&255,m49153:target>>8,halted:1,fault:0});
+  for(const bank of [0,1])expect(await page.locator(`.memory-b${bank}-ram49152`).evaluate(el=>el.scrollTop)).toBe(65535);
+});
+test('packed RAM retains a cross-pair word and commits an atomic boundary trap',async({page})=>{
+  // C001/C002 occupy different pairs. The later C0FF/C100 write must fail whole.
+  const code=[0x31,0x34,0x12,0x08,1,0xC0,0x3E,0xA5,0xEA,0xFF,0xC0,0x31,0x78,0x56,...Array(123).fill(0),0x08,0xFF,0xC0];
+  await upload(page,code,'automatic');
+  await run(page,{ticks:128,pc:393,sp:22136,m49152:0,m49153:52,m49154:18,m49155:0,m49406:0,m49407:165,halted:0,fault:1});
 });

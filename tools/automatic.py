@@ -3,7 +3,7 @@
 No ROM execution happens here. Re-snapping moves the inactive bank's markers
 to the runtime result, then a one-pixel scroll cell commits the completed bank.
 """
-from cpu import machine, tile_css
+from cpu import RAM, machine, tile_css
 from portable import storage
 
 
@@ -25,7 +25,27 @@ def generate(rom, initial=None):
     css = machine(rom, collect, arithmetic=True).replace('\n.machine {', '\n.pipeline-execute {')
     css = css.replace('calc(var(--ticks) + 1)', 'calc(mod(var(--ticks) + 1, 65536))')
     defaults = {name: (initial or {}).get(name, value) for name, (value, _) in states.items()}
-    names = ['select'] + [f'b{bank}-{name}' for bank in range(2) for name in states]
+    # Only ordinary physical RAM is packed. I/O and peripheral bookkeeping retain
+    # their individual widths and semantics; the odd last HRAM byte stays alone.
+    units, fields = {}, {}
+    ram = set(RAM)
+    paired = {address for address in ram if address % 2 == 0 and address + 1 in ram}
+    for name in states:
+        if name in fields:
+            continue
+        address = int(name[1:]) if name.startswith('m') and name[1:].isdigit() else -1
+        members = (name, f'm{address+1}') if address in paired else (name,)
+        unit = f'ram{address}' if len(members) == 2 else name
+        units[unit] = members
+        for lane, member in enumerate(members):
+            fields[member] = (unit, lane)
+    widths = {unit: 65536 if len(members) == 2 else modulus(unit) for unit, members in units.items()}
+    starts = {unit: sum(defaults[member] * 256**lane for lane, member in enumerate(members))
+              for unit, members in units.items()}
+    results = {unit: f'var(--{members[0]})' if len(members) == 1 else
+               f'var(--{members[0]}) + 256 * var(--{members[1]})'
+               for unit, members in units.items()}
+    names = ['select'] + [f'b{bank}-{name}' for bank in range(2) for name in units]
     # WebKit needs this scope on an ANCESTOR of the animated reader.
     rules = [css, 'body[data-automatic] {timeline-scope:' + ','.join('--t-' + n for n in names) + ';}']
     for name in ('select', 'ready', 'enabled-copy'):
@@ -39,7 +59,7 @@ def generate(rom, initial=None):
     cells = []
     for name in names:
         word = name.split('-', 1)[-1]
-        limit = 1 if name == 'select' else modulus(word) - 1
+        limit = 1 if name == 'select' else widths[word] - 1
         # Even integer interpolation has tiny floating errors in WebKit. Round
         # the number explicitly before decoding, comparisons or marker layout.
         rules.append(f'@property --raw-{name} {{syntax:"<number>";inherits:true;initial-value:0;}}')
@@ -51,7 +71,7 @@ def generate(rom, initial=None):
             bank = int(name[1])
             current = f'round(var(--raw-{name}))'
             # Zero scroll encodes the initial value (PC 0100, normally 0 elsewhere).
-            result = f'mod(var(--{word}) - {defaults[word]} + {limit + 1}, {limit + 1})'
+            result = f'mod(({results[word]}) - {starts[word]} + {limit + 1}, {limit + 1})'
             inactive = 'var(--select)' if bank == 0 else '(1 - var(--select))'
             target = f'{current} + var(--enabled-copy) * {inactive} * ({result} - {current})'
         rules.append(f'.memory-{name} .memory-mark {{top:calc(({target}) * 1px);}}')
@@ -59,13 +79,30 @@ def generate(rom, initial=None):
         # to pointer/keyboard input. display:none would deactivate their timelines.
         cells.append(f'<div class="scroll-memory memory-{name}" aria-hidden="true" tabindex="-1"><div class="memory-pad"><div class="memory-mark"></div></div></div>')
     seed, differences, display = [], [], []
+    stored = {}
+    for unit, members in units.items():
+        value, width = starts[unit], widths[unit]
+        for bank in range(2):
+            decoded = f'mod(round(var(--raw-b{bank}-{unit})) + {value}, {width})'
+            if len(members) == 2:
+                # Resolve the packed word once before extracting either byte.
+                prop = f'stored-b{bank}-{unit}'
+                rules.append(f'@property --{prop} {{syntax:"<integer>";inherits:true;initial-value:{value};}}')
+                seed.append(f'--{prop}:{decoded};')
+                decoded = f'var(--{prop})'
+            stored[bank,unit] = decoded
+        a, b = stored[0,unit], stored[1,unit]
+        # Equality of exact 16-bit pairs checks BOTH bytes before bank commit.
+        differences.append(f'abs(({results[unit]}) - (({b}) * (1 - var(--select)) + ({a}) * var(--select)))')
     for name in states:
-        value, width = defaults[name], modulus(name)
+        unit, lane = fields[name]
+        a, b = stored[0,unit], stored[1,unit]
+        if len(units[unit]) == 2:
+            a = f'mod(round(down,({a}) / {256**lane}),256)'
+            b = f'mod(round(down,({b}) / {256**lane}),256)'
+        value = defaults[name]
         rules.append(f'@property --seed-{name} {{syntax:"<integer>";inherits:true;initial-value:{value};}}')
-        a = f'mod(round(var(--raw-b0-{name})) + {value}, {width})'
-        b = f'mod(round(var(--raw-b1-{name})) + {value}, {width})'
         seed.append(f'--seed-{name}:calc(({a}) * (1 - var(--select)) + ({b}) * var(--select));--next-{name}:var(--seed-{name});')
-        differences.append(f'abs(var(--{name}) - (({b}) * (1 - var(--select)) + ({a}) * var(--select)))')
         display.append(f'--{name}:var(--seed-{name});')
     rules.append('body[data-automatic] .clock {' + ''.join(seed) + '}')
     # Commit a halted/faulted RESULT before stopping. A halted SOURCE may still

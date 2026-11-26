@@ -115,3 +115,10 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   unimplemented physical RAM and its echoes, including word operations with
   either lane absent. FE00 and above must not alias. All added physical bytes
   participate in the complete-bank handshake and manual copy selector.
+
+- Automatic storage packs only adjacent even-aligned physical RAM bytes into
+  16-bit cells. Decode each byte before seeding the unchanged CPU pipeline.
+  Round timeline readback before restoring the initial word modulo 65,536;
+  test maximum offsets and nonzero seeds. FFFE stays separate from IE at FFFF,
+  and I/O/peripheral fields never pair. Compare the entire packed word in the
+  inactive-bank readiness handshake; retain all existing pause/commit rules.
