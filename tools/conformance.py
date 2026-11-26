@@ -132,7 +132,7 @@ def cases():
         ('illegal opcode',0xD3,0,{},0,0,0,1),
         ('unsupported STOP',0x10,0,{},0,0,0,1),
         ('CB unmapped operand',0xCB,0x06,{'h':0x90,'l':0},0,0,0,1),
-        ('word write second lane invalid',0xC5,0,{'sp':0xC041},0,0,0,1),
+        ('word write second lane invalid',0xC5,0,{'sp':0xC101},0,0,0,1),
         ('faulted CPU stays frozen',0,0,{'fault':1},0,0,0,1),
         ('cycle counter wraps',0,0,{'tcycles':65532},1,4,0,0),
     ]:

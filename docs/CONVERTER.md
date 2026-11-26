@@ -7,6 +7,10 @@ loader exercises nested subroutines; after Run it halts at 53 instructions,
 with A=165 and SP=49216. It includes no Nintendo logo or boot ROM and is an
 original CPU fixture, not a claim of physical cartridge compatibility.
 
+The loader also offers an original **work RAM sample**. It checks both directions
+of the C000–C0FF / E000–E0FF mirror and halts after **24 instructions with A=165**.
+The rest of DMG work RAM remains unsupported.
+
 ## The caveat
 
 Conversion uses Python outside the browser. It encodes ROM bytes as CSS data and

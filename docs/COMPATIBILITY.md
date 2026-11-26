@@ -6,7 +6,7 @@ CPU stages; it never emulates ROM instructions or precomputes their execution.
 
 ## Current evidence
 
-Build 17 supports 243 unprefixed instructions and all 256 CB-prefixed
+Version 0.17.0 supports 243 unprefixed instructions and all 256 CB-prefixed
 operations: RLC/RRC/RL/RR, SLA/SRA/SRL, SWAP, BIT, RES and SET. Earlier
 8-bit ALU, accumulator rotates, decimal adjustment, load, branch, register-pair
 and stack support is retained.
@@ -257,3 +257,21 @@ budget; large files still cost browser time and memory. Numeric precision in
 [CSS Values](https://www.w3.org/TR/css-values-4/#numeric-types) is implementation-defined;
 packed values stay within 0–65,535 and are tested on Chromium and Linux WebKit.
 Actual iOS validation remains separate.
+
+
+## Work RAM and echo (0.17.0)
+
+Work RAM now covers 256 physical bytes at C000–C0FF with a shared echo mirror
+at E000–E0FF. This is still a subset of DMG's 8 KiB work RAM. Unimplemented
+physical bytes and their mirrors trap; OAM and cartridge RAM remain unsupported.
+The [memory map](https://gbdev.io/pandocs/Memory_Map.html#echo-ram) defines echo
+as an alias, so there is only one retained byte for each physical location.
+
+Original tests exercise both alias directions, CB writes, two-byte stores,
+code written in RAM and called through echo, interrupt entry/RETI through an
+echo stack, and atomic failures at the new boundary. An automatic program
+writes all 256 distinct byte values over 770 instructions. Separate automatic
+and manual runs retain the added addresses through bank swaps. The loader's
+original RAM sample halts after 24 instructions with A=165; it is not a new
+upstream ROM pass. Existing upstream vectors remain unchanged; original trap
+fixtures move from the former C040 boundary to C100.

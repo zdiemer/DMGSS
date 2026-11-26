@@ -1,6 +1,6 @@
 const {test, expect} = require('@playwright/test');
 // Manual bank transfers perform many native bit saves and full-pipeline style
-// reads across 2,032-bit banks. Shared WebKit runners took almost two minutes
+// reads across 3,568-bit banks. Shared WebKit runners took almost two minutes
 // for a single transfer; allow headroom for the whole test, while every bit
 // still has its unchanged five-second progress bound.
 test.describe.configure({timeout:180000});
@@ -33,7 +33,7 @@ async function continueBatch(page) {
   let saved = 0;
   let pending=await copyState(page);
   while (pending['copy-remaining']) {
-    expect(saved++).toBeLessThan(2032);
+    expect(saved++).toBeLessThan(3568);
     await expect(page.locator('.commit-control')).not.toBeVisible();
     // Reuse the snapshot already asserted after the preceding native save.
     // Reading the same 128-stage pipeline again adds no coverage.
@@ -51,7 +51,7 @@ test('checkpoint reuses two banks across nine batches and byte wrap', async ({pa
   await page.goto('/checkpoint/');
   expect(await page.locator('script').count()).toBe(0);
   const inputs=await page.locator('input').count();
-  expect(inputs).toBe(4066); // 2 × 2032 bits, commit, power; no growing trace.
+  expect(inputs).toBe(7138); // 2 × 3568 bits, commit, power; no growing trace.
   await page.locator('.power-switch').click();
   for(let batch=1;batch<=9;batch++) {
     expect(await read(page,['ticks','pc','a','m49152','halted','fault'])).toEqual({ticks:batch*128,pc:256,a:(batch*32)%256,m49152:(batch*32)%256,halted:0,fault:0});

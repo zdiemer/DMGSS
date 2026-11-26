@@ -5,7 +5,7 @@ from timer import DIV, TIMA, TMA, TAC, circuit
 from serial_io import SB, SC, circuit as serial_circuit, monitor_css
 
 REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
-RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC040), *range(0xFF80, 0xFFFF)]
+RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xC100), *range(0xFF80, 0xFFFF)]
 IF, IE = 0xFF0F, 0xFFFF
 MEMORY = [*RAM, IF, IE, DIV, TIMA, TMA, TAC, SB, SC]
 
@@ -21,6 +21,19 @@ def equals(key, value):
 
 def choose_math(key, values, default):
     """Select one integer-keyed value; keys are unique and mutually exclusive."""
+    if default == 0 and values and all(value == 1 for value in values.values()):
+        # Membership maps (readable/writable/known) need one gate per contiguous
+        # range, not one per byte. Preserve gaps and both inclusive endpoints.
+        # This avoids expanding hundreds of redundant gates in every CPU stage.
+        ranges = []
+        for address in sorted(values):
+            if ranges and address == ranges[-1][1] + 1:
+                ranges[-1][1] = address
+            else:
+                ranges.append([address, address])
+        return 'calc(' + ' + '.join(equals(key, lo) if lo == hi else
+            f'max(0,min(1,var(--{key}) - {lo} + 1,{hi} + 1 - var(--{key})))'
+            for lo, hi in ranges) + ')'
     terms = [f'({equals(key, k)}) * (({v}) - ({default}))' for k, v in values.items()]
     return 'calc((' + str(default) + ')' + ''.join(' + ' + t for t in terms) + ')'
 
@@ -230,6 +243,8 @@ def machine(rom, storage, arithmetic=False):
              'subtract': 0, 'half-carry': 0, 'daa-high': 0, 'daa-low': 0, 'daa-result': 0,
              **dict.fromkeys(('cb-index','cb-group','cb-kind','cb-input','cb-weight',
                               'cb-bit','cb-mutate','cb-rotate','cb-carry','cb-result','cb-flags'), 0)}
+    bus_keys = ('pc', 'pc1', 'pc2', 'address', 'address2')
+    props.update({f'bus-{key}': 0 for key in bus_keys})
     props.update(dict.fromkeys(timer_expr,0))
     props.update(dict.fromkeys(serial_expr,0))
     props.update({'timer-if':224,'hardware-if':224,'resume':0})
@@ -262,14 +277,14 @@ def machine(rom, storage, arithmetic=False):
         'writing': choose('opcode', {k: v.get('writing', 'var(--access)') for k, v in ops.items() if 'write' in v}, 0),
         'write': choose('opcode', {k: v['write'] for k, v in ops.items() if 'write' in v}, 0),
         'write2': choose('opcode', {k: v['write2'] for k, v in ops.items() if 'write2' in v}, 0),
-        'writable': choose('address', {i: 1 for i in MEMORY}, 0),
-        'readable': rom.readable('address', choose, MEMORY),
+        'writable': choose('bus-address', {i: 1 for i in MEMORY}, 0),
+        'readable': rom.readable('bus-address', choose, MEMORY),
         'valid': 'calc(var(--writing) * var(--writable) + (1 - var(--writing)) * var(--readable))',
-        'read': rom.lookup('address', choose, read_memory, 'var(--readable)'),
-        'writable2': choose('address2', {i: 1 for i in MEMORY}, 0),
-        'readable2': rom.readable('address2', choose, MEMORY),
+        'read': rom.lookup('bus-address', choose, read_memory, 'var(--readable)'),
+        'writable2': choose('bus-address2', {i: 1 for i in MEMORY}, 0),
+        'readable2': rom.readable('bus-address2', choose, MEMORY),
         'valid2': 'calc(var(--writing) * var(--writable2) + (1 - var(--writing)) * var(--readable2))',
-        'read2': rom.lookup('address2', choose, read_memory, 'var(--readable2)'),
+        'read2': rom.lookup('bus-address2', choose, read_memory, 'var(--readable2)'),
     }
     immediates = (0xC6,0xCE,0xD6,0xDE,0xE6,0xEE,0xF6,0xFE)
     operand = choose('alu-index', {i: f'var(--{reg})' if reg else 'var(--read)' for i, reg in enumerate(REGS)}, 0)
@@ -324,7 +339,12 @@ def machine(rom, storage, arithmetic=False):
         'daa-low': 'calc(max(var(--half-carry), (1 - var(--subtract)) * max(0, sign(mod(var(--a),16) - 9))))',
         'daa-result': 'calc(mod(var(--a) + (1 - 2 * var(--subtract)) * (var(--daa-high) * 96 + var(--daa-low) * 6), 256))',
     })
+    # Echo RAM aliases the physical WRAM bytes, never a separate retained bank.
+    # Normalize each bus lane independently; PC/pointers keep their logical values.
+    for key in bus_keys:
+        expr[f'bus-{key}'] = f'calc(var(--{key}) - 8192 * max(0,min(1,var(--{key}) - 57344 + 1,65024 - var(--{key}))))'
     for lane, (name, pc) in enumerate([('raw-opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]):
+        pc = f'bus-{pc}'
         expr[f'fetch{lane}'] = rom.readable(pc, choose, MEMORY)
         expr[name] = rom.lookup(pc, choose, {i: f'var(--m{i})' for i in MEMORY}, f'var(--fetch{lane})')
     # ROM helpers belong to this combinational stage, not its descendants or banks.
@@ -370,9 +390,9 @@ def machine(rom, storage, arithmetic=False):
     for addr in MEMORY:
         if addr in (DIV,TIMA,TMA,TAC,SB,SC): continue
         name = f'm{addr}'
-        result = f'if(style(--enabled:1) and style(--writing:1) and style(--address:{addr}):var(--write);style(--enabled:1) and style(--writing:1) and style(--word:1) and style(--address2:{addr}):var(--write2);else:var(--{name}))'
+        result = f'if(style(--enabled:1) and style(--writing:1) and style(--bus-address:{addr}):var(--write);style(--enabled:1) and style(--writing:1) and style(--word:1) and style(--bus-address2:{addr}):var(--write2);else:var(--{name}))'
         if arithmetic:
-            result = f'calc(var(--{name}) + var(--enabled) * var(--writing) * (({equals("address", addr)}) * (var(--write) - var(--{name})) + var(--word) * ({equals("address2", addr)}) * (var(--write2) - var(--{name}))))'
+            result = f'calc(var(--{name}) + var(--enabled) * var(--writing) * (({equals("bus-address", addr)}) * (var(--write) - var(--{name})) + var(--word) * ({equals("bus-address2", addr)}) * (var(--write2) - var(--{name}))))'
         if addr == IF:
             # Acknowledge before stack writes; an explicit IF write wins.
             result = result.replace(f'var(--{name})', 'var(--hardware-if)')

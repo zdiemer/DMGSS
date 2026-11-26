@@ -21,7 +21,7 @@ for(const mode of ['automatic','checkpoint','portable','streaming'])test(`serial
     while(true){
       const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!copy['copy-remaining'])break;
-      expect(saved++).toBeLessThan(2032);
+      expect(saved++).toBeLessThan(3568);
       await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
       await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(copy['copy-remaining']-1);
       expect(await read(page,Object.keys(before))).toEqual(before);
@@ -88,7 +88,7 @@ test('manual checkpoint retains a partial serial byte and sub-bit phase',async({
   while(true){
     const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
     if(!copy['copy-remaining'])break;
-    expect(saves++).toBeLessThan(2032);
+    expect(saves++).toBeLessThan(3568);
     await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
     await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(copy['copy-remaining']-1);
     expect(await read(page,Object.keys(before))).toEqual(before);

@@ -26,8 +26,9 @@ filesystem. Temporary generated files are removed before returning the response;
 no ROM/artifact volume or database is used. Both containers must be ready for a
 pod to receive traffic. Changing either image requires a fresh shared tag.
 
-Dense conversion can produce an 8 MiB checkpoint document. A local worst-case
-run peaked around 131 MiB RSS, so the converter requests 128 MiB and allows
+Dense conversion with expanded work RAM can produce a 10.4 MiB checkpoint
+document. A fresh local converter process peaked around 109 MiB RSS for that
+worst-case document. The converter requests 128 MiB and allows
 512 MiB for its two workers and temporary files. The 32 MiB temporary volume
 allows two full-size conversions concurrently; generated files are still
 request-local and removed before the response returns.
