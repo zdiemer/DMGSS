@@ -8,10 +8,11 @@ const read = (page, keys) => page.locator('.machine').evaluate((el, keys) => {
   const style = getComputedStyle(el);
   return Object.fromEntries(keys.map(k => [k, Number(style.getPropertyValue(`--${k}`))]));
 }, keys);
-// Active computed-style reads take about 10s locally on both 0.11 and 0.12.
-// Shared CI can exceed 15s before a read resolves. Bound those reads at 30s;
-// keep every exact CPU/coherence assertion and the unattended interval.
-const COUNTER_PROGRESS_TIMEOUT = 30000;
+// Expanded banks took about 19s per active read locally, and exceeded 30s
+// on shared Chromium CI. Range membership gates reduce local reads to 12–13s;
+// allow 60s for observation on shared runners. Keep all coherence assertions
+// and the unattended interval; these bounds do not drive the CSS clock.
+const COUNTER_PROGRESS_TIMEOUT = 60000;
 const ticks = async page => (await read(page, ['ticks'])).ticks;
 const toggle = page => test.info().project.name.endsWith('mobile')
   ? page.locator('.power-switch').tap() : page.locator('.power-switch').click();
@@ -26,7 +27,7 @@ function assertCounter(state, initial=0) {
 test('automatic state advances beyond 1,000 instructions with one input, then pauses/resumes/resets', async ({page}, info) => {
   // RAM, timer and serial state expand retention to 897 cells, with mapped-RAM
   // fetches. Budget repeated tap/readback cycles; retain bounded progress checks.
-  test.setTimeout(420000);
+  test.setTimeout(600000);
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
@@ -109,6 +110,7 @@ test('automatic pointer loops fill RAM then copy backwards to VRAM across banks'
 });
 
 test('automatic bookkeeping wraps through 65535 without losing CPU state', async ({page}) => {
+  test.setTimeout(180000); // Active read plus native pause each evaluate the expanded banks.
   await page.goto('/automatic/tests/tick-wrap/');
   expect(await ticks(page)).toBe(65472);
   await toggle(page);
@@ -119,7 +121,7 @@ test('automatic bookkeeping wraps through 65535 without losing CPU state', async
 
 test('automatic repeated pause/resume preserves committed state', async ({page}) => {
   // Five complete tap/readback cycles need the same overall budget as above.
-  test.setTimeout(420000);
+  test.setTimeout(600000);
   await page.goto('/automatic/');
   for (let i=0; i<5; i++) {
     const before = await ticks(page);

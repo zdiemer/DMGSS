@@ -21,6 +21,19 @@ def equals(key, value):
 
 def choose_math(key, values, default):
     """Select one integer-keyed value; keys are unique and mutually exclusive."""
+    if default == 0 and values and all(value == 1 for value in values.values()):
+        # Membership maps (readable/writable/known) need one gate per contiguous
+        # range, not one per byte. Preserve gaps and both inclusive endpoints.
+        # This avoids expanding hundreds of redundant gates in every CPU stage.
+        ranges = []
+        for address in sorted(values):
+            if ranges and address == ranges[-1][1] + 1:
+                ranges[-1][1] = address
+            else:
+                ranges.append([address, address])
+        return 'calc(' + ' + '.join(equals(key, lo) if lo == hi else
+            f'max(0,min(1,var(--{key}) - {lo} + 1,{hi} + 1 - var(--{key})))'
+            for lo, hi in ranges) + ')'
     terms = [f'({equals(key, k)}) * (({v}) - ({default}))' for k, v in values.items()]
     return 'calc((' + str(default) + ')' + ''.join(' + ' + t for t in terms) + ')'
 

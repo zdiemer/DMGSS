@@ -577,6 +577,10 @@ addresses E000–E0FF access those same bytes; they do not add retained state.
 E000–FDFF alias of C000–DDFF. The remaining physical work RAM is still
 unimplemented, so its echo addresses trap too. OAM at FE00 never aliases WRAM.
 
+Arithmetic membership selectors coalesce adjacent allowed addresses into inclusive
+range gates, preserving gaps. Data selection stays byte-addressed. This avoids
+repeating a permission comparison for every RAM byte at each pipeline stage.
+
 Five registered bus-address intermediates normalize the opcode, two immediate
 and two data lanes independently. PC, SP and HL retain their logical addresses,
 including CALL return addresses and post-increments. The existing two-lane
