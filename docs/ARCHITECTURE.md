@@ -660,6 +660,10 @@ Chromium selector limits. Differences
 are folded in groups of 128 fields using reusable local typed helpers; group/slot
 queries expose one save label. These large pages remain expensive, especially on
 mobile hardware; no full-speed or real-device iOS claim follows from this change.
+The controls use [`reading-flow: source-order`](https://developer.chrome.com/blog/reading-flow/)
+to establish a native focus scope where supported. This preserves their order
+while avoiding Chromium's long Tab traversal through hidden high-index save
+links. Keyboard tests save both low and high bit indices and commit a full batch.
 
 Single-instruction conformance documents retain only the declared C000–C03F
 operand/stack window. Other WRAM begins at zero and is unobserved in these fixed

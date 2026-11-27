@@ -143,6 +143,8 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Inactive manual bits must update only the comparison UI. Keep native sibling
   selectors (no :has), local raw-bit resets and separate input/copy stylesheets
   so large selector tables remain within browser limits.
+  Preserve the controls' source-order reading-flow scope: Chromium otherwise
+  stalls on Tab traversal to high-index bits. Test native keyboard saves and commit.
 
 - Streaming shares Automatic scroll banks but commits one generic CPU stage at
   a time, using the native conditional decoder. Gate it on CSS if() and scroll
