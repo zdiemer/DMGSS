@@ -15,13 +15,14 @@ jobs:
       - name: Reject plaintext deployment values
         run: test -z "$(git ls-files '*values.local.yaml')"
   browser:
-    name: browser (${{ matrix.project }}, ${{ matrix.suite }})
+    name: browser (${{ matrix.project }}, ${{ matrix.suite }}, ${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         project: [desktop, chromium-mobile, webkit-mobile]
         suite: [compute, automatic, checkpoint, integration]
+        shard: [1, 2]
         # Manual transfers alone can take 26 minutes on shared runners. Keep
         # each retention file independent; every new spec joins integration.
         include:
@@ -51,7 +52,7 @@ jobs:
       - run: npx playwright install --with-deps chromium webkit
         timeout-minutes: 10
       - run: sudo apt-get install -y shared-mime-info
-      - run: npx playwright test --reporter=list --project=${{ matrix.project }} '${{ matrix.file_filter }}'
+      - run: npx playwright test --reporter=list --project=${{ matrix.project }} --shard=${{ matrix.shard }}/2 '${{ matrix.file_filter }}'
   converter:
     runs-on: ubuntu-latest
     steps:

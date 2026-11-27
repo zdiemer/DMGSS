@@ -670,11 +670,9 @@ all-byte retention, cross-page reads/fetches/stacks, echo ends, dormant-cell reu
 nonzero seeds, offline conversion, and manual source-bank immutability.
 
 
-On browsers with CSS `if()`, WRAM reads and writes use direct conditional
-selection. The arithmetic/container-query path remains behind the opposite
-feature query for browsers without it. Chromium exhausted multi-gigabyte browser
-limits when applying the large container-query write table; the direct path
-completed the same 130-instruction bank transfer. Tests force the arithmetic
-fallback separately, and single-step conformance disables this optimization.
+On browsers with CSS `if()`, WRAM reads can use conditional selection; writes
+use the same page-selected arithmetic slots in every browser. Tests force the
+arithmetic read fallback separately, and single-step conformance disables read
+acceleration so both decoders remain independently checked.
 Automatic raw timeline slots and word-decoding helpers are reused locally rather
 than registering a separate property for every scroll cell.
