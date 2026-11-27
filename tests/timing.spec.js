@@ -11,7 +11,8 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`cycle 
   await page.locator('.power-switch').click();
   await expect.poll(()=>read(page,['ticks','tcycles','halted','fault']),{timeout:25000})
     .toEqual({ticks:24,tcycles:196,halted:1,fault:0});
-  await page.getByText('Machine inspector',{exact:true}).click();
+  // Unscoped text lookup traverses the entire manual memory bank.
+  await page.locator('.debug').getByText('Machine inspector',{exact:true}).click();
   await expect(page.locator('.timing-note')).toBeVisible();
   expect(await page.locator('.register-tcycles').evaluate(el=>getComputedStyle(el,'::after').counterReset)).toBe('value 196');
   await page.setViewportSize({width:320,height:844});
