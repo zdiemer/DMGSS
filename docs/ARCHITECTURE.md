@@ -3,15 +3,15 @@
 HTML is the fixed structure, CSS is the runtime, Python is code generation.
 The generator emits declarations, never a precomputed sequence of machine states.
 
-A four-phase CSS animation drives two alternating animation banks. The latch
-phase copies the previously computed result to the stored bank. The execute
-phase samples next-state expressions into the result bank. Paused animations
-retain sampled values between phases. Typed integer properties resolve numeric
-expressions before they are sampled. This unusual browser behavior is tested
-with page JavaScript disabled; it is not a portable general-purpose CSS guarantee.
+Streaming uses one generic CPU read/execute stage and two scroll-storage banks.
+Each bank stores resolved integers as native scroll offsets. Timeline readers
+recover the source state; the inactive bank copies the result. A complete-bank
+readiness check commits it before the next instruction can execute. Automatic
+mode shares this storage but evaluates 128 generic stages per commit. Neither
+mode precomputes the ROM's executed path.
 
-Power pauses both banks and the clock. Reset navigates to a fresh document.
-Browser throttling can slow or skip wall-clock ticks: this is an experimental
+Pause freezes copying and retains committed state. Reset navigates to a fresh
+document. Browser rendering controls throughput; this is an experimental
 instruction clock, not a hardware-accurate oscillator.
 
 Research: [x86CSS](https://github.com/rebane2001/x86CSS) demonstrates autonomous
@@ -50,27 +50,21 @@ Switching cartridges is normal HTML navigation; no runtime ROM parsing is used.
 
 ## Browser compatibility and startup checks
 
-Streaming mode relies on Chromium's animated-variable state capture.
-Chrome on iOS uses WebKit, not Chromium. A phone-sized Chromium test only
-verifies responsive layout/touch interaction; it cannot establish iOS support.
+Streaming requires native CSS `if()`, scroll timelines and the CSS math used by
+the memory readers. Chrome on iOS uses WebKit, not Chromium. A phone-sized
+Chromium test verifies layout/touch interaction, not iOS support.
 
-With Playwright 1.65.1's WebKit build 2388, the page parses CSS `if()`, the phase
-clock advances, and `--next-pc` computes 258, but `--bank-pc` stays 256 and the
-instruction counter stays zero. Syntax detection alone therefore produces a
-false positive. Older engines may lack `if()` as well. This was reproduced in
-Linux WebKit; it is not a real-device iOS test or a claim about every WebKit release.
+The old animation-bank implementation stalled in Linux WebKit despite parsing
+`if()`, and did not retain full work RAM reliably. Version 0.19.0 replaces it
+with the same scroll storage used by Automatic mode, committing one instruction
+at a time. Syntax gates and a real clock-progress startup check remain: a page
+that parses the syntax but cannot advance reports a stalled engine. A real
+opcode fault takes precedence. The machine remains HTML/CSS-only.
 
-The LCD shows an immediate browser limitation when the syntax gate fails. When
-syntax is accepted, it displays a startup check until the real instruction
-counter advances; after three seconds at zero it reports a stalled engine.
-A real opcode fault takes precedence over that message, including a fault on
-the very first instruction. The machine remains HTML/CSS-only.
-
-CI runs both modes on desktop and phone-sized Chromium, and portable execution
-plus streaming limitation checks on phone-sized WebKit. If WebKit starts advancing correctly, that suite
-fails so the support policy can be revisited. The new automatic mode below uses
-a different storage design; its counter is now user-confirmed in iOS Chrome,
-with broader device/feature validation still pending.
+CI checks CPU transitions on Chromium and compatible/manual/automatic modes on
+Linux WebKit, plus streaming capability detection. These are not real-device
+iOS certification. The user confirmed earlier Compatible and Automatic builds
+in iOS Chrome; the larger full-RAM pages still need device checks.
 
 
 ## Bounded compatible mode (build 04)
@@ -569,7 +563,9 @@ Dense conversion is restricted to the three feed-forward modes. Streaming
 retains its prior 1,024-exception cap: a shared Chromium runner failed to
 initialize its animation state with the large lookup graph. Native decoder
 probes still verify individual lookups; they do not establish reliable streaming
-storage. The converter reports the unsupported combination explicitly.
+storage. The converter reports the unsupported combination explicitly. The
+0.19.0 storage replacement retains this conservative import cap until dense
+Streaming documents receive separate end-to-end coverage.
 
 
 ## Work RAM and echo aliases (0.17.0)
@@ -643,9 +639,11 @@ updates one or two physical words atomically. DFFF/E000 crosses to physical C000
 FDFF/FE00 still traps without writing either lane.
 
 Bounded stages decode on the read element and commit on its execute child.
-Container queries assign next-WRAM only for the addressed words; unchanged words
-inherit. This avoids evaluating 4,096 write expressions at every stage. The
-streaming animation banks retain the same word representation.
+The fallback uses container queries to assign only addressed words; unchanged
+words inherit. Engines supporting CSS `if()` use a feature-gated conditional
+path because the full query table exceeds Chromium memory limits. Small typed
+write helpers materialize results before inheritance. Streaming uses the same
+word representation and scroll storage with one generic CPU stage per commit.
 
 Automatic readers group 32 storage units, with non-inheriting raw timelines.
 They expose decoded source and inactive words to the CPU and complete-bank

@@ -29,7 +29,7 @@ test('tile ROM writes VRAM and CSS decodes both bitplanes', async ({page}, info)
   test.setTimeout(45000);
   await page.goto('/tile/');
   await page.locator('.power-switch').click();
-  // The pointer loop takes 84 instructions at the streaming clock's 240ms/step.
+  // Every instruction commits through the complete scroll-bank handshake.
   await expect.poll(() => state(page,'halted'), { timeout: 35000 }).toBe(1);
   expect(await state(page,'ticks')).toBe(84);
   expect(await state(page,'pc')).toBe(271);
@@ -43,7 +43,7 @@ test('tile ROM writes VRAM and CSS decodes both bitplanes', async ({page}, info)
   expect(shades).toEqual([...rows.join('')].map(Number));
   await expect(page.locator('.tile-ready')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.screenshot({path:`test-results/tile-${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`tile-${info.project.name}.png`),fullPage:true});
 });
 test('stack lab runs nested calls and restores the loop counter', async ({page}) => {
   await page.goto('/stack/'); await page.locator('.power-switch').click();

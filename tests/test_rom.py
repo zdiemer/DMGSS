@@ -29,7 +29,7 @@ class DenseROMTests(unittest.TestCase):
 
     def test_sparse_streaming_limit_is_inclusive(self):
         direct=bytes([1])*1024+bytes(3072)
-        self.assertIn('Streaming · Chromium only',convert(direct,'sparse.bin','raw','streaming'))
+        self.assertIn('Streaming · one instruction per commit',convert(direct,'sparse.bin','raw','streaming'))
         with self.assertRaisesRegex(ConversionError,'Dense ROMs require Compatible'):
             convert(bytes([1])*1025+bytes(3071),'dense.bin','raw','streaming')
 

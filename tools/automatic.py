@@ -17,7 +17,7 @@ def modulus(name):
     return 2 if name in ('halted', 'fault', 'ime', 'ime-delay', 'halt-bug', 'timer-reload', 'clocked') else 65536 if name in ('pc', 'sp', 'ticks', 'tcycles') else 256
 
 
-def generate(rom, initial=None):
+def generate(rom, initial=None, arithmetic=True):
     initial = pack_initial(initial)
     states = {}
 
@@ -25,7 +25,7 @@ def generate(rom, initial=None):
         states.update(definitions)
         return storage(definitions, initialize=False)
 
-    css = machine(rom, collect, arithmetic=True).replace('\n.machine {', '\n.pipeline-read {')
+    css = machine(rom, collect, arithmetic=arithmetic).replace('\n.machine {', '\n.pipeline-read {')
     css = css.replace('calc(var(--ticks) + 1)', 'calc(mod(var(--ticks) + 1, 65536))')
     defaults = {name: (initial or {}).get(name, value) for name, (value, _) in states.items()}
     # Only ordinary physical RAM is packed. I/O and peripheral bookkeeping retain
@@ -90,7 +90,7 @@ def generate(rom, initial=None):
         cells.append(f'<div class="scroll-memory memory-{name}{bank_class}" aria-hidden="true" tabindex="-1"><div class="memory-pad"><div class="memory-mark"></div></div></div>')
     # Marker movement must never resnap the source bank, including while paused
     # or after a committed HALT/fault. The inactive bank alone copies results.
-    rules.append('@container style(--select:0) {.memory-bank-0 {scroll-snap-type:none}} @container style(--select:1) {.memory-bank-1 {scroll-snap-type:none}} @container style(--enabled-copy:0) {.scroll-memory {scroll-snap-type:none}}')
+    rules.append('@container style(--select:0) {body[data-automatic] .memory-bank-0 {scroll-snap-type:none}} @container style(--select:1) {body[data-automatic] .memory-bank-1 {scroll-snap-type:none}} @container style(--enabled-copy:0) {body[data-automatic] .scroll-memory {scroll-snap-type:none}}')
     seed, differences, display = [], [], []
     for i, batch in enumerate(batches,1):
         bindings = []
@@ -119,4 +119,4 @@ def generate(rom, initial=None):
     rules.append('.auto-output {--enabled-copy:calc(var(--run) * (1 - max(var(--seed-halted) * (1 - min(1,' + pending + ')), var(--seed-fault))));' +
                  '--ready:calc(1 - min(1, ' + ' + '.join(differences) + '));}')
     rules.append('body[data-automatic] .machine {' + ''.join(display) + '}')
-    return '\n'.join(rules) + tile_css(arithmetic=True), ''.join(cells), len(groups)
+    return '\n'.join(rules) + tile_css(arithmetic=arithmetic), ''.join(cells), len(groups)

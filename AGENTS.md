@@ -105,7 +105,8 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   range validation and RAM/I/O overrides at page, word and 16-bit wrap boundaries.
   The 32 KiB ROM-only and 4 KiB raw input bounds remain. Dense imports require
   Compatible, Automatic or Manual mode; reject dense Streaming conversions
-  with a clear error because its animation banks did not initialize reliably.
+  with a clear error. Its former animation banks did not initialize reliably;
+  the scroll-storage replacement retains this cap pending dense-streaming coverage.
   Small/direct lookup graphs stay unchanged. Do not imply cartridge banking or
   whole-ROM compatibility merely because a dense file can now be converted.
 
@@ -139,3 +140,7 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Inactive manual bits must update only the comparison UI. Keep native sibling
   selectors (no :has), local raw-bit resets and separate input/copy stylesheets
   so large selector tables remain within browser limits.
+
+- Streaming shares Automatic scroll banks but commits one generic CPU stage at
+  a time, using the native conditional decoder. Gate it on CSS if() and scroll
+  timeline support; preserve the real-progress startup check and pause/reset.

@@ -240,7 +240,8 @@ The compiler never runs the ROM or patches its header. Streaming retains its
 1,024-exception limit: CI observed its animation banks failing to initialize
 a dense document even though isolated native lookup probes passed. Conversion
 rejects this combination with a mode-selection message instead of emitting an
-unreliable run.
+unreliable run. The 0.19.0 scroll-storage replacement retains this cap pending
+separate dense-streaming validation.
 
 Original browser probes compare scattered addresses, every page edge and all
 byte offsets against the input bytes in both arithmetic and native CSS paths.

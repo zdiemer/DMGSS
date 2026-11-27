@@ -1,7 +1,7 @@
 // Read-only inspection with page JavaScript disabled. Work RAM is stored in
 // little-endian 16-bit words; decoding observations never changes browser state.
 function readStyles(elements, keys) {
-  return elements.map(el => {
+  return (Array.isArray(elements) ? elements : [elements]).map(el => {
     const style = getComputedStyle(el);
     return Object.fromEntries(keys.map(key => {
       const address = /^m\d+$/.test(key) ? Number(key.slice(1)) : -1;
@@ -16,7 +16,7 @@ function readStyles(elements, keys) {
   });
 }
 async function readState(page, keys, selector = '.machine') {
-  const states = await page.locator(selector).evaluateAll(readStyles, keys);
+  const states = await page.locator(selector).evaluate(readStyles, keys);
   if (states.length !== 1) throw new Error(`Expected one state at ${selector}, got ${states.length}`);
   return states[0];
 }

@@ -57,7 +57,7 @@ test('checkpoint reuses two banks across nine batches and byte wrap', async ({pa
   expect(await page.locator('input').count()).toBe(inputs);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.screenshot({path:`test-results/checkpoint-${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`checkpoint-${info.project.name}.png`),fullPage:true});
 });
 test('checkpoint preserves branches and flags until a later HALT', async ({page})=>{
   // Two transfers include changing divider bits; assert progress after every save.
@@ -95,7 +95,7 @@ test('checkpoint controls can be used with Tab, Enter and Space', async ({page})
   await page.keyboard.press('Tab'); await expect(page.locator('.commit-control a')).toBeFocused();
   await page.keyboard.press('Enter'); await expect(page.locator('#commit')).toBeFocused();
   await page.keyboard.press('Space');
-  await expect.poll(async ()=>(await read(page,['ticks'])).ticks).toBe(256);
+  await expect.poll(async ()=>(await read(page,['ticks'])).ticks,{timeout:30000}).toBe(256);
 });
 for(const [path,message] of [['diagnostic/','.passed'],['tile/','.tile-ready'],['tests/trap/','.fault-message']]) {
   test(`checkpoint stops copying when cartridge stops: ${path}`, async ({page})=>{

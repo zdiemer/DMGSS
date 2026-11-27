@@ -56,7 +56,7 @@ test('automatic state advances beyond 1,000 instructions with one input, then pa
   await toggle(page);
   expect(await page.locator('*').count()).toBe(nodes);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({path:`test-results/automatic-${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`automatic-${info.project.name}.png`),fullPage:true});
   await page.locator('.reset').click();
   await expect.poll(() => ticks(page)).toBe(0);
   expect(await read(page, counterKeys)).toEqual({ticks:0,tcycles:0,m65284:0,'div-low':0,pc:256,a:0,m49152:0,halted:0,fault:0});

@@ -28,7 +28,7 @@ test('portable diagnostic runs without CSS if and resets to initial state', asyn
   await expect(page.locator('.passed')).toBeVisible();
   for(const [key,value] of Object.entries({ticks:24,halted:1,fault:0,m49152:16,m49153:20,m49154:165})) expect(await state(page,key)).toBe(value);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.screenshot({path:`test-results/portable-${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`portable-${info.project.name}.png`),fullPage:true});
   await page.locator('.power-switch').click();
   expect(await state(page,'ticks')).toBe(0);
   expect(await state(page,'m49154')).toBe(0);
@@ -44,7 +44,7 @@ test('portable tile cartridge decodes actual VRAM into all four shades', async (
   expect(shades).toEqual([...rows.join('')].map(Number));
   const colors=await page.locator('.tile-grid i').evaluateAll(els=>[...new Set(els.map(e=>getComputedStyle(e).backgroundColor))]);
   expect(colors.sort()).toEqual(['rgb(177, 195, 126)','rgb(139, 175, 98)','rgb(82, 117, 71)','rgb(49, 69, 44)'].sort());
-  await page.screenshot({path:`test-results/portable-tile-${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`portable-tile-${info.project.name}.png`),fullPage:true});
 });
 test('portable infinite loop stops at the budget without inventing HALT', async ({page})=>{
   await page.goto('/portable/tests/loop/'); await page.locator('.power-switch').click();

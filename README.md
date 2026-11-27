@@ -37,8 +37,9 @@ Four execution modes share the same CPU:
   128-instruction batches. Tap Save next bit for each changed bit, then Run next
   128. This is user-clocked copying, not automatic execution; iOS verification
   of this new mode is pending. State lasts until reset/navigation.
-- **Streaming mode** (`/`): animated state storage for continuous execution,
-  currently Chromium-only. It reports unsupported syntax or stalled startup.
+- **Streaming mode** (`/`): one instruction per scroll-storage commit, using
+  native CSS conditionals. Requires both CSS `if()` and scroll timelines;
+  unsupported syntax and stalled startup are reported in the display.
 
 None of these modes is game-ready. No commercial ROMs or Nintendo boot ROM are bundled.
 

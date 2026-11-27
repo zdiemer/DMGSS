@@ -23,5 +23,5 @@ test('console fits the viewport and controls are keyboard reachable', async ({ p
   await page.keyboard.press('Space');
   await expect(page.locator('#power')).toBeChecked();
   await expect.poll(() => state(page, 'ticks')).toBeGreaterThan(0);
-  await page.screenshot({path:`test-results/${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`${info.project.name}.png`),fullPage:true});
 });
