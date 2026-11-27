@@ -116,10 +116,9 @@ for(const execution of ['portable','automatic','checkpoint'])test(`dense 128 KiB
 });
 for(const [size,expected] of [[32768,[1,1,0,1]],[65536,[1,1,0,3]],[131072,[1,1,0,7]]])test(`MBC1 ${size} zero adjustment precedes masking`,async({page})=>{
   const code=[];
-  for(const [i,bank] of [0,32,16,255].entries())code.push(0x3E,bank,0xEA,0,0x20,0xFA,0,0x41,0xEA,i,0xC0);
+  for(const [i,bank] of [0,32,16,255].entries())code.push(0x3E,bank,0xEA,0,0x20,0xFA,0,0x43,0xEA,i,0xC0);
   const rom=cartridge(size,[...code,0x76]);
-  for(let bank=0;bank<size/16384;bank++)rom[bank*16384+256]=bank;
-  rom.set([0xC3,0x50,1],0x100);
+  for(let bank=0;bank<size/16384;bank++)rom[bank*16384+768]=bank;
   await upload(page,rom);await run(page,{...Object.fromEntries(expected.map((x,i)=>[`m${49152+i}`,x])),'mbc-bank':31,halted:1,fault:0});
 });
 test('MBC1 third fetch lane and VRAM override stay independent',async({page})=>{
