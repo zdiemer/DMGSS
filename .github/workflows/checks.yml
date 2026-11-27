@@ -47,8 +47,16 @@ jobs:
       - run: npm ci
       # EC2's regional mirror took over 30 minutes on two runners while the
       # same image installed in under a minute elsewhere. Use the main mirror.
-      - name: Normalize Ubuntu package mirror
-        run: sudo sed -i -E 's|https?://[a-z0-9.-]+\.ec2\.archive\.ubuntu\.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+      - name: Prepare Ubuntu package sources
+        run: |
+          for apt_source in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/apt-mirrors.txt; do
+            if [[ -f "$apt_source" ]]; then
+              sudo sed -i -E 's|https?://[a-z0-9.-]+\.ec2\.archive\.ubuntu\.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' "$apt_source"
+            fi
+          done
+          # Browser libraries come from Ubuntu. The unrelated preinstalled
+          # Microsoft feed returned 403 and stopped apt before tests could run.
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/microsoft-prod.sources
       - run: npx playwright install --with-deps chromium webkit
         timeout-minutes: 10
       - run: sudo apt-get install -y shared-mime-info

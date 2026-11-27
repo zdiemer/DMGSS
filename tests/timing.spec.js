@@ -25,7 +25,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`cycle 
 });
 
 for(const mode of ['checkpoint','automatic'])test(`cycle accounting crosses a ${mode} bank and wraps`,async({page})=>{
-  test.setTimeout(120000);
+  test.setTimeout(mode==='checkpoint'?600000:120000);
   await page.goto(`/${mode}/tests/timing/`);
   expect(await read(page,['tcycles'])).toEqual({tcycles:65520});
   await page.locator('.power-switch').click();

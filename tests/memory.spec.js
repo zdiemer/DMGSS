@@ -10,9 +10,9 @@ async function upload(page,bytes,mode='portable',format='raw',download=false){
   if(download){const result=page.waitForEvent('download');await page.locator('button[value=download]').click();return result;}
   await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.locator('button[value=open]').click()]);
 }
-async function run(page,expected){
+async function run(page,expected,timeout=60000){
   await page.locator('.power-switch').click();
-  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:60000,intervals:[1000,3000]}).toEqual(expected);
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout,intervals:[1000,3000]}).toEqual(expected);
 }
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`work RAM sample shares physical bytes with echo in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming remains Chromium-only');
@@ -29,7 +29,8 @@ test('all 256 work RAM bytes survive automatic banks with distinct values',async
   // LD HL,C000; loop: LD (HL),L; INC L; JR NZ,loop; HALT.
   await upload(page,[0x21,0,0xC0,0x75,0x2C,0x20,0xFC,0x76],'automatic');
   await page.locator('.power-switch').click();
-  await expect.poll(()=>read(page,['ticks','pc','h','l','f','halted','fault']),{timeout:210000,intervals:[1000,5000]}).toEqual({ticks:770,pc:264,h:192,l:0,f:160,halted:1,fault:0});
+  // Full-map WebKit CI still had coherent progress at tick 512 after 210s.
+  await expect.poll(()=>read(page,['ticks','pc','h','l','f','halted','fault']),{timeout:600000,intervals:[1000,5000]}).toEqual({ticks:770,pc:264,h:192,l:0,f:160,halted:1,fault:0});
   const expected=Object.fromEntries(Array.from({length:256},(_,i)=>['m'+(49152+i),i]));
   expect(await read(page,Object.keys(expected))).toEqual(expected);
   expect(await page.locator('.scroll-memory').count()).toBe(8435);
@@ -151,7 +152,7 @@ test('all 8192 physical bytes survive automatic banks, including page crossings'
 for(const seed of [0,0x3412])test(`automatic RAM can become dormant and reactivate from seed ${seed}`,async({page})=>{
   test.setTimeout(900000);
   await page.goto(`/automatic/tests/full-ram/reactivate-${seed}/`);
-  await run(page,{ticks:516,pc:788,sp:43981,a:171,b:205,m49152:205,m49153:171,halted:1,fault:0});
+  await run(page,{ticks:516,pc:788,sp:43981,a:171,b:205,m49152:205,m49153:171,halted:1,fault:0},180000);
 });
 
 test('full work RAM crosses pages and echo boundaries without CSS if',async({page})=>{
