@@ -1,13 +1,11 @@
+const {readState}=require('./helpers/state');
 const {test, expect} = require('@playwright/test');
 // Active-bank tap/readback cycles include full mapped-memory fetch evaluation.
 // Overall time is separate from the existing per-progress and exact-state checks.
 test.describe.configure({timeout:90000});
 // Read-only inspection; page JavaScript is disabled. Only native user controls
 // start/pause/reset the machine. Nothing in the harness copies or clocks state.
-const read = (page, keys) => page.locator('.machine').evaluate((el, keys) => {
-  const style = getComputedStyle(el);
-  return Object.fromEntries(keys.map(k => [k, Number(style.getPropertyValue(`--${k}`))]));
-}, keys);
+const read = readState;
 // Expanded banks took about 19s per active read locally, and exceeded 30s
 // on shared Chromium CI. Range membership gates reduce local reads to 12–13s;
 // allow 60s for observation on shared runners. Keep all coherence assertions
@@ -25,13 +23,13 @@ function assertCounter(state, initial=0) {
 }
 
 test('automatic state advances beyond 1,000 instructions with one input, then pauses/resumes/resets', async ({page}, info) => {
-  // RAM, timer and serial state expand retention to 499 cells, with mapped-RAM
+  // RAM, timer and serial state expand retention to 8435 cells, with mapped-RAM
   // fetches. Budget repeated tap/readback cycles; retain bounded progress checks.
   test.setTimeout(600000);
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
-  expect(await page.locator('.scroll-memory').count()).toBe(499);
+  expect(await page.locator('.scroll-memory').count()).toBe(8435);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   const nodes = await page.locator('*').count();
   await toggle(page);

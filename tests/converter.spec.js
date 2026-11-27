@@ -1,7 +1,8 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
 const {pathToFileURL}=require('node:url');
 const fs=require('node:fs/promises');
-const read=(page,keys)=>page.locator('.machine').evaluate((el,keys)=>{const s=getComputedStyle(el);return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]))},keys);
+const read = readState;
 async function upload(page,buffer,{format='raw',mode='portable',name='test.bin'}={}){
   await page.goto('/convert/');
   await page.locator('#rom').setInputFiles({name,mimeType:'application/octet-stream',buffer});

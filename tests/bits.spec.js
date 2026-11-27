@@ -1,5 +1,6 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
-const read=page=>page.locator('.machine').evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['pc','ticks','a','b','h','l','f','m32768','m49152','m49154','halted','fault'].map(k=>[k,Number(s.getPropertyValue('--'+k))]))});
+const read = page => readState(page,['pc','ticks','a','b','h','l','f','m32768','m49152','m49154','halted','fault']);
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Bit lab checks CB register and memory operations in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
   const prefix=mode==='streaming'?'':`/${mode}`;

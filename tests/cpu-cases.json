@@ -7,6 +7,6 @@
   {"name":"compare-no-write","rom":[62,16,254,16,40,2,62,99,118],"expect":{"a":16,"f":192,"pc":265}},
   {"name":"ram-roundtrip","rom":[62,66,234,63,192,175,250,63,192,118],"expect":{"a":66,"m49215":66,"pc":266}},
   {"name":"illegal-opcode","rom":[211],"fault":true,"expect":{"fault":1,"pc":256,"ticks":0}},
-  {"name":"unmapped-write","rom":[62,7,234,0,208],"fault":true,"expect":{"fault":1,"pc":258,"ticks":1}},
+  {"name":"unmapped-write","rom":[62,7,234,0,254],"fault":true,"expect":{"fault":1,"pc":258,"ticks":1}},
   {"name":"jump","rom":[195,5,1,62,99,62,42,118],"expect":{"a":42,"pc":264,"ticks":3}}
 ]

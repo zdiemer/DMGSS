@@ -17,7 +17,7 @@ class DenseROMTests(unittest.TestCase):
         for mode in ('portable','automatic','checkpoint'):
             with self.subTest(mode=mode):
                 document=convert(data,'dense.gb','gb',mode)
-                self.assertLess(len(document.encode()),12*1024*1024)
+                self.assertLess(len(document.encode()),{'portable':12,'automatic':24,'checkpoint':96}[mode]*1024*1024)
                 self.assertNotIn('<script',document)
                 self.assertNotIn('<link',document)
                 self.assertNotIn('TEST PASSED',document)
@@ -37,7 +37,7 @@ class DenseROMTests(unittest.TestCase):
         # Raw format avoids header edits breaking an otherwise identical page.
         data=bytes(range(256))*16
         document=convert(data,'repeated.bin','raw','portable')
-        self.assertLess(len(document.encode()),1024*1024)
+        self.assertLess(len(document.encode()),8*1024*1024)
 
     def test_original_dense_sample_header_and_bounds(self):
         data=sample_rom()

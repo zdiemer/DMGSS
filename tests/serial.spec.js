@@ -1,7 +1,6 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
-const read=(page,keys,selector='.machine')=>page.locator(selector).evaluate((el,keys)=>{
-  const s=getComputedStyle(el);return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]));
-},keys);
+const read = readState;
 const logKeys=Array.from({length:16},(_,i)=>'serial-log'+i);
 const final={ticks:5,tcycles:68,pc:262,a:165,b:1,sp:65534,halted:1,fault:0,m65281:255,m65282:127,m65295:224,
   'serial-count':0,'serial-length':16,'serial-phase':0,'serial-bits':0,'serial-tx':65};
@@ -21,8 +20,8 @@ for(const mode of ['automatic','checkpoint','portable','streaming'])test(`serial
     while(true){
       const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!copy['copy-remaining'])break;
-      expect(saved++).toBeLessThan(3568);
-      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
+      expect(saved++).toBeLessThan(67056);
+      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']}`).click();
       await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(copy['copy-remaining']-1);
       expect(await read(page,Object.keys(before))).toEqual(before);
       if(saved===1){await page.locator('.power-switch').click();await page.locator('.power-switch').click();}
@@ -41,7 +40,7 @@ for(const mode of ['automatic','checkpoint','portable','streaming'])test(`serial
   expect(await read(page,Object.keys(final))).toEqual(final);
 });
 test('serial lab sends OK through HALT and polling',async({page})=>{
-  test.setTimeout(180000);
+  test.setTimeout(900000);
   await page.goto('/automatic/');
   await page.getByRole('link',{name:'Serial',exact:true}).click();
   await page.locator('.power-switch').click();
@@ -88,8 +87,8 @@ test('manual checkpoint retains a partial serial byte and sub-bit phase',async({
   while(true){
     const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
     if(!copy['copy-remaining'])break;
-    expect(saves++).toBeLessThan(3568);
-    await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
+    expect(saves++).toBeLessThan(67056);
+    await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']}`).click();
     await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(copy['copy-remaining']-1);
     expect(await read(page,Object.keys(before))).toEqual(before);
   }

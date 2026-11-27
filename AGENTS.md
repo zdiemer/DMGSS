@@ -109,16 +109,33 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Small/direct lookup graphs stay unchanged. Do not imply cartridge banking or
   whole-ROM compatibility merely because a dense file can now be converted.
 
-- Work RAM is C000–C0FF with E000–E0FF echo aliases. Canonicalize each fetch/data
-  bus lane independently; keep PC, pointers and stack return addresses logical.
-  Echo aliases share physical state and never get their own copy cells. Reject
-  unimplemented physical RAM and its echoes, including word operations with
-  either lane absent. FE00 and above must not alias. All added physical bytes
-  participate in the complete-bank handshake and manual copy selector.
-
-- Automatic storage packs only adjacent even-aligned physical RAM bytes into
-  16-bit cells. Decode each byte before seeding the unchanged CPU pipeline.
-  Round timeline readback before restoring the initial word modulo 65,536;
-  test maximum offsets and nonzero seeds. FFFE stays separate from IE at FFFF,
-  and I/O/peripheral fields never pair. Compare the entire packed word in the
-  inactive-bank readiness handshake; retain all existing pause/commit rules.
+- Work RAM is the full 8 KiB at C000–DFFF; E000–FDFF mirrors C000–DDFF.
+  Canonicalize all five fetch/data bus lanes independently. PC, SP and pointers
+  remain logical; DE00–DFFF has no echo. FE00/OAM is still unsupported.
+  CPU storage uses 4,096 exact little-endian words. Keep byte semantics and atomic
+  two-lane validation, including DFFF/E000 and FDFF/FE00 boundaries.
+- Bounded stages decode on pipeline-read and commit on pipeline-execute. WRAM
+  container queries update only the selected words; all other words inherit.
+  Full production state is mandatory in every mode. Single-step conformance
+  fixtures retain their declared C000–C03F operand window to bound test cost;
+  preserve upstream expectations and separate full-map retention tests.
+- Automatic mode has 8,435 scroll cells and grouped, non-inheriting raw timeline
+  readers. Disable snapping on the source bank and whenever copying is disabled.
+  Dormant WRAM cells may disappear only when source, destination and result all
+  equal their initial word (zero encoded offset). Test reactivation and nonzero
+  seeds. FFFE and IE remain separate; peripheral fields are never paired.
+- Manual checkpoints use grouped native bit inputs, local numeric readers and
+  a staged difference selector. Keep native pointer/keyboard behavior, source
+  immutability during every bit save, and the 67,056-bit complete-bank check.
+  Avoid inheriting unevaluated bit sums or thousands of raw animation values.
+- Browser memory is a release constraint: run full-map probes in an isolated
+  browser process/container with a hard memory limit, not beside the workspace
+  agent. Keep explicit document budgets and converter tmpfs/worker headroom.
+- Keep the optional CSS if() WRAM path behind feature detection and the math
+  fallback testable. Chromium cannot afford the full container-query write table;
+  do not require CSS if() in engines that use the fallback. Single-step fixtures
+  disable the acceleration so both decoders remain independently exercised.
+- Register small reusable calculation slots, not every input bit or timeline.
+  Inactive manual bits must update only the comparison UI. Keep native sibling
+  selectors (no :has), local raw-bit resets and separate input/copy stylesheets
+  so large selector tables remain within browser limits.

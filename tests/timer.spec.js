@@ -1,9 +1,8 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
 const {execFileSync}=require('node:child_process');
 const cases=JSON.parse(execFileSync('python3',['-c','import sys,json;sys.path.insert(0,"tools");from timer_fixtures import cases;print(json.dumps(cases()))']));
-const read=(page,keys,selector='.machine')=>page.locator(selector).evaluate((el,keys)=>{
-  const s=getComputedStyle(el);return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]));
-},keys);
+const read = readState;
 for(const item of cases)test(`timer matches reduced Mooneye ${item.name}`,async({page})=>{
   test.setTimeout(90000);
   await page.goto(`/automatic/tests/mooneye-${item.name}/`);
@@ -35,7 +34,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Timer 
 });
 
 for(const mode of ['automatic','checkpoint'])test(`timer overflow and HALT cross a ${mode} bank`,async({page})=>{
-  test.setTimeout(180000);
+  test.setTimeout(900000);
   await page.goto(`/${mode}/tests/timer-boundary/`);
   await page.locator('.power-switch').click();
   if(mode==='checkpoint'){
@@ -47,8 +46,8 @@ for(const mode of ['automatic','checkpoint'])test(`timer overflow and HALT cross
     while(true){
       const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!copy['copy-remaining'])break;
-      expect(saves++).toBeLessThan(3568);
-      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
+      expect(saves++).toBeLessThan(67056);
+      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']}`).click();
       expect(await read(page,Object.keys(before))).toEqual(before);
     }
     await page.locator('.power-switch').click();

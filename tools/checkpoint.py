@@ -1,5 +1,6 @@
 """Reusable native HTML bit banks for explicitly user-clocked CSS checkpoints."""
-from cpu import machine, tile_css
+from work_memory import pack_initial
+from cpu import machine, tile_css, choose_math
 from portable import storage as pipeline_storage
 
 WIDTHS = {'pc': 16, 'sp': 16, 'halted': 1, 'fault': 1, 'ticks': 16, 'tcycles': 16, 'ime': 1, 'ime-delay': 1, 'halt-bug': 1, 'timer-reload': 1, 'clocked': 1, 'serial-phase': 9, 'serial-bits': 3, 'serial-count': 16, 'serial-length': 5}
@@ -10,70 +11,115 @@ def counter_rom():
     return [0xFA, 0x00, 0xC0, 0x3C, 0xEA, 0x00, 0xC0, 0x18, 0xF7]
 
 
+def width(name):
+    return 16 if name.startswith('wram') else WIDTHS.get(name,8)
+
+
 def generate(rom, initial=None):
-    """Emit two bit banks and a generic copy selector, never execute the ROM."""
+    """Native bit storage, grouped readers and a bounded next-bit selector."""
+    initial = pack_initial(initial)
     states = {}
     def storage(definitions):
-        if initial:
-            definitions = {name: (initial.get(name, value), expression)
-                           for name, (value, expression) in definitions.items()}
+        definitions = {name:(initial.get(name,value),expression) for name,(value,expression) in definitions.items()}
         states.update(definitions)
-        return pipeline_storage(definitions)
-    css = machine(rom, storage, arithmetic=True).replace('\n.machine {', '\n.pipeline-execute {')
-    css += tile_css(arithmetic=True)
-    bits = [(name, bit, (initial >> bit) & 1)
-            for name, (initial, _) in states.items()
-            for bit in range(WIDTHS.get(name, 8))]
+        return pipeline_storage(definitions, initialize=False)
+    css = machine(rom,storage,arithmetic=True).replace('\n.machine {','\n.pipeline-read {')
+    rules = [css,tile_css(arithmetic=True)]
+    names = list(states)
+    positions = {name:i for i,name in enumerate(names)}
+    groups = [names[i:i+32] for i in range(0,len(names),32)]
+    bits = [(name,bit,(states[name][0] >> bit)&1) for name in states for bit in range(width(name))]
     count = len(bits)
-    inputs, controls = [], []
-    css += '''
-@property --bank-phase {syntax:"<integer>";inherits:true;initial-value:0}
-@property --copy-index {syntax:"<integer>";inherits:true;initial-value:0}
-@property --copy-group {syntax:"<integer>";inherits:true;initial-value:0}
-@property --copy-slot {syntax:"<integer>";inherits:true;initial-value:0}
-@property --copy-remaining {syntax:"<integer>";inherits:true;initial-value:0}
-#commit:checked ~ .clock {--bank-phase:1}
-'''
-    def control(ident, classes, text):
-        return f'<div class="copy-control {classes}"><label for="{ident}">{text}</label><a href="#{ident}">Keyboard: focus, then Space</a></div>'
-    for bank in range(2):
-        seed = []
-        for name in states:
-            value = ' + '.join(f'var(--b{bank}-{name}-{bit},0) * {1 << bit}' for bit in range(WIDTHS.get(name, 8)))
-            seed.append(f'--seed{bank}-{name}:calc({value});')
-        css += '.clock {' + ''.join(seed) + '}\n'
-        for i, (name, bit, initial) in enumerate(bits):
-            ident = f'b{bank}-{name}-{bit}'
-            checked = ' checked' if initial else ''
-            # Inputs precede the CPU and never disappear as a side effect of
-            # activation. Labels and fragment focus links are native HTML.
-            inputs.append(f'<input class="sr-only checkpoint-bit" type="checkbox" id="{ident}" tabindex="-1" autocomplete="off" aria-label="Save checkpoint {name} bit {bit}"{checked}>')
-            controls.append(control(ident, f'bank{bank} copy-{i}', 'SAVE NEXT BIT'))
-            css += f'#{ident}:checked ~ .clock {{--{ident}:1}}\n'
-    css += '.clock {' + ''.join(f'--next-{name}:calc(var(--seed0-{name}) * (1 - var(--bank-phase)) + var(--seed1-{name}) * var(--bank-phase));' for name in states) + '}\n'
-    differences = []
-    for i, (name, bit, _) in enumerate(bits):
-        # Only compare/copy into the INACTIVE bank. The source stays immutable
-        # until the commit checkbox switches banks in one user action.
-        result = f'mod(round(down,var(--{name}) / {1 << bit}),2)'
-        target = f'var(--b1-{name}-{bit},0) * (1 - var(--bank-phase)) + var(--b0-{name}-{bit},0) * var(--bank-phase)'
-        css += f'@property --diff-{i} {{syntax:"<integer>";inherits:true;initial-value:0}}\n'
-        differences.append(f'--diff-{i}:calc(abs(({result}) - ({target})));')
-        # Chromium can expose index 707 while failing style(--copy-index:707)
-        # on this long min() expression. Small group/slot queries select the
-        # same bit and work in both engines, including the last RAM bytes.
-        css += f'@container style(--copy-group:{i // 32}) and style(--copy-slot:{i % 32}) {{.checkpoint-controls .copy-{i} {{display:block}}}}\n'
-    css += '.checkpoint-values {' + ''.join(differences) + '}\n'
-    css += '.checkpoint-select {--copy-remaining:calc(' + ' + '.join(f'var(--diff-{i})' for i in range(count)) + ');'
-    css += '--copy-index:min(' + ','.join(f'{i} + (1 - var(--diff-{i})) * {count}' for i in range(count)) + f',{count});'
-    css += '--copy-group:calc(round(down,var(--copy-index) / 32));--copy-slot:mod(var(--copy-index),32);}\n'
-    css += '@container style(--copy-remaining:0) {.checkpoint-controls .commit-control {display:block}.save-hint {display:none}}\n'
-    css += '.checkpoint-memory::after {counter-reset:value var(--m49152);content:counter(value);}\n'
-    # Bookkeeping is finite so both banks have fixed size; hardware state keeps
-    # its own 8/16-bit widths. The counter modulus is disclosed in the UI.
-    css = css.replace('calc(var(--ticks) + 1)', f'calc(mod(var(--ticks) + 1,{1 << WIDTHS["ticks"]}))')
-    inputs.append('<input class="sr-only checkpoint-bit" type="checkbox" id="commit" tabindex="-1" autocomplete="off" aria-label="Run next 128 instructions">')
-    controls.append(control('commit', 'commit-control', 'RUN NEXT 128'))
-    html = '<div class="checkpoint-values"><div class="checkpoint-select"><div class="checkpoint-controls">' + ''.join(controls)
-    html += '<p class="save-hint"><span class="copy-remaining"></span> changed bits to save.<br>Tap once per bit, then run the next batch.</p></div></div></div>'
-    return css, ''.join(inputs), html
+    base, offset = {},0
+    for name in names:
+        base[name]=offset;offset+=width(name)
+    for name in ('bank-phase','copy-index','copy-group','copy-slot','copy-remaining'):
+        rules.append(f'@property --{name} {{syntax:"<integer>";inherits:true;initial-value:0;}}')
+    rules.append('#commit:checked ~ .clock {--bank-phase:1} .checkpoint-reader,.checkpoint-seed {display:contents} .copy-page {display:none}')
+    # Unregistered raw bits are reset locally. Only active-bank bits affect
+    # source readers; inactive-bank bits update the UI without touching CPU state.
+    rules.append('.checkpoint-reader {' + ''.join(f'--bit-{i}:0;' for i in range(512)) + '}')
+    rules.append('.checkpoint-diff-execute {' + ''.join(f'--diff-bit-{i}:0;' for i in range(2048)) + '}')
+    rules.append('.checkpoint-bit {display:none} .checkpoint-bit:target {display:block}')
+    for i in range(32):
+        rules.append(f'@property --source-local-{i} {{syntax:"<integer>";inherits:false;initial-value:0;}}')
+    opening=[]
+    read_rules, diff_rules = [], []
+    inactive={}
+    for g,group in enumerate(groups):
+        bindings=[]
+        bank_words=[{},{}]
+        for bank in range(2):
+            local=0
+            for name in group:
+                terms=[]
+                diff_terms=[]
+                for bit in range(width(name)):
+                    i=base[name]+bit;ident=f'c{bank}-{i}'
+                    checked=' checked' if bits[i][2] else ''
+                    opening.append(f'<input class="sr-only checkpoint-bit" type=checkbox id={ident} tabindex=-1 autocomplete=off{checked}>')
+                    phase=':checked' if bank else ':not(:checked)'
+                    read_rules.append(f'#commit{phase} ~ .clock #{ident}:checked ~ .checkpoint-reader-{g} {{--bit-{local}:1}}')
+                    diff_group=positions[name]//128
+                    diff_local=i-base[names[diff_group*128]]
+                    opposite=':not(:checked)' if bank else ':checked'
+                    diff_rules.append(f'#commit{opposite} ~ .clock #{ident}:checked ~ .checkpoint-reader-{g} .checkpoint-diff-execute-{diff_group} {{--diff-bit-{diff_local}:1}}')
+                    diff_terms.append(f'var(--diff-bit-{diff_local}) * {1<<bit}')
+                    terms.append(f'var(--bit-{local}) * {1<<bit}');local+=1
+                bank_words[bank][name]='('+' + '.join(terms)+')'
+                inactive[name]='('+' + '.join(diff_terms)+')'
+        opening.append(f'<div class="checkpoint-reader checkpoint-reader-{g}">')
+        for i,name in enumerate(group):
+            a,b=bank_words[0][name],bank_words[1][name]
+            bindings.append(f'--source-local-{i}:calc({a});--source-{name}:var(--source-local-{i});')
+        rules.append(f'.checkpoint-reader-{g} {{'+''.join(bindings)+'}')
+    opening.append('<div class="checkpoint-seed">')
+    rules.append('.checkpoint-seed {'+''.join(f'--next-{name}:var(--source-{name});' for name in states)+'}')
+    # Fold the UI comparison in small stages. Reuse local helper names rather
+    # than registering a distinct global property for every RAM bit or word.
+    diff_groups = [names[i:i+128] for i in range(0,len(names),128)]
+    for i in range(128):
+        for prefix in ('diff-target','diff-mask'):
+            rules.append(f'@property --{prefix}-{i} {{syntax:"<integer>";inherits:false;initial-value:0;}}')
+    for name in ('diff-first','diff-selected'):
+        rules.append(f'@property --{name} {{syntax:"<integer>";inherits:false;initial-value:0;}}')
+    for name,value in [('diff-count',0),('diff-base',count),('diff-bits',0)]:
+        for phase in ('old','next'):
+            rules.append(f'@property --{name}-{phase} {{syntax:"<integer>";inherits:true;initial-value:{value};}}')
+    rules.append('.checkpoint-values {--diff-count-next:0;--diff-base-next:'+str(count)+';--diff-bits-next:0;} .checkpoint-diff-read {--diff-count-old:var(--diff-count-next);--diff-base-old:var(--diff-base-next);--diff-bits-old:var(--diff-bits-next);}')
+    diff_open=[]
+    for g,group in enumerate(diff_groups):
+        diff_open.append(f'<div class="checkpoint-diff-read"><div class="checkpoint-diff-execute checkpoint-diff-execute-{g}">')
+        bindings=[]
+        for i,name in enumerate(group):
+            bindings.append(f'--diff-target-{i}:calc({inactive[name]});')
+            terms=[f'abs(mod(round(down,var(--{name}) / {1<<bit}),2) - mod(round(down,var(--diff-target-{i}) / {1<<bit}),2)) * {1<<bit}' for bit in range(width(name))]
+            bindings.append(f'--diff-mask-{i}:calc('+' + '.join(terms)+');')
+        terms=[f'mod(round(down,var(--diff-mask-{i}) / {1<<bit}),2)' for i,name in enumerate(group) for bit in range(width(name))]
+        bindings.append('--diff-count-next:calc(var(--diff-count-old) + '+' + '.join(terms)+');')
+        terms=[f'{base[name]} + (1 - min(1,var(--diff-mask-{i}))) * {count}' for i,name in enumerate(group)]
+        bindings.append('--diff-first:min('+','.join(terms)+f',{count});')
+        bindings.append('--diff-selected:'+choose_math('diff-first',{base[name]:f'var(--diff-mask-{i})' for i,name in enumerate(group)},0)+';')
+        bindings.append('--diff-base-next:min(var(--diff-base-old),var(--diff-first));--diff-bits-next:calc(var(--diff-bits-old) + (1 - min(1,var(--diff-bits-old))) * var(--diff-selected));')
+        rules.append(f'.checkpoint-diff-execute-{g} {{'+''.join(bindings)+'}')
+    rules.append('.checkpoint-select {--copy-remaining:var(--diff-count-next);--copy-index:min('+str(count)+',var(--diff-base-next) + min('+','.join(f'{bit} + (1 - mod(round(down,var(--diff-bits-next) / {1<<bit}),2)) * 16' for bit in range(16))+'));--copy-group:calc(round(down,var(--copy-index) / 32));--copy-slot:mod(var(--copy-index),32);}')
+    def control(ident,classes):
+        return f'<div class="copy-control {classes}"><label for={ident}>SAVE NEXT BIT</label><a href=#{ident}>Keyboard: focus, then Space</a></div>'
+    controls=[]
+    for start in range(0,count,32):
+        group=start//32
+        controls.append(f'<div class="copy-page copy-page-{group}">')
+        for i in range(start,min(start+32,count)):
+            for bank in range(2):
+                ident=f'c{bank}-{i}'
+                controls.append(f'<label class="copy-control bank{bank} copy-{i} slot-{i%32}" for={ident}>SAVE NEXT BIT<a href=#{ident}>Keyboard: focus, then Space</a></label>')
+        controls.append('</div>')
+        rules.append(f'@container style(--copy-group:calc({group})) {{.copy-page-{group}{{display:block}}}}')
+    for bit in range(32):rules.append(f'@container style(--copy-slot:calc({bit})) {{.copy-control.slot-{bit}{{display:block}}}}')
+    rules.append('@container style(--copy-remaining:0) {.checkpoint-controls .commit-control {display:block}.save-hint {display:none}} .checkpoint-memory::after {counter-reset:value var(--m49152);content:counter(value);}')
+    controls.append('<div class="copy-control commit-control"><label for=commit>RUN NEXT 128</label><a href=#commit>Keyboard: focus, then Space</a></div>')
+    html='<div class="checkpoint-values">'+''.join(diff_open)+'<div class="checkpoint-select"><div class="checkpoint-controls">'+''.join(controls)
+    html+='<p class="save-hint"><span class="copy-remaining"></span> changed bits to save.<br>Tap once per bit, then run the next batch.</p></div></div>'+('</div></div>'*len(diff_groups))+'</div>'
+    css='\n'.join(rules).replace('calc(var(--ticks) + 1)',f'calc(mod(var(--ticks) + 1,{1<<WIDTHS["ticks"]}))')
+    commit='<input class="sr-only checkpoint-bit" type=checkbox id=commit tabindex=-1 autocomplete=off aria-label="Run next 128 instructions">'
+    return css,commit,''.join(opening),html,len(groups)+1,'\n'.join(read_rules),'\n'.join(diff_rules)

@@ -1,5 +1,6 @@
+const {readState}=require('./helpers/state');
 const { test, expect } = require('@playwright/test');
-const state = (page, key) => page.locator('.machine').evaluate((el, k) => Number(getComputedStyle(el).getPropertyValue(`--${k}`)), key);
+const state = async (page,key) => (await readState(page,[key]))[key];
 test('CSS clock retains state, pauses and resets without scripts', async ({ page }) => {
   await page.goto('/');
   expect(await page.locator('script').count()).toBe(0);

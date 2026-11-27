@@ -1,5 +1,6 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
-const read=(page,keys)=>page.locator('.machine').evaluate((el,keys)=>{const s=getComputedStyle(el);return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]))},keys);
+const read = readState;
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Interrupt lab checks requests, priority, RETI and HALT bug in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
   const prefix=mode==='streaming'?'':`/${mode}`;

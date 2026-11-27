@@ -3,6 +3,7 @@
 Initial state is fixed at generation time. Expected state is never emitted into
 the browser document; Playwright only reads results with page JS disabled.
 """
+from work_memory import pack_initial
 import json
 from pathlib import Path
 
@@ -12,6 +13,9 @@ from rom import ROM
 
 ROOT = Path(__file__).resolve().parents[1]
 CHUNK = 128
+# Single-step fixtures relocate operands/stacks into C000–C03F. Omitted
+# WRAM starts at zero and is unobserved; production always uses all 4,096 words.
+FIXTURE_WORDS = range(0xC000, 0xC040, 2)
 REGISTERS = ['pc','sp','a','b','c','d','e','f','h','l']
 
 
@@ -132,7 +136,7 @@ def cases():
         ('illegal opcode',0xD3,0,{},0,0,0,1),
         ('unsupported STOP',0x10,0,{},0,0,0,1),
         ('CB unmapped operand',0xCB,0x06,{'h':0x90,'l':0},0,0,0,1),
-        ('word write second lane invalid',0xC5,0,{'sp':0xC101},0,0,0,1),
+        ('word write second lane invalid',0xC5,0,{'sp':0xFE01},0,0,0,1),
         ('faulted CPU stays frozen',0,0,{'fault':1},0,0,0,1),
         ('cycle counter wraps',0,0,{'tcycles':65532},1,4,0,0),
     ]:
@@ -148,11 +152,16 @@ def cases():
 
 def build(out):
     datasets = cases()
+    for vectors in datasets.values():
+        for case in vectors:
+            for state in (case["initial"], case["final"]):
+                assert all(int(k[1:]) & ~1 in FIXTURE_WORDS for k in state
+                           if k.startswith("m") and k[1:].isdigit() and 0xC000 <= int(k[1:]) < 0xE000)
     for arithmetic, mode in [(True,'math'), (False,'native')]:
         root = out / mode
         root.mkdir(parents=True, exist_ok=True)
-        css = machine(FixtureROM(), storage, arithmetic=arithmetic)
-        css = css.replace('\n.machine {', '\n.pipeline-execute {')
+        css = machine(FixtureROM(), lambda states: storage(states,native=False), arithmetic=arithmetic, work_words=FIXTURE_WORDS, accelerated=False)
+        css = css.replace('\n.machine {', '\n.pipeline-read {')
         (root / 'machine.css').write_text(css)
         for source, vectors in datasets.items():
             for offset in range(0,len(vectors),CHUNK):
@@ -160,7 +169,7 @@ def build(out):
                         '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'self\' \'unsafe-inline\'; script-src \'none\'">',
                         '<link rel="stylesheet" href="machine.css"><title>CPU conformance fixture</title></head><body>']
                 for index, case in enumerate(vectors[offset:offset+CHUNK], offset):
-                    seed = {**{f'next-{k}':v for k,v in case['initial'].items()},
+                    seed = {**{f'next-{k}':v for k,v in pack_initial(case['initial']).items()},
                             'run':case.get('run',1),
                             'input-address':case['initial']['pc'], 'input-address1':(case['initial']['pc']+1)%65536,
                             'input-address2':(case['initial']['pc']+2)%65536 if 'upper' in case else -1,

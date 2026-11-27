@@ -1,0 +1,23 @@
+// Read-only inspection with page JavaScript disabled. Work RAM is stored in
+// little-endian 16-bit words; decoding observations never changes browser state.
+function readStyles(elements, keys) {
+  return elements.map(el => {
+    const style = getComputedStyle(el);
+    return Object.fromEntries(keys.map(key => {
+      const address = /^m\d+$/.test(key) ? Number(key.slice(1)) : -1;
+      if (address >= 0xC000 && address < 0xE000) {
+        const raw = style.getPropertyValue('--wram' + (address & ~1));
+        const word = Number(raw);
+        if (!raw || !Number.isInteger(word) || word < 0 || word > 65535) throw new Error(`Invalid RAM word at ${address}: ${raw}`);
+        return [key, Math.floor(word / (address % 2 ? 256 : 1)) % 256];
+      }
+      return [key, Number(style.getPropertyValue('--' + key))];
+    }));
+  });
+}
+async function readState(page, keys, selector = '.machine') {
+  const states = await page.locator(selector).evaluateAll(readStyles, keys);
+  if (states.length !== 1) throw new Error(`Expected one state at ${selector}, got ${states.length}`);
+  return states[0];
+}
+module.exports = {readState, readStyles};

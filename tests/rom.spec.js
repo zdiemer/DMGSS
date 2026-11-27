@@ -1,12 +1,11 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
 const {pathToFileURL}=require('node:url');
 const fs=require('node:fs/promises');
 // Worst-case dense documents are several MiB; the isolated probes decode over
 // 750 addresses. Give parsing/readback headroom on shared browser runners.
 test.describe.configure({timeout:120000});
-const read=(page,keys,selector='.machine')=>page.locator(selector).evaluate((el,keys)=>{
-  const s=getComputedStyle(el);return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]));
-},keys);
+const read = readState;
 async function upload(page,buffer,mode='portable',format='gb',delivery='open'){
   await page.goto('/convert/');
   await page.locator('#rom').setInputFiles({name:format==='gb'?'dense.gb':'dense.bin',mimeType:'application/octet-stream',buffer});
@@ -90,7 +89,7 @@ for(const size of [4095,4096])test(`dense raw ${size}-byte range rejects its mis
   expect(await read(page,['ticks','pc','a','fault'])).toEqual({ticks:1,pc:last,a:0,fault:1});
 });
 for(const mode of ['automatic','checkpoint'])test(`dense execution continues across a ${mode} bank`,async({page},info)=>{
-  test.setTimeout(180000);
+  test.setTimeout(900000);
   const rom=await sample(page);
   // Manual input invalidates the pipeline on every saved bit. Use dense but
   // repeating data pages for this storage check; the isolated lookup probes
@@ -105,8 +104,8 @@ for(const mode of ['automatic','checkpoint'])test(`dense execution continues acr
     while(true){
       const before=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!before['copy-remaining'])break;
-      expect(saved++).toBeLessThan(3568);
-      const label=page.locator(`.bank${1-before['bank-phase']}.copy-${before['copy-index']} label`);
+      expect(saved++).toBeLessThan(67056);
+      const label=page.locator(`.bank${1-before['bank-phase']}.copy-${before['copy-index']}`);
       if(info.project.name.endsWith('mobile'))await label.tap();else await label.click();
       await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(before['copy-remaining']-1);
       expect(await read(page,['ticks','pc','m49152'])).toEqual({ticks:128,pc:463,m49152:0});
@@ -120,7 +119,7 @@ test('dense downloaded HTML runs offline without requests',async({page},info)=>{
   const download=await upload(page,await sample(page),'automatic','gb','download');
   const file=info.outputPath('dense.html');await download.saveAs(file);
   const html=await fs.readFile(file,'utf8');expect(html).not.toContain('<script');expect(html).not.toContain('<link');
-  expect(Buffer.byteLength(html)).toBeLessThan(12*1024*1024);
+  expect(Buffer.byteLength(html)).toBeLessThan(24*1024*1024);
   const requests=[];page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url())});
   await page.goto(pathToFileURL(file).href);await page.locator('.power-switch').click();
   await stopped(page,{ticks:31,pc:405,a:165,m49154:165});

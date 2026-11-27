@@ -1,8 +1,6 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
-const read=(page,keys,selector='.machine')=>page.locator(selector).evaluate((el,keys)=>{
-  const s=getComputedStyle(el);
-  return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]));
-},keys);
+const read = readState;
 
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`cycle inspector counts diagnostic work in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
@@ -36,8 +34,8 @@ for(const mode of ['checkpoint','automatic'])test(`cycle accounting crosses a ${
     while(true){
       const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!copy['copy-remaining'])break;
-      expect(saves++).toBeLessThan(3568);
-      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
+      expect(saves++).toBeLessThan(67056);
+      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']}`).click();
       // Incomplete copies must not leak cycle bits into the active result.
       expect(await read(page,['ticks','tcycles'])).toEqual({ticks:128,tcycles:512});
     }

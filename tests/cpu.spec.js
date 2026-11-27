@@ -1,6 +1,7 @@
+const {readState}=require('./helpers/state');
 const { test, expect } = require('@playwright/test');
 const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json'), ...require('./alu-cases.json'), ...require('./cb-cases.json'), ...require('./high-cases.json'), ...require('./interrupt-cases.json')];
-const state = (page, key) => page.locator('.machine').evaluate((el, k) => Number(getComputedStyle(el).getPropertyValue(`--${k}`)), key);
+const state = async (page,key) => (await readState(page,[key]))[key];
 for (const item of cases) {
   test(item.name, async ({page}) => {
     await page.goto(`/tests/${item.name}/`);

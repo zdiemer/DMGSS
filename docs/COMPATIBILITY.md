@@ -290,3 +290,24 @@ writes, atomic traps and reset. Existing whole-page RAM/HRAM fills and CPU,
 interrupt, timer and serial checks remain required. Automatic downloads are
 also exercised offline. This adds storage evidence, not new upstream ROM passes
 or a real-device iOS certification. Fewer cells do not imply real-time speed.
+
+
+## Full work RAM (0.19.0)
+
+C000–DFFF now covers all 8 KiB, with E000–FDFF sharing C000–DDFF. There is no
+FE00 alias for DE00. OAM, full VRAM/PPU, cartridge banking and general bus timing
+remain separate work. The original RAM sample still ends at 24 instructions and
+A=165, now touching both WRAM banks and the top byte.
+
+Original regression coverage checks page-crossing words, executable code crossing
+CFFF/D000 and EFFF/F000, high physical/echo stacks, invalid echo-end accesses,
+all 8,192 independently seeded bytes through automatic continuation, and cells
+returning to their initial value before later writes. These are original tests,
+not new upstream ROM passes. Existing upstream vectors are unchanged; original
+unmapped-memory fixtures move to FE00 or the FDFF/FE00 boundary.
+
+Full-map documents are much larger. Worst-case converter budgets are 12 MiB for
+Compatible, 24 MiB for Automatic, and 96 MiB for Manual. Automatic storage has
+8,435 cells; Manual has 67,056 bits per bank. Browser resource limits and mobile
+performance remain material constraints. Linux WebKit testing does not certify
+this expanded memory on real iOS devices.

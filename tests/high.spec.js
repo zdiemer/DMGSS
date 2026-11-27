@@ -1,5 +1,6 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
-const read=page=>page.locator('.machine').evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['pc','ticks','a','c','h','l','f','sp','m65408','m65424','m65425','m65426','m65532','m65533','m65534','m49154','halted','fault'].map(k=>[k,Number(s.getPropertyValue('--'+k))]))});
+const read = page => readState(page,['pc','ticks','a','c','h','l','f','sp','m65408','m65424','m65425','m65426','m65532','m65533','m65534','m49154','halted','fault']);
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`High RAM checks restart and executable RAM operations in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
   const prefix=mode==='streaming'?'':`/${mode}`;

@@ -3,11 +3,13 @@
 No ROM execution happens here. Re-snapping moves the inactive bank's markers
 to the runtime result, then a one-pixel scroll cell commits the completed bank.
 """
+from work_memory import pack_initial
 from cpu import RAM, machine, tile_css
 from portable import storage
 
 
 def modulus(name):
+    if name.startswith('wram'): return 65536
     if name == 'serial-phase': return 512
     if name == 'serial-bits': return 8
     if name == 'serial-length': return 32
@@ -16,13 +18,14 @@ def modulus(name):
 
 
 def generate(rom, initial=None):
+    initial = pack_initial(initial)
     states = {}
 
     def collect(definitions):
         states.update(definitions)
-        return storage(definitions)
+        return storage(definitions, initialize=False)
 
-    css = machine(rom, collect, arithmetic=True).replace('\n.machine {', '\n.pipeline-execute {')
+    css = machine(rom, collect, arithmetic=True).replace('\n.machine {', '\n.pipeline-read {')
     css = css.replace('calc(var(--ticks) + 1)', 'calc(mod(var(--ticks) + 1, 65536))')
     defaults = {name: (initial or {}).get(name, value) for name, (value, _) in states.items()}
     # Only ordinary physical RAM is packed. I/O and peripheral bookkeeping retain
@@ -45,66 +48,70 @@ def generate(rom, initial=None):
     results = {unit: f'var(--{members[0]})' if len(members) == 1 else
                f'var(--{members[0]}) + 256 * var(--{members[1]})'
                for unit, members in units.items()}
-    names = ['select'] + [f'b{bank}-{name}' for bank in range(2) for name in units]
-    # WebKit needs this scope on an ANCESTOR of the animated reader.
+    # Each reader owns at most 64 raw timelines. Materialize decoded source and
+    # inactive words through reusable local integers, then expose their values, rather than inheriting thousands of raw
+    # animation values through every later reader and CPU stage.
+    batches = [list(units)[i:i+32] for i in range(0,len(units),32)]
+    groups = [['select']] + [[f'b{bank}-{unit}' for unit in batch for bank in range(2)] for batch in batches]
+    names = [name for group in groups for name in group]
     rules = [css, 'body[data-automatic] {timeline-scope:' + ','.join('--t-' + n for n in names) + ';}']
     for name in ('select', 'ready', 'enabled-copy'):
         rules.append(f'@property --{name} {{syntax:"<integer>";inherits:true;initial-value:0;}}')
-    rules.append('body[data-automatic] .clock {--run:0;--select:round(var(--raw-select));animation:none;}')
-    rules.append('@supports (animation-timeline: --memory) and (timeline-scope: --memory) and (width:calc(1px * mod(round(down, abs(-3), 1), 2) * sign(1))) {\n' +
-                 '@container style(--automatic-style:1) {\nbody[data-automatic] .clock {animation:' +
-                 ','.join('read-' + n + ' 1s linear both' for n in names) + ';animation-timeline:' +
-                 ','.join('--t-' + n for n in names) + ';}\n' +
-                 'body[data-automatic] .power:checked ~ .clock {--run:1;}\n}}')
+    rules.append('body[data-automatic] .clock {--run:0;animation:none;} .auto-reader-0 {--select:round(var(--raw-0));} .auto-reader,.auto-seed {display:contents;}')
+    for i in range(64):
+        rules.append(f'@property --raw-{i} {{syntax:"<number>";inherits:false;initial-value:0;}}')
+    for i in range(32):
+        for prefix in ('source-word','inactive-word','source-low','source-high'):
+            rules.append(f'@property --{prefix}-{i} {{syntax:"<integer>";inherits:false;initial-value:0;}}')
+    keyframes = set()
+    rules.append('@supports (animation-timeline: --memory) and (timeline-scope: --memory) and (width:calc(1px * mod(round(down, abs(-3), 1), 2) * sign(1))) {\n@container style(--automatic-style:1) {')
+    for i, group in enumerate(groups):
+        animations=[]
+        for slot,name in enumerate(group):
+            limit=1 if name=='select' else widths[name.split('-',1)[-1]]-1
+            keyframes.add((slot,limit))
+            animations.append(f'read-{slot}-{limit} 1s linear both')
+        rules.append(f'.auto-reader-{i} {{animation:' + ','.join(animations) + ';animation-timeline:' + ','.join('--t-' + n for n in group) + ';}')
+    rules.append('body[data-automatic] .power:checked ~ .clock {--run:1;}}}')
+    for slot,limit in sorted(keyframes):
+        rules.append(f'@keyframes read-{slot}-{limit} {{from{{--raw-{slot}:0;}}to{{--raw-{slot}:{limit};}}}}')
     cells = []
     for name in names:
-        word = name.split('-', 1)[-1]
-        limit = 1 if name == 'select' else widths[word] - 1
-        # Even integer interpolation has tiny floating errors in WebKit. Round
-        # the number explicitly before decoding, comparisons or marker layout.
-        rules.append(f'@property --raw-{name} {{syntax:"<number>";inherits:true;initial-value:0;}}')
-        rules.append(f'@keyframes read-{name} {{from{{--raw-{name}:0;}}to{{--raw-{name}:{limit};}}}}')
-        rules.append(f'.memory-{name} {{scroll-timeline:--t-{name} y;}} .memory-{name} .memory-pad {{height:{limit + 20}px;}}')
+        unit = name.split('-',1)[-1]
+        limit = 1 if name == 'select' else widths[unit]-1
+        rules.append(f'.memory-{name} {{scroll-timeline:--t-{name} y;}} .memory-{name} .memory-pad {{height:{limit+20}px;}}')
         if name == 'select':
             target = 'var(--select) + var(--enabled-copy) * var(--ready) * (1 - 2 * var(--select))'
+            bank_class = ''
         else:
-            bank = int(name[1])
-            current = f'round(var(--raw-{name}))'
-            # Zero scroll encodes the initial value (PC 0100, normally 0 elsewhere).
-            result = f'mod(({results[word]}) - {starts[word]} + {limit + 1}, {limit + 1})'
-            inactive = 'var(--select)' if bank == 0 else '(1 - var(--select))'
-            target = f'{current} + var(--enabled-copy) * {inactive} * ({result} - {current})'
+            target = f'mod(({results[unit]}) - {starts[unit]} + {limit+1}, {limit+1})'
+            bank_class = f' memory-bank-{name[1]}'
         rules.append(f'.memory-{name} .memory-mark {{top:calc(({target}) * 1px);}}')
-        # No focusable controls: scroll cells must remain laid out but inaccessible
-        # to pointer/keyboard input. display:none would deactivate their timelines.
-        cells.append(f'<div class="scroll-memory memory-{name}" aria-hidden="true" tabindex="-1"><div class="memory-pad"><div class="memory-mark"></div></div></div>')
+        cells.append(f'<div class="scroll-memory memory-{name}{bank_class}" aria-hidden="true" tabindex="-1"><div class="memory-pad"><div class="memory-mark"></div></div></div>')
+    # Marker movement must never resnap the source bank, including while paused
+    # or after a committed HALT/fault. The inactive bank alone copies results.
+    rules.append('@container style(--select:0) {.memory-bank-0 {scroll-snap-type:none}} @container style(--select:1) {.memory-bank-1 {scroll-snap-type:none}} @container style(--enabled-copy:0) {.scroll-memory {scroll-snap-type:none}}')
     seed, differences, display = [], [], []
-    stored = {}
-    for unit, members in units.items():
-        value, width = starts[unit], widths[unit]
-        for bank in range(2):
-            decoded = f'mod(round(var(--raw-b{bank}-{unit})) + {value}, {width})'
-            if len(members) == 2:
-                # Resolve the packed word once before extracting either byte.
-                prop = f'stored-b{bank}-{unit}'
-                rules.append(f'@property --{prop} {{syntax:"<integer>";inherits:true;initial-value:{value};}}')
-                seed.append(f'--{prop}:{decoded};')
-                decoded = f'var(--{prop})'
-            stored[bank,unit] = decoded
-        a, b = stored[0,unit], stored[1,unit]
-        # Equality of exact 16-bit pairs checks BOTH bytes before bank commit.
-        differences.append(f'abs(({results[unit]}) - (({b}) * (1 - var(--select)) + ({a}) * var(--select)))')
-    for name in states:
-        unit, lane = fields[name]
-        a, b = stored[0,unit], stored[1,unit]
-        if len(units[unit]) == 2:
-            a = f'mod(round(down,({a}) / {256**lane}),256)'
-            b = f'mod(round(down,({b}) / {256**lane}),256)'
-        value = defaults[name]
-        rules.append(f'@property --seed-{name} {{syntax:"<integer>";inherits:true;initial-value:{value};}}')
-        seed.append(f'--seed-{name}:calc(({a}) * (1 - var(--select)) + ({b}) * var(--select));--next-{name}:var(--seed-{name});')
-        display.append(f'--{name}:var(--seed-{name});')
-    rules.append('body[data-automatic] .clock {' + ''.join(seed) + '}')
+    for i, batch in enumerate(batches,1):
+        bindings = []
+        for slot,unit in enumerate(batch):
+            members, value, width = units[unit], starts[unit], widths[unit]
+            a,b = (f'mod(round(var(--raw-{slot*2+bank})) + {value},{width})' for bank in range(2))
+            bindings.append(f'--source-word-{slot}:calc(({a}) * (1 - var(--select)) + ({b}) * var(--select));')
+            bindings.append(f'--inactive-word-{slot}:calc(({b}) * (1 - var(--select)) + ({a}) * var(--select));--inactive-{unit}:var(--inactive-word-{slot});')
+            differences.append(f'abs(({results[unit]}) - var(--inactive-{unit}))')
+            for lane,name in enumerate(members):
+                source=f'source-word-{slot}'
+                if len(members)==2:
+                    source=f'source-{"low" if lane==0 else "high"}-{slot}'
+                    bindings.append(f'--{source}:mod(round(down,var(--source-word-{slot}) / {256**lane}),256);')
+                bindings.append(f'--seed-{name}:var(--{source});')
+                seed.append(f'--next-{name}:var(--seed-{name});')
+                display.append(f'--{name}:var(--seed-{name});')
+            if unit.startswith('wram'):
+                rules.append(f'@container style(--{unit}:{value}) and style(--seed-{unit}:{value}) and style(--inactive-{unit}:{value}) {{.memory-b0-{unit},.memory-b1-{unit}{{display:none}}}}')
+        rules.append(f'.auto-reader-{i} {{' + ''.join(bindings) + '}')
+    rules.append('body[data-automatic] .auto-seed {' + ''.join(seed) + '}')
     # Commit a halted/faulted RESULT before stopping. A halted SOURCE may still
     # wake on an enabled request or advance a live peripheral / pending reload.
     pending = ' + '.join(f'mod(round(down,var(--seed-m65295) / {1<<bit}),2) * mod(round(down,var(--seed-m65535) / {1<<bit}),2)' for bit in range(5))
@@ -112,4 +119,4 @@ def generate(rom, initial=None):
     rules.append('.auto-output {--enabled-copy:calc(var(--run) * (1 - max(var(--seed-halted) * (1 - min(1,' + pending + ')), var(--seed-fault))));' +
                  '--ready:calc(1 - min(1, ' + ' + '.join(differences) + '));}')
     rules.append('body[data-automatic] .machine {' + ''.join(display) + '}')
-    return '\n'.join(rules) + tile_css(arithmetic=True), ''.join(cells)
+    return '\n'.join(rules) + tile_css(arithmetic=True), ''.join(cells), len(groups)

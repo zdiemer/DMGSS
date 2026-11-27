@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate static HTML/CSS. Never precompute runtime execution."""
+from work_memory import pack_initial
 from pathlib import Path
 import shutil
 import argparse
@@ -90,7 +91,8 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         (out / 'machine.css').write_text(portable.stylesheet(program, initial=initial))
     else:
         def seeded(definitions):
-            return storage({name: ((initial or {}).get(name,value), expression) for name,(value,expression) in definitions.items()})
+            seeds = pack_initial(initial)
+            return storage({name: (seeds.get(name,value), expression) for name,(value,expression) in definitions.items()})
         (out / 'machine.css').write_text(machine(program, seeded) + tile_css())
     active = ('/portable' if bounded else '') + ('/serial/' if serial else '/timers/' if timers else '/interrupts/' if interrupts else '/high/' if high else '/bits/' if bits else '/alu/' if alu else '/stack/' if stack else '/tile/' if tile else '/')
     (out / 'index.html').write_text(current_cartridge(html, active))
@@ -98,13 +100,17 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
 
 def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
     build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial')
-    css, inputs, controls = checkpoint.generate(rom, initial=initial)
+    css, commit, inputs, controls, readers, input_css, copy_css = checkpoint.generate(rom, initial=initial)
     (out / 'machine.css').write_text(css)
+    # Keep each stylesheet below Chromium's per-sheet selector budget.
+    (out / 'checkpoint-inputs.css').write_text(input_css)
+    (out / 'checkpoint-copy.css').write_text(copy_css)
     html = (out / 'index.html').read_text()
     html = html.replace('<body ', '<body data-checkpoint ')
     html = re.sub(r'<p class="checkpoint-link">.*?</p>', '', html)
-    html = html.replace('</head>', '<link rel="stylesheet" href="checkpoint.css"></head>')
-    html = html.replace('<div class="clock">', inputs + '<div class="clock">')
+    html = html.replace('</head>', '<link rel="stylesheet" href="checkpoint.css"><link rel="stylesheet" href="checkpoint-inputs.css"><link rel="stylesheet" href="checkpoint-copy.css"></head>')
+    html = html.replace('<div class="clock">', commit + '<div class="clock">' + inputs)
+    html = html.replace('</div></div>\n    </section>', '</div>' * readers + '</div></div>\n    </section>')
     html = html.replace('<div class="brand">', controls + '<div class="brand">')
     html = html.replace('COMPATIBLE MODE / 128 STEPS', 'MANUAL CHECKPOINTS / 128 STEPS')
     html = html.replace('RESET VIEW', 'PAUSE').replace('RUN / RESET', 'RUN / PAUSE')
@@ -136,9 +142,12 @@ def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
     # mode's rules, including when its capability gate fails.
     shell = (out / 'style.css').read_text()
     (out / 'style.css').write_text('@layer console {\n' + shell + '\n}\n')
-    css, cells = automatic.generate(rom, initial=initial)
+    css, cells, readers = automatic.generate(rom, initial=initial)
     (out / 'machine.css').write_text(css)
     html = (out / 'index.html').read_text()
+    opening = ''.join(f'<div class="auto-reader auto-reader-{i}">' for i in range(readers)) + '<div class="auto-seed">'
+    html = html.replace('<div class="clock">', '<div class="clock">' + opening)
+    html = html.replace('</div></div>\n    </section>', '</div>' * (readers + 1) + '</div></div>\n    </section>')
     html = html.replace('data-engine="portable"', 'data-engine="automatic" data-automatic')
     html = html.replace('href="portable.css"', 'href="automatic.css"')
     html = re.sub(r'<p class="(?:checkpoint|automatic)-link">.*?</p>', '', html)
@@ -216,6 +225,8 @@ if __name__ == '__main__':
     build_checkpoint(serial_rom(), ROOT / 'dist/checkpoint/serial', cartridge='serial')
     build_automatic(serial_rom(), ROOT / 'dist/automatic/serial', cartridge='serial')
     if args.fixtures:
+        import work_ram_fixtures
+        work_ram_fixtures.build(build_automatic, ROOT / "dist/automatic/tests/full-ram")
         import packing_fixtures
         packing_fixtures.build(build_automatic, ROOT / 'dist/automatic/tests/packing')
         import rom_fixtures

@@ -1,7 +1,8 @@
-/* Inputs remain outside the pipeline. Only the next label/focus link is shown. */
+/* Grouped native inputs precede the pipeline; labels expose the next bit. */
 .checkpoint-bit {position:fixed;top:0;left:0}
 .copy-control {display:none;text-align:center}
-.copy-control label {display:block;background:#3f4563;color:#fff;border-radius:6px;padding:13px 8px;font:12px ui-monospace,monospace;letter-spacing:1px;cursor:pointer;min-height:44px}
+.commit-control label {display:block}
+.commit-control label,label.copy-control {background:#3f4563;color:#fff;border-radius:6px;padding:13px 8px;font:12px ui-monospace,monospace;letter-spacing:1px;cursor:pointer;min-height:44px}
 .copy-control a {display:inline-block;margin-top:8px;font:11px/1.6 ui-monospace,monospace;color:#4f5c55}
 .copy-control:focus-within {outline:3px solid var(--wine);outline-offset:4px}
 #commit:checked ~ .clock .bank1,
@@ -19,3 +20,6 @@
 }
 body[data-checkpoint] .cartridges a {background:transparent;color:inherit}
 body[data-checkpoint] .cartridges a[aria-current] {background:#343e3a;color:#f1f1e9}
+/* Keep the native save hit target separate from its keyboard focus link. */
+label.copy-control {position:relative;margin-bottom:34px}
+label.copy-control a {position:absolute;top:100%;left:0;width:100%;letter-spacing:normal}

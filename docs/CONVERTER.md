@@ -8,7 +8,7 @@ with A=165 and SP=49216. It includes no Nintendo logo or boot ROM and is an
 original CPU fixture, not a claim of physical cartridge compatibility.
 
 The loader also offers an original **work RAM sample**. It checks both directions
-of the C000–C0FF / E000–E0FF mirror and halts after **24 instructions with A=165**.
+of C000–DFFF and its E000–FDFF echo aliases and halts after **24 instructions with A=165**.
 The rest of DMG work RAM remains unsupported.
 
 ## The caveat
@@ -59,7 +59,9 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   Manual bit copying can be very slow with many distinct pages. Streaming
   accepts at most 1,024 bytes differing from the most common byte; larger
   lookup graphs failed to initialize reliably in its animation banks.
-  A worst-case 32 KiB file is checked against a 12 MiB HTML budget in the three supported modes.
+  Worst-case 32 KiB files are checked against HTML budgets of 12 MiB (Compatible),
+  24 MiB (Automatic) and 96 MiB (Manual). Full work RAM makes even small programs
+  large documents; manual pages can be slow on memory-constrained devices.
 - Server requests are limited to 64 KiB including multipart/form overhead.
 - PC starts at 0100; CPU registers including SP start at zero. IF reads E0, SC reads 7E and
   TAC reads F8 initially because their unused bits read as one; IE and IME are zero. No boot ROM or
