@@ -1,9 +1,8 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
 const {execFileSync}=require('node:child_process');
 const cases=JSON.parse(execFileSync('python3',['-c','import sys,json;sys.path.insert(0,"tools");from timer_fixtures import cases;print(json.dumps(cases()))']));
-const read=(page,keys,selector='.machine')=>page.locator(selector).evaluate((el,keys)=>{
-  const s=getComputedStyle(el);return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]));
-},keys);
+const read = readState;
 for(const item of cases)test(`timer matches reduced Mooneye ${item.name}`,async({page})=>{
   test.setTimeout(90000);
   await page.goto(`/automatic/tests/mooneye-${item.name}/`);
@@ -15,27 +14,27 @@ for(const item of cases)test(`timer matches reduced Mooneye ${item.name}`,async(
 
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Timer lab wakes HALT with hardware overflow in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
-  test.setTimeout(60000);
+  test.setTimeout(180000);
   const prefix=mode==='streaming'?'':`/${mode}`;
   await page.goto(`${prefix}/`);
   await page.getByRole('link',{name:'Timers',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`${prefix}/timers/$`));
   await page.locator('.power-switch').click();
-  await expect(page.locator('.passed')).toBeVisible({timeout:45000});
   const expected={ticks:36,tcycles:360,a:165,b:1,sp:65534,m49152:42,m49154:165,m65285:43,m65286:42,m65287:248,m65295:224,halted:1,fault:0,'timer-reload':0};
-  expect(await read(page,Object.keys(expected))).toEqual(expected);
-  await page.getByText('Machine inspector',{exact:true}).click();
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:120000,intervals:[1000]}).toEqual(expected);
+  await expect(page.locator('.passed')).toBeVisible();
+  // Scope text lookup away from the manual mode's 134,114 input controls.
+  await page.locator('.debug').getByText('Machine inspector',{exact:true}).click();
   await page.setViewportSize({width:320,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('timer-lab.png'),fullPage:true});
-  await page.locator('.reset').click();
-  // Streaming resolves register defaults on its first powered latch.
-  const reset=mode==='streaming'?{ticks:0,clocked:0}:{ticks:0,clocked:0,m65284:0,m65285:0,m65287:248};
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
+  const reset={ticks:0,clocked:0,m65284:0,m65285:0,m65287:248};
   expect(await read(page,Object.keys(reset))).toEqual(reset);
 });
 
 for(const mode of ['automatic','checkpoint'])test(`timer overflow and HALT cross a ${mode} bank`,async({page})=>{
-  test.setTimeout(180000);
+  test.setTimeout(900000);
   await page.goto(`/${mode}/tests/timer-boundary/`);
   await page.locator('.power-switch').click();
   if(mode==='checkpoint'){
@@ -47,8 +46,8 @@ for(const mode of ['automatic','checkpoint'])test(`timer overflow and HALT cross
     while(true){
       const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!copy['copy-remaining'])break;
-      expect(saves++).toBeLessThan(3568);
-      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
+      expect(saves++).toBeLessThan(67056);
+      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']}`).click();
       expect(await read(page,Object.keys(before))).toEqual(before);
     }
     await page.locator('.power-switch').click();

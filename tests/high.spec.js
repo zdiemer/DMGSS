@@ -1,5 +1,6 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
-const read=page=>page.locator('.machine').evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['pc','ticks','a','c','h','l','f','sp','m65408','m65424','m65425','m65426','m65532','m65533','m65534','m49154','halted','fault'].map(k=>[k,Number(s.getPropertyValue('--'+k))]))});
+const read = page => readState(page,['pc','ticks','a','c','h','l','f','sp','m65408','m65424','m65425','m65426','m65532','m65533','m65534','m49154','halted','fault']);
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`High RAM checks restart and executable RAM operations in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
   const prefix=mode==='streaming'?'':`/${mode}`;
@@ -7,7 +8,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`High R
   await page.getByRole('link',{name:'High RAM',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`${prefix}/high/$`));
   await page.locator('.power-switch').click();
-  await expect.poll(async()=>(await read(page)).halted,{timeout:20000}).toBe(1);
+  await expect.poll(async()=>(await read(page)).halted,{timeout:mode==='streaming'?90000:20000}).toBe(1);
   const result=await read(page);
   expect(result).toEqual({pc:411,ticks:59,a:165,c:254,h:255,l:146,f:192,sp:65534,m65408:8,m65424:62,m65425:42,m65426:201,m65532:254,m65533:255,m65534:8,m49154:165,halted:1,fault:0});
   await expect(page.locator('.passed')).toBeVisible();

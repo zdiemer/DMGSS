@@ -1,5 +1,6 @@
+const {readState}=require('./helpers/state');
 const { test, expect } = require('@playwright/test');
-const state = (page, key) => page.locator('.machine').evaluate((el, k) => Number(getComputedStyle(el).getPropertyValue(`--${k}`)), key);
+const state = async (page,key) => (await readState(page,[key]))[key];
 test('CSS clock retains state, pauses and resets without scripts', async ({ page }) => {
   await page.goto('/');
   expect(await page.locator('script').count()).toBe(0);
@@ -10,7 +11,7 @@ test('CSS clock retains state, pauses and resets without scripts', async ({ page
   const paused = await state(page, 'ticks');
   await page.waitForTimeout(900);
   expect(await state(page, 'ticks')).toBe(paused);
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await state(page, 'ticks')).toBe(0);
 });
 test('console fits the viewport and controls are keyboard reachable', async ({ page }, info) => {
@@ -22,5 +23,5 @@ test('console fits the viewport and controls are keyboard reachable', async ({ p
   await page.keyboard.press('Space');
   await expect(page.locator('#power')).toBeChecked();
   await expect.poll(() => state(page, 'ticks')).toBeGreaterThan(0);
-  await page.screenshot({path:`test-results/${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`${info.project.name}.png`),fullPage:true});
 });

@@ -1,5 +1,6 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
-const read=(page,keys)=>page.locator('.machine').evaluate((el,keys)=>{const s=getComputedStyle(el);return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]))},keys);
+const read = readState;
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Interrupt lab checks requests, priority, RETI and HALT bug in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
   const prefix=mode==='streaming'?'':`/${mode}`;
@@ -7,7 +8,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Interr
   await page.getByRole('link',{name:'Interrupts',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`${prefix}/interrupts/$`));
   await page.locator('.power-switch').click();
-  await expect.poll(()=>read(page,['halted','fault']),{timeout:25000}).toEqual({halted:1,fault:0});
+  await expect.poll(()=>read(page,['halted','fault']),{timeout:mode==='streaming'?90000:25000}).toEqual({halted:1,fault:0});
   const expected={ticks:56,tcycles:628,pc:0x19C,a:165,b:2,h:192,l:21,sp:65534,ime:0,'ime-delay':0,'halt-bug':0,m65295:224,m65535:31,m49154:165,m49168:1,m49169:2,m49170:3,m49171:4,m49172:5};
   expect(await read(page,Object.keys(expected))).toEqual(expected);
   await expect(page.locator('.passed')).toBeVisible();

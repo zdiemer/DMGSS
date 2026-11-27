@@ -1,7 +1,8 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
 const {pathToFileURL}=require('node:url');
 const fs=require('node:fs/promises');
-const read=(page,keys)=>page.locator('.machine').evaluate((el,keys)=>{const s=getComputedStyle(el);return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]))},keys);
+const read = readState;
 async function upload(page,buffer,{format='raw',mode='portable',name='test.bin'}={}){
   await page.goto('/convert/');
   await page.locator('#rom').setInputFiles({name,mimeType:'application/octet-stream',buffer});
@@ -20,17 +21,15 @@ for(const mode of ['portable','automatic','checkpoint','streaming']){
     await expect(page.locator('.conversion-caveat')).toContainText('Python outside the browser');
     expect(await page.locator('script').count()).toBe(0);
     expect(await page.locator('link[rel=stylesheet]').count()).toBe(0);
-    // Streaming resolves its first animation bank after power-on.
-    expect(await read(page,mode==='streaming'?['ticks']:['ticks','pc'])).toEqual(mode==='streaming'?{ticks:0}:{ticks:0,pc:256});
+    expect(await read(page,['ticks','pc'])).toEqual({ticks:0,pc:256});
     const requests=[];page.on('request',r=>requests.push(r.url()));
-    await page.locator('.power-switch').click();await halt(page,20000);
+    await page.locator('.power-switch').click();await halt(page,mode==='streaming'?90000:20000);
     expect(await read(page,['ticks','pc','sp','a','b','c','m49154','m49214','m49215'])).toEqual({ticks:53,pc:358,sp:49216,a:165,b:0,c:0,m49154:165,m49214:89,m49215:1});
     await expect(page.locator('.halt-message')).toHaveText('HALTED');
     expect(requests).toEqual([]);
     await reset(page);
     expect(requests.some(url=>url.endsWith('/convert/'))).toBe(true);
-    // Streaming resolves its first animation bank after power-on.
-    expect(await read(page,mode==='streaming'?['ticks']:['ticks','pc'])).toEqual(mode==='streaming'?{ticks:0}:{ticks:0,pc:256});
+    expect(await read(page,['ticks','pc'])).toEqual({ticks:0,pc:256});
   });
 }
 test('converter maps cartridge offsets 0000 through 7FFF and zero padding',async({page})=>{

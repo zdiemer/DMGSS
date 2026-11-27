@@ -37,7 +37,9 @@
    **Compact automatic storage:** adjacent physical RAM bytes share exact 16-bit
    scroll cells. The same memory map now needs 499 cells instead of 897; CPU
    byte semantics and manual checkpoints are unchanged.
-   Next: full work RAM, cartridge banking, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
+   **Full work RAM:** 8 KiB at C000–DFFF, with E000–FDFF echo aliases,
+   word-packed CPU state, grouped automatic readers and complete manual banks.
+   Next: cartridge banking, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.

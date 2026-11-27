@@ -1,8 +1,6 @@
+const {readState}=require('./helpers/state');
 const {test,expect}=require('@playwright/test');
-const read=(page,keys,selector='.machine')=>page.locator(selector).evaluate((el,keys)=>{
-  const s=getComputedStyle(el);
-  return Object.fromEntries(keys.map(k=>[k,Number(s.getPropertyValue('--'+k))]));
-},keys);
+const read = readState;
 
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`cycle inspector counts diagnostic work in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
@@ -13,7 +11,8 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`cycle 
   await page.locator('.power-switch').click();
   await expect.poll(()=>read(page,['ticks','tcycles','halted','fault']),{timeout:25000})
     .toEqual({ticks:24,tcycles:196,halted:1,fault:0});
-  await page.getByText('Machine inspector',{exact:true}).click();
+  // Unscoped text lookup traverses the entire manual memory bank.
+  await page.locator('.debug').getByText('Machine inspector',{exact:true}).click();
   await expect(page.locator('.timing-note')).toBeVisible();
   expect(await page.locator('.register-tcycles').evaluate(el=>getComputedStyle(el,'::after').counterReset)).toBe('value 196');
   await page.setViewportSize({width:320,height:844});
@@ -21,12 +20,12 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`cycle 
   await page.screenshot({path:info.outputPath('cycle-inspector.png'),fullPage:true});
   await page.waitForTimeout(250);
   expect(await read(page,['tcycles'])).toEqual({tcycles:196});
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await read(page,['tcycles'])).toEqual({tcycles:0});
 });
 
 for(const mode of ['checkpoint','automatic'])test(`cycle accounting crosses a ${mode} bank and wraps`,async({page})=>{
-  test.setTimeout(120000);
+  test.setTimeout(mode==='checkpoint'?600000:120000);
   await page.goto(`/${mode}/tests/timing/`);
   expect(await read(page,['tcycles'])).toEqual({tcycles:65520});
   await page.locator('.power-switch').click();
@@ -36,8 +35,8 @@ for(const mode of ['checkpoint','automatic'])test(`cycle accounting crosses a ${
     while(true){
       const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!copy['copy-remaining'])break;
-      expect(saves++).toBeLessThan(3568);
-      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']} label`).click();
+      expect(saves++).toBeLessThan(67056);
+      await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']}`).click();
       // Incomplete copies must not leak cycle bits into the active result.
       expect(await read(page,['ticks','tcycles'])).toEqual({ticks:128,tcycles:512});
     }
@@ -47,6 +46,6 @@ for(const mode of ['checkpoint','automatic'])test(`cycle accounting crosses a ${
   // RLC [HL]=16; taken JR NZ=12; HALT entry=4: 572 T-cycles.
   await expect.poll(()=>read(page,['ticks','tcycles','pc','halted','fault','m49152']),{timeout:25000})
     .toEqual({ticks:132,tcycles:556,pc:394,halted:1,fault:0,m49152:3});
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await read(page,['ticks','tcycles'])).toEqual({ticks:0,tcycles:65520});
 });

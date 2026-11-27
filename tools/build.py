@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 import argparse
 import re
-from cpu import machine, diagnostic, stack_rom, tile_rom, tile_css
+from cpu import diagnostic, stack_rom, tile_rom
 import portable
 import checkpoint
 import automatic
@@ -27,21 +27,11 @@ def current_cartridge(html, path):
     return re.sub(r'<nav class="cartridges".*?</nav>', mark, html)
 
 
-def storage(states):
-    """Two paused animation banks retain values between alternating clock phases."""
-    declarations, current, latch, execute = [], [], [], []
-    for name, (initial, expression) in states.items():
-        declarations.append(f'@property --next-{name} {{ syntax: "<integer>"; inherits: true; initial-value: {initial}; }}')
-        current.append(f'--{name}: var(--bank-{name}, {initial}); --next-{name}: {expression};')
-        latch.append(f'--bank-{name}: var(--result-{name}, {initial});')
-        execute.append(f'--result-{name}: var(--next-{name});')
-    return '\n'.join(declarations) + '\n.machine {' + ''.join(current) + '}\n' + \
-        '@keyframes latch {0%,100% {' + ''.join(latch) + '}}\n' + \
-        '@keyframes execute {0%,100% {' + ''.join(execute) + '}}\n'
-
-
-def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False, interrupts=False, timers=False, serial=False, initial=None):
+def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False, interrupts=False, timers=False, serial=False, initial=None, steps=portable.STEPS):
     out = out or ROOT / 'dist'
+    if not bounded:
+        cartridge = next((name for name,selected in [('serial',serial),('timers',timers),('interrupts',interrupts),('high',high),('bits',bits),('alu',alu),('stack',stack)] if selected), 'diagnostic')
+        return build_automatic(diagnostic() if rom is None else rom, out, tile=tile, cartridge=cartridge, initial=initial, streaming=True)
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -72,7 +62,7 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
     program = diagnostic() if rom is None else rom
     if bounded:
         html = html.replace('<body', '<body data-engine="portable"')
-        html = portable.wrap(html)
+        html = portable.wrap(html,steps=steps)
         html = html.replace('</head>', '<link rel="stylesheet" href="portable.css"></head>')
         html = html.replace('POWER ON', 'RUN').replace('POWER OFF', 'RESET VIEW').replace('class="start">POWER', 'class="start">RUN / RESET')
         html = html.replace('STREAMING MODE / TILE MEMORY', 'COMPATIBLE MODE / 128 STEPS')
@@ -88,23 +78,23 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         html = html.replace('</aside>', '<p class="checkpoint-link"><a href="/checkpoint/">Try manual checkpoints →</a></p></aside>')
         html = html.replace('Reset reloads the machine. Nothing is saved.', 'Reset view clears the run. Cartridge state is not saved.')
         (out / 'machine.css').write_text(portable.stylesheet(program, initial=initial))
-    else:
-        def seeded(definitions):
-            return storage({name: ((initial or {}).get(name,value), expression) for name,(value,expression) in definitions.items()})
-        (out / 'machine.css').write_text(machine(program, seeded) + tile_css())
     active = ('/portable' if bounded else '') + ('/serial/' if serial else '/timers/' if timers else '/interrupts/' if interrupts else '/high/' if high else '/bits/' if bits else '/alu/' if alu else '/stack/' if stack else '/tile/' if tile else '/')
     (out / 'index.html').write_text(current_cartridge(html, active))
 
 
 def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
     build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial')
-    css, inputs, controls = checkpoint.generate(rom, initial=initial)
+    css, commit, inputs, controls, readers, input_css, copy_css = checkpoint.generate(rom, initial=initial)
     (out / 'machine.css').write_text(css)
+    # Keep each stylesheet below Chromium's per-sheet selector budget.
+    (out / 'checkpoint-inputs.css').write_text(input_css)
+    (out / 'checkpoint-copy.css').write_text(copy_css)
     html = (out / 'index.html').read_text()
     html = html.replace('<body ', '<body data-checkpoint ')
     html = re.sub(r'<p class="checkpoint-link">.*?</p>', '', html)
-    html = html.replace('</head>', '<link rel="stylesheet" href="checkpoint.css"></head>')
-    html = html.replace('<div class="clock">', inputs + '<div class="clock">')
+    html = html.replace('</head>', '<link rel="stylesheet" href="checkpoint.css"><link rel="stylesheet" href="checkpoint-inputs.css"><link rel="stylesheet" href="checkpoint-copy.css"></head>')
+    html = html.replace('<div class="clock">', commit + '<div class="clock">' + inputs)
+    html = html.replace('</div></div>\n    </section>', '</div>' * readers + '</div></div>\n    </section>')
     html = html.replace('<div class="brand">', controls + '<div class="brand">')
     html = html.replace('COMPATIBLE MODE / 128 STEPS', 'MANUAL CHECKPOINTS / 128 STEPS')
     html = html.replace('RESET VIEW', 'PAUSE').replace('RUN / RESET', 'RUN / PAUSE')
@@ -130,15 +120,18 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
     (out / 'index.html').write_text(html)
 
 
-def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
-    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial')
+def build_automatic(rom, out, tile=False, cartridge="counter", initial=None, streaming=False):
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial', steps=1 if streaming else portable.STEPS)
     # Keep the shared shell's streaming-mode visibility/clock rules below this
     # mode's rules, including when its capability gate fails.
     shell = (out / 'style.css').read_text()
     (out / 'style.css').write_text('@layer console {\n' + shell + '\n}\n')
-    css, cells = automatic.generate(rom, initial=initial)
+    css, cells, readers = automatic.generate(rom, initial=initial, arithmetic=not streaming)
     (out / 'machine.css').write_text(css)
     html = (out / 'index.html').read_text()
+    opening = ''.join(f'<div class="auto-reader auto-reader-{i}">' for i in range(readers)) + '<div class="auto-seed">'
+    html = html.replace('<div class="clock">', '<div class="clock">' + opening)
+    html = html.replace('</div></div>\n    </section>', '</div>' * (readers + 1) + '</div></div>\n    </section>')
     html = html.replace('data-engine="portable"', 'data-engine="automatic" data-automatic')
     html = html.replace('href="portable.css"', 'href="automatic.css"')
     html = re.sub(r'<p class="(?:checkpoint|automatic)-link">.*?</p>', '', html)
@@ -170,6 +163,18 @@ def build_automatic(rom, out, tile=False, cartridge="counter", initial=None):
     html = html.replace('Evaluating CSS stages…', 'Testing automatic storage…')
     html = html.replace('Reset view clears the run. Cartridge state is not saved.', 'State lasts until reset or navigation. No persistent saves yet.')
     html = html.replace('Embedded diagnostic: loads, arithmetic, branches and RAM.', 'Counter cartridge repeatedly increments RAM C000. CPU check tests arithmetic, branches and RAM.')
+    if streaming:
+        html = html.replace('data-engine="automatic"', 'data-engine="streaming"')
+        html = html.replace('<a href="/automatic/">Counter</a>', '')
+        html = html.replace('/automatic/diagnostic/', '/').replace('/automatic/', '/')
+        html = html.replace('AUTOMATIC CONTINUATION / EXPERIMENTAL', 'STREAMING / ONE INSTRUCTION AT A TIME')
+        html = html.replace('next batch', 'next instruction').replace('Testing automatic storage…', 'Testing streaming storage…')
+        html = html.replace('Counter cartridge repeatedly increments RAM C000. CPU check tests arithmetic, branches and RAM.', 'CPU check tests arithmetic, branches and RAM.')
+        html = re.sub(r'<div class="compat-warning">.*?</div>', '<div class="compat-warning"><strong>Streaming experiment.</strong> Each CSS step commits one instruction through scroll storage. This mode needs CSS conditionals and scroll timelines. Chrome on iOS uses WebKit; feature support and device memory determine whether it works. Try <a href="/portable/">Compatible mode</a> if it cannot start. No full-speed or game compatibility claim.</div>', html)
+        html = html.replace('This mode needs CSS scroll timelines.', 'This mode needs CSS conditionals and scroll timelines.')
+        shell = (out / 'style.css').read_text()
+        shell += '\nbody[data-automatic][data-engine="streaming"] {--automatic-style:0;}\n@supports (width:if(style(--x:1):1px;else:2px)) {body[data-automatic][data-engine="streaming"] {--automatic-style:1;}}\n'
+        (out / 'style.css').write_text(shell)
     (out / 'index.html').write_text(html)
 
 
@@ -216,6 +221,9 @@ if __name__ == '__main__':
     build_checkpoint(serial_rom(), ROOT / 'dist/checkpoint/serial', cartridge='serial')
     build_automatic(serial_rom(), ROOT / 'dist/automatic/serial', cartridge='serial')
     if args.fixtures:
+        import work_ram_fixtures
+        work_ram_fixtures.build(build_automatic, ROOT / "dist/automatic/tests/full-ram")
+        build(work_ram_fixtures.fallback_code(), ROOT / "dist/portable/tests/full-ram-fallback", bounded=True)
         import packing_fixtures
         packing_fixtures.build(build_automatic, ROOT / 'dist/automatic/tests/packing')
         import rom_fixtures

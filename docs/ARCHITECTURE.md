@@ -3,15 +3,15 @@
 HTML is the fixed structure, CSS is the runtime, Python is code generation.
 The generator emits declarations, never a precomputed sequence of machine states.
 
-A four-phase CSS animation drives two alternating animation banks. The latch
-phase copies the previously computed result to the stored bank. The execute
-phase samples next-state expressions into the result bank. Paused animations
-retain sampled values between phases. Typed integer properties resolve numeric
-expressions before they are sampled. This unusual browser behavior is tested
-with page JavaScript disabled; it is not a portable general-purpose CSS guarantee.
+Streaming uses one generic CPU read/execute stage and two scroll-storage banks.
+Each bank stores resolved integers as native scroll offsets. Timeline readers
+recover the source state; the inactive bank copies the result. A complete-bank
+readiness check commits it before the next instruction can execute. Automatic
+mode shares this storage but evaluates 128 generic stages per commit. Neither
+mode precomputes the ROM's executed path.
 
-Power pauses both banks and the clock. Reset navigates to a fresh document.
-Browser throttling can slow or skip wall-clock ticks: this is an experimental
+Pause freezes copying and retains committed state. Reset navigates to a fresh
+document. Browser rendering controls throughput; this is an experimental
 instruction clock, not a hardware-accurate oscillator.
 
 Research: [x86CSS](https://github.com/rebane2001/x86CSS) demonstrates autonomous
@@ -25,7 +25,7 @@ The original subset shipped with 84 unprefixed opcodes: NOP; HALT; register-to-r
 LD r8,d8; INC/DEC r8; ADD/SUB/CP d8; XOR A; JP a16; JR and all four JR
 conditions; LD [a16],A and LD A,[a16]. Z/N/H/C are packed in the F register.
 The addressing milestone below expands this to 127. Instruction fetch reads embedded bytes at 0100. The initial registers are zero,
-not a boot-ROM or post-boot register image. Mapped RAM is C000–C0FF (also accessible at E000–E0FF), FF80–FFFE (HRAM), and one tile at VRAM 8000–800F.
+not a boot-ROM or post-boot register image. Mapped RAM is C000–DFFF (C000–DDFF also accessible at E000–FDFF), FF80–FFFE (HRAM), and one tile at VRAM 8000–800F.
 
 Unknown opcodes and unmapped data accesses trap without advancing PC. HALT
 stops execution until reset (interrupt wakeup and the halt bug are not implemented).
@@ -50,27 +50,21 @@ Switching cartridges is normal HTML navigation; no runtime ROM parsing is used.
 
 ## Browser compatibility and startup checks
 
-Streaming mode relies on Chromium's animated-variable state capture.
-Chrome on iOS uses WebKit, not Chromium. A phone-sized Chromium test only
-verifies responsive layout/touch interaction; it cannot establish iOS support.
+Streaming requires native CSS `if()`, scroll timelines and the CSS math used by
+the memory readers. Chrome on iOS uses WebKit, not Chromium. A phone-sized
+Chromium test verifies layout/touch interaction, not iOS support.
 
-With Playwright 1.65.1's WebKit build 2388, the page parses CSS `if()`, the phase
-clock advances, and `--next-pc` computes 258, but `--bank-pc` stays 256 and the
-instruction counter stays zero. Syntax detection alone therefore produces a
-false positive. Older engines may lack `if()` as well. This was reproduced in
-Linux WebKit; it is not a real-device iOS test or a claim about every WebKit release.
+The old animation-bank implementation stalled in Linux WebKit despite parsing
+`if()`, and did not retain full work RAM reliably. Version 0.19.0 replaces it
+with the same scroll storage used by Automatic mode, committing one instruction
+at a time. Syntax gates and a real clock-progress startup check remain: a page
+that parses the syntax but cannot advance reports a stalled engine. A real
+opcode fault takes precedence. The machine remains HTML/CSS-only.
 
-The LCD shows an immediate browser limitation when the syntax gate fails. When
-syntax is accepted, it displays a startup check until the real instruction
-counter advances; after three seconds at zero it reports a stalled engine.
-A real opcode fault takes precedence over that message, including a fault on
-the very first instruction. The machine remains HTML/CSS-only.
-
-CI runs both modes on desktop and phone-sized Chromium, and portable execution
-plus streaming limitation checks on phone-sized WebKit. If WebKit starts advancing correctly, that suite
-fails so the support policy can be revisited. The new automatic mode below uses
-a different storage design; its counter is now user-confirmed in iOS Chrome,
-with broader device/feature validation still pending.
+CI checks CPU transitions on Chromium and compatible/manual/automatic modes on
+Linux WebKit, plus streaming capability detection. These are not real-device
+iOS certification. The user confirmed earlier Compatible and Automatic builds
+in iOS Chrome; the larger full-RAM pages still need device checks.
 
 
 ## Bounded compatible mode (build 04)
@@ -109,14 +103,16 @@ validation of the new checkpoint mode below.
 ## Manual checkpoints (build 05)
 
 `/checkpoint/` feeds the same 128-stage arithmetic CPU from one of two reusable
-native HTML checkbox banks. Each bank now stores 3,568 bits, including CPU registers,
-bookkeeping, peripheral state and 399 bytes of RAM/VRAM/HRAM. A commit checkbox selects the source bank.
+native HTML checkbox banks. Each bank stores 67,056 bits, including CPU registers,
+bookkeeping, peripheral state and 8,335 bytes of RAM/VRAM/HRAM. A commit checkbox selects the source bank.
 No DOM nodes are appended: every run uses the same inputs and CPU stages.
 
-CSS sibling selectors (`input:checked ~ .clock`) expose native bits as numeric
-custom properties. Inputs precede the pipeline and stay present when their
-visible save labels change. A `:has()` readback prototype produced stale values
-in WebKit during touch/keyboard tests, so the shipped mode avoids it.
+Groups of native inputs precede their matching readers. Local sibling selectors
+expose checked bits without `:has()`, which produced stale reads in WebKit.
+Source readers initialize typed next-state words. Separate selectors expose
+inactive bits directly at the difference stages, so saving a bit does not change
+the inherited CPU state. Raw bits are reset within each reader or comparison stage. Small typed helpers
+materialize words; retained RAM is carried as plain integer tokens.
 The pipeline inherits its starting state from the selected bank. At the output,
 CSS compares each result bit to the inactive bank, counts differences, and
 shows the label for the first differing bit. The index is split into a group
@@ -134,7 +130,7 @@ without raising the stage budget or precomputing a ROM execution trace.
 
 This is not automatic state capture: one tap/key activation is needed per
 changed bit, plus commit. The counter demo usually takes a few saves per batch;
-a program rewriting most of memory can require up to 3,568. Visually hidden storage
+a program rewriting most of memory can require up to 67,056. Visually hidden storage
 inputs hold their native checked state.
 There is no disk persistence. Reset/reload restores both banks to their defaults;
 pause keeps a partial copy and displays the last committed source state.
@@ -162,19 +158,19 @@ using touch input; current WebKit and Chromium receive the full regression suite
 with CSS scroll snapping and scroll-driven animations. No click sequence, script,
 server request or precomputed ROM trace clocks the machine after Run.
 
-There are now two banks of 249 scroll cells plus one commit cell (499 total),
-covering 448 CPU, memory and peripheral fields. Adjacent physical RAM bytes
+There are two banks of 4,217 scroll cells plus one commit cell (8,435 total),
+covering 4,288 CPU, memory and peripheral fields. Adjacent physical RAM bytes
 share one 16-bit cell; CPU reads and writes remain byte-addressed. Each cell's native vertical scroll offset stores an integer. A marker
 is positioned at the desired value in pixels; mandatory scroll snapping moves
 the offset to it after layout. A named scroll timeline reads the offset into a
-registered numeric property on the ancestor clock. Scroll range and animation
+local registered numeric property on a grouped reader above the CPU. Scroll range and animation
 range match (255 for a byte, 65,535 for a word, 1 for a bit). Explicit rounding
 removes small interpolation errors observed in WebKit. Initial values are encoded
 as zero offsets, including PC 0100, so no scripted initialization is needed.
 
-A 441st scroll cell stores which bank is selected. The selected bank is immutable
-while the CSS pipeline executes from it. Output markers update only the inactive
-bank. CSS compares **every** returned register and memory value to the output;
+A separate scroll cell stores which bank is selected. The selected bank is immutable
+while the CSS pipeline executes from it. Result markers move in both banks, but snapping is disabled on the source
+bank. Only the inactive bank can copy them. CSS compares **every** returned register and memory value to the output;
 the selector flips only after they all match. Then the next batch executes from
 that committed state. This handshake uses data readiness rather than a timed
 copy interval. HALT and faults must commit before they disable subsequent writes.
@@ -567,7 +563,9 @@ Dense conversion is restricted to the three feed-forward modes. Streaming
 retains its prior 1,024-exception cap: a shared Chromium runner failed to
 initialize its animation state with the large lookup graph. Native decoder
 probes still verify individual lookups; they do not establish reliable streaming
-storage. The converter reports the unsupported combination explicitly.
+storage. The converter reports the unsupported combination explicitly. The
+0.19.0 storage replacement retains this conservative import cap until dense
+Streaming documents receive separate end-to-end coverage.
 
 
 ## Work RAM and echo aliases (0.17.0)
@@ -629,3 +627,56 @@ reset. Existing RAM/HRAM fills, executable RAM, stacks, interrupt, timer and
 serial tests continue to inspect byte-level CPU state. Downloaded automatic
 HTML runs offline without scripts or network requests. Reduced cells/styles
 are a storage footprint improvement, not a game-speed claim or extra RAM.
+
+
+## Full work RAM (0.19.0)
+
+The complete C000–DFFF range is writable and executable. E000–FDFF aliases
+C000–DDFF; DE00–DFFF has no echo. OAM at FE00 remains unsupported. CPU memory
+state now uses 4,096 little-endian 16-bit WRAM words, retaining byte bus semantics.
+A two-byte write computes both deltas from old state, validates both lanes, and
+updates one or two physical words atomically. DFFF/E000 crosses to physical C000;
+FDFF/FE00 still traps without writing either lane.
+
+Bounded stages decode on the read element and commit on its execute child.
+Writes select each bus lane's addressed 256-byte page before updating its words.
+Two sets of 128 local typed result slots materialize old-word plus byte deltas;
+untouched pages inherit. Separate lane slots preserve both pages when a word
+write crosses a boundary. This shared arithmetic path avoids both a flat
+8,192-query table and eager conditionals on every word at every stage, and works
+without CSS `if()`. Native reads optionally select a page before a word; range
+membership uses compact numeric gates in both decoders. Streaming uses the same
+words and scroll storage with one stage per commit.
+
+Automatic readers group 32 storage units, with non-inheriting raw timelines.
+They expose decoded source and inactive words to the CPU and complete-bank
+handshake. A WRAM cell is hidden only when result, source and inactive word all
+match its initial value, uniquely encoded at scroll offset zero. A later write
+reactivates both cells. All 8,192 bytes still participate in readiness.
+
+Manual banks retain 67,056 bits apiece (134,114 inputs including power/commit).
+Only the targeted native input is rendered for fragment keyboard focus. Input and comparison selectors use separate stylesheets to stay within
+Chromium selector limits. Differences
+are folded in groups of 128 fields using reusable local typed helpers; group/slot
+queries expose one save label. These large pages remain expensive, especially on
+mobile hardware; no full-speed or real-device iOS claim follows from this change.
+The controls use [`reading-flow: source-order`](https://developer.chrome.com/blog/reading-flow/)
+to establish a native focus scope where supported. This preserves their order
+while avoiding Chromium's long Tab traversal through hidden high-index save
+links. Keyboard tests save both low and high bit indices and commit a full batch.
+
+Single-instruction conformance documents retain only the declared C000–C03F
+operand/stack window. Other WRAM begins at zero and is unobserved in these fixed
+fixtures. Assertions check that all seeded and observed WRAM belongs to that
+window. Expected results remain upstream data, never browser inputs. Production
+and full-map tests always generate all 4,096 words. Separate original tests cover
+all-byte retention, cross-page reads/fetches/stacks, echo ends, dormant-cell reuse,
+nonzero seeds, offline conversion, and manual source-bank immutability.
+
+
+On browsers with CSS `if()`, WRAM reads can use conditional selection; writes
+use the same page-selected arithmetic slots in every browser. Tests force the
+arithmetic read fallback separately, and single-step conformance disables read
+acceleration so both decoders remain independently checked.
+Automatic raw timeline slots and word-decoding helpers are reused locally rather
+than registering a separate property for every scroll cell.

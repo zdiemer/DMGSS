@@ -1,13 +1,10 @@
+const {readState}=require('./helpers/state');
 const {test, expect} = require('@playwright/test');
 // Manual bank transfers perform many native bit saves and full-pipeline style
-// reads across 3,568-bit banks. Shared WebKit runners took almost two minutes
-// for a single transfer; allow headroom for the whole test, while every bit
-// still has its unchanged five-second progress bound.
-test.describe.configure({timeout:180000});
-const read = (page, keys, selector='.machine') => page.locator(selector).evaluate((el,keys)=>{
-  const style=getComputedStyle(el);
-  return Object.fromEntries(keys.map(k=>[k,Number(style.getPropertyValue(`--${k}`))]));
-},keys);
+// reads across 67,056-bit banks. Full-map copying can take several minutes;
+// keep per-bit progress assertions and allow the complete transfer to finish.
+test.describe.configure({timeout:600000});
+const read = readState;
 const copyState = page => read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
 async function saveBit(page, keyboard=false, before=null) {
   before ??= await copyState(page);
@@ -15,12 +12,12 @@ async function saveBit(page, keyboard=false, before=null) {
   // Native pointer actions already wait for a visible, stable control. Resolve
   // the label target only for keyboard focus checks, not for every saved bit.
   if (keyboard) {
-    const input = page.locator('#'+await control.locator('label').getAttribute('for'));
+    const input = page.locator('#'+await control.getAttribute('for'));
     await expect(control).toBeVisible();
     await page.keyboard.press('Tab'); await expect(control.locator('a')).toBeFocused(); await page.keyboard.press('Enter'); await expect(input).toBeFocused(); await page.keyboard.press('Space');
   }
-  else if (test.info().project.name.endsWith('mobile')) await control.locator('label').tap();
-  else await control.locator('label').click();
+  else if (test.info().project.name.endsWith('mobile')) await control.tap();
+  else await control.click();
   let after;
   await expect.poll(async ()=>{
     after=await copyState(page);
@@ -33,7 +30,7 @@ async function continueBatch(page) {
   let saved = 0;
   let pending=await copyState(page);
   while (pending['copy-remaining']) {
-    expect(saved++).toBeLessThan(3568);
+    expect(saved++).toBeLessThan(67056);
     await expect(page.locator('.commit-control')).not.toBeVisible();
     // Reuse the snapshot already asserted after the preceding native save.
     // Reading the same 128-stage pipeline again adds no coverage.
@@ -47,11 +44,11 @@ async function continueBatch(page) {
   await expect.poll(async ()=>(await read(page,['ticks'])).ticks).not.toBe(state.ticks);
 }
 test('checkpoint reuses two banks across nine batches and byte wrap', async ({page},info)=>{
-  test.setTimeout(360000);
+  test.setTimeout(1200000);
   await page.goto('/checkpoint/');
   expect(await page.locator('script').count()).toBe(0);
   const inputs=await page.locator('input').count();
-  expect(inputs).toBe(7138); // 2 × 3568 bits, commit, power; no growing trace.
+  expect(inputs).toBe(134114); // 2 × 67056 bits, commit, power; no growing trace.
   await page.locator('.power-switch').click();
   for(let batch=1;batch<=9;batch++) {
     expect(await read(page,['ticks','pc','a','m49152','halted','fault'])).toEqual({ticks:batch*128,pc:256,a:(batch*32)%256,m49152:(batch*32)%256,halted:0,fault:0});
@@ -60,11 +57,11 @@ test('checkpoint reuses two banks across nine batches and byte wrap', async ({pa
   expect(await page.locator('input').count()).toBe(inputs);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.screenshot({path:`test-results/checkpoint-${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`checkpoint-${info.project.name}.png`),fullPage:true});
 });
 test('checkpoint preserves branches and flags until a later HALT', async ({page})=>{
-  // Two transfers include changing divider bits; each bit keeps its 5s bound.
-  test.setTimeout(240000);
+  // Two transfers include changing divider bits; assert progress after every save.
+  test.setTimeout(600000);
   await page.goto('/checkpoint/tests/long-loop/'); await page.locator('.power-switch').click();
   expect((await read(page,['ticks'])).ticks).toBe(128);
   await continueBatch(page); await continueBatch(page);
@@ -86,7 +83,7 @@ test('checkpoint pause retains a partial copy and reset clears both banks', asyn
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:128,m49152:32});
   await page.locator('.power-switch').click();
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:256,m49152:64});
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:0,m49152:0});
   await page.locator('.power-switch').click();
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:128,m49152:32});
@@ -98,7 +95,7 @@ test('checkpoint controls can be used with Tab, Enter and Space', async ({page})
   await page.keyboard.press('Tab'); await expect(page.locator('.commit-control a')).toBeFocused();
   await page.keyboard.press('Enter'); await expect(page.locator('#commit')).toBeFocused();
   await page.keyboard.press('Space');
-  await expect.poll(async ()=>(await read(page,['ticks'])).ticks).toBe(256);
+  await expect.poll(async ()=>(await read(page,['ticks'])).ticks,{timeout:30000}).toBe(256);
 });
 for(const [path,message] of [['diagnostic/','.passed'],['tile/','.tile-ready'],['tests/trap/','.fault-message']]) {
   test(`checkpoint stops copying when cartridge stops: ${path}`, async ({page})=>{
@@ -137,7 +134,7 @@ test('checkpoint capability failure hides copy controls', async ({page})=>{
 });
 test('checkpoint preserves live nested-call frames across a manual bank transfer', async ({page})=>{
   // The full stack frame requires many native bit saves; CI exceeded two minutes.
-  test.setTimeout(240000);
+  test.setTimeout(600000);
   await page.goto('/checkpoint/tests/stack-continuation/'); await page.locator('.power-switch').click();
   expect(await read(page,['ticks','pc','b','c','sp','m49212','m49213','m49214','m49215'])).toEqual({ticks:128,pc:270,b:171,c:205,sp:49212,m49212:52,m49213:18,m49214:9,m49215:1});
   await continueBatch(page);

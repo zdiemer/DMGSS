@@ -8,7 +8,7 @@ browser automation is used only for testing.
 
 Early development. Not yet a general-purpose Game Boy emulator.
 The current build executes original embedded ROMs on a CSS CPU supporting 243 unprefixed and all 256 CB-prefixed instructions with
-16-bit register pairs, indirect addressing, stack/subroutines, the complete 8-bit ALU, decimal adjustment, arithmetic flags, branches and 256 bytes of work RAM with an echo mirror, plus 127 bytes of high RAM.
+16-bit register pairs, indirect addressing, stack/subroutines, the complete 8-bit ALU, decimal adjustment, arithmetic flags, branches and 8 KiB of work RAM with the E000–FDFF echo mirror, plus 127 bytes of high RAM.
 Power on to run it; the screen reports success or a CPU trap. Tile lab runs a
 second original ROM that copies a four-shade tile from ROM data into 16 bytes of VRAM using pointers. Stack lab exercises nested calls and saved registers. The full
 PPU, joypad interrupt sources and game compatibility remain ahead.
@@ -37,8 +37,9 @@ Four execution modes share the same CPU:
   128-instruction batches. Tap Save next bit for each changed bit, then Run next
   128. This is user-clocked copying, not automatic execution; iOS verification
   of this new mode is pending. State lasts until reset/navigation.
-- **Streaming mode** (`/`): animated state storage for continuous execution,
-  currently Chromium-only. It reports unsupported syntax or stalled startup.
+- **Streaming mode** (`/`): one instruction per scroll-storage commit, using
+  native CSS conditionals. Requires both CSS `if()` and scroll timelines;
+  unsupported syntax and stalled startup are reported in the display.
 
 None of these modes is game-ready. No commercial ROMs or Nintendo boot ROM are bundled.
 

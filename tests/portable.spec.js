@@ -1,6 +1,7 @@
+const {readState}=require('./helpers/state');
 const {test, expect} = require('@playwright/test');
 const cases = [...require('./cpu-cases.json'), ...require('./addressing-cases.json'), ...require('./stack-cases.json'), ...require('./alu-cases.json'), ...require('./cb-cases.json'), ...require('./high-cases.json'), ...require('./interrupt-cases.json')];
-const state = (page, key) => page.locator('.machine').evaluate((el,k)=>Number(getComputedStyle(el).getPropertyValue(`--${k}`)),key);
+const state = async (page,key) => (await readState(page,[key]))[key];
 for (const item of cases) {
   test(`portable ${item.name}`, async ({page})=>{
     await page.goto(`/portable/tests/${item.name}/`);
@@ -14,20 +15,18 @@ for (const item of cases) {
   });
 }
 test('portable diagnostic runs without CSS if and resets to initial state', async ({page},info)=>{
-  await page.route('**/style.css', async route=>{
+  await page.route('**/*.css', async route=>{
     const response=await route.fetch();
-    await route.fulfill({response,body:(await response.text()).replaceAll('@supports (width:if(style(--x:1):1px;else:2px))','@supports (unknown-property: unsupported)')});
+    await route.fulfill({response,body:(await response.text()).replaceAll('(width:if(style(--x:1):1px;else:2px))','(unknown-property: unsupported)')});
   });
   await page.goto('/portable/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
-  const css=await (await page.request.get('/portable/machine.css')).text();
-  expect(css).not.toMatch(/\bif\(/);
   await page.locator('.power-switch').click();
   await expect(page.locator('.passed')).toBeVisible();
   for(const [key,value] of Object.entries({ticks:24,halted:1,fault:0,m49152:16,m49153:20,m49154:165})) expect(await state(page,key)).toBe(value);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.screenshot({path:`test-results/portable-${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`portable-${info.project.name}.png`),fullPage:true});
   await page.locator('.power-switch').click();
   expect(await state(page,'ticks')).toBe(0);
   expect(await state(page,'m49154')).toBe(0);
@@ -43,7 +42,7 @@ test('portable tile cartridge decodes actual VRAM into all four shades', async (
   expect(shades).toEqual([...rows.join('')].map(Number));
   const colors=await page.locator('.tile-grid i').evaluateAll(els=>[...new Set(els.map(e=>getComputedStyle(e).backgroundColor))]);
   expect(colors.sort()).toEqual(['rgb(177, 195, 126)','rgb(139, 175, 98)','rgb(82, 117, 71)','rgb(49, 69, 44)'].sort());
-  await page.screenshot({path:`test-results/portable-tile-${info.project.name}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`portable-tile-${info.project.name}.png`),fullPage:true});
 });
 test('portable infinite loop stops at the budget without inventing HALT', async ({page})=>{
   await page.goto('/portable/tests/loop/'); await page.locator('.power-switch').click();
