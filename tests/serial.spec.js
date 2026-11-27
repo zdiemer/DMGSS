@@ -52,7 +52,7 @@ test('serial lab sends OK through HALT and polling',async({page})=>{
   await expect(page.locator('.serial-text span:visible')).toHaveCount(2);
   await page.locator('.power-switch').click();await page.locator('.power-switch').click();
   expect(await read(page,Object.keys(expected))).toEqual(expected);
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await read(page,['serial-count','serial-length','m65282'])).toEqual({'serial-count':0,'serial-length':0,m65282:126});
 });
 test('compatible serial lab truthfully stops partway through a byte',async({page})=>{

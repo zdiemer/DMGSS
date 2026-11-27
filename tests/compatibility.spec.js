@@ -35,7 +35,7 @@ for (const path of ['/', '/tile/']) {
     await expect(page.locator('.running-message')).not.toBeVisible();
     await expect(page.locator('.tile-writing')).not.toBeVisible();
     expect(await ticks(page)).toBe(0);
-    await page.locator('.reset').click();
+    await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
     await expect(page.locator('.unsupported-screen')).toBeVisible();
   });
 }

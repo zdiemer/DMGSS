@@ -123,6 +123,6 @@ test('dense downloaded HTML runs offline without requests',async({page},info)=>{
   const requests=[];page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url())});
   await page.goto(pathToFileURL(file).href);await page.locator('.power-switch').click();
   await stopped(page,{ticks:31,pc:405,a:165,m49154:165});
-  await page.locator('.reset').click();expect(await read(page,['ticks'])).toEqual({ticks:0});
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);expect(await read(page,['ticks'])).toEqual({ticks:0});
   expect(requests).toEqual([]);
 });

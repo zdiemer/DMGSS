@@ -104,7 +104,7 @@ for(const [seed,target] of [[0,65535],[65535,0],[65280,255],[255,65280]])test(`p
     m49152:low,m49153:66,m65532:171,m65533:205,m65534:165,m65535:192,halted:1,fault:0});
   expect(await page.locator('.memory-b0-m65534,.memory-b0-m65535').count()).toBe(2);
   expect(await page.locator('.memory-b0-ram65534').count()).toBe(0);
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await read(page,['ticks','m49152','m49153','m65534','m65535'])).toEqual({ticks:0,m49152:seed&255,m49153:seed>>8,m65534:90,m65535:160});
 });
 for(const [seed,target] of [[0,65535],[1,0]])test(`packed RAM reaches exact scroll offset 65535 from seed ${seed}`,async({page})=>{

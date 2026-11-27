@@ -27,7 +27,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Timer 
   await page.setViewportSize({width:320,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('timer-lab.png'),fullPage:true});
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   // Streaming resolves register defaults on its first powered latch.
   const reset=mode==='streaming'?{ticks:0,clocked:0}:{ticks:0,clocked:0,m65284:0,m65285:0,m65287:248};
   expect(await read(page,Object.keys(reset))).toEqual(reset);

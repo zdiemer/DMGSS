@@ -19,7 +19,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`cycle 
   await page.screenshot({path:info.outputPath('cycle-inspector.png'),fullPage:true});
   await page.waitForTimeout(250);
   expect(await read(page,['tcycles'])).toEqual({tcycles:196});
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await read(page,['tcycles'])).toEqual({tcycles:0});
 });
 
@@ -45,6 +45,6 @@ for(const mode of ['checkpoint','automatic'])test(`cycle accounting crosses a ${
   // RLC [HL]=16; taken JR NZ=12; HALT entry=4: 572 T-cycles.
   await expect.poll(()=>read(page,['ticks','tcycles','pc','halted','fault','m49152']),{timeout:25000})
     .toEqual({ticks:132,tcycles:556,pc:394,halted:1,fault:0,m49152:3});
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await read(page,['ticks','tcycles'])).toEqual({ticks:0,tcycles:65520});
 });

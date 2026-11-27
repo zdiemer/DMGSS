@@ -11,7 +11,7 @@ test('CSS clock retains state, pauses and resets without scripts', async ({ page
   const paused = await state(page, 'ticks');
   await page.waitForTimeout(900);
   expect(await state(page, 'ticks')).toBe(paused);
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await state(page, 'ticks')).toBe(0);
 });
 test('console fits the viewport and controls are keyboard reachable', async ({ page }, info) => {

@@ -83,7 +83,7 @@ test('checkpoint pause retains a partial copy and reset clears both banks', asyn
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:128,m49152:32});
   await page.locator('.power-switch').click();
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:256,m49152:64});
-  await page.locator('.reset').click();
+  await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:0,m49152:0});
   await page.locator('.power-switch').click();
   expect(await read(page,['ticks','m49152'])).toEqual({ticks:128,m49152:32});
