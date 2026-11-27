@@ -33,9 +33,10 @@ The diagnostic performs arithmetic, a RAM roundtrip, comparison and a backwards
 loop, then writes A5 to C002 on success. The UI derives success from that memory
 byte; it does not set it itself. Inspector values are decimal.
 
-This is instruction-level execution, not cycle-accurate emulation. There is no
-PPU, timer, interrupt controller, cartridge banking or audio yet. Stack support
-was added in build 08 below.
+Build 02 was instruction-level execution, without a PPU, timer, interrupt
+controller, cartridge banking or audio. Later milestones below add stack,
+interrupts, timer/serial circuits and limited MBC1 ROM banking. Full bus timing,
+PPU and audio remain unimplemented.
 
 
 ## Tile lab (build 03)
@@ -680,3 +681,26 @@ arithmetic read fallback separately, and single-step conformance disables read
 acceleration so both decoders remain independently checked.
 Automatic raw timeline slots and word-decoding helpers are reused locally rather
 than registering a separate property for every scroll cell.
+
+## Small MBC1 cartridges (0.20.0)
+
+ROM ONLY keeps its existing lookup graph. MBC1 type 01 at 32, 64 or 128 KiB adds
+one retained five-bit `mbc-bank` field, initially zero. Each of the five logical
+bus lanes gets a local typed physical-ROM address: the lower window stays in
+bank 0; the upper window uses `max(1, bank) modulo bank-count`. Applying that
+translation before masking preserves the small-cartridge bank-zero quirk.
+The existing direct/paged byte encoders then select from the full physical ROM.
+Readable and writable gates still use the logical 0000–7FFF range, and RAM/I/O
+lookup overrides remain logical even when physical ROM offsets exceed 8000.
+
+Writes to 2000–3FFF retain the low five bits. Other controller ranges are
+accepted no-ops for these small ROM-only cartridges. Word-transfer validation
+remains atomic. If both write lanes target the bank register, LD [nn],SP uses
+the high byte last, while pushes and interrupt entry use the low byte last.
+All operands are fetched using the old controller state; the next retired step
+sees the updated mapping. This is final-state ordering, not a bus scheduler.
+
+Only MBC1 pages add the state field: two extra scroll cells in Automatic or
+five extra bits per Manual bank. Generic storage, readiness and copy controls
+retain it alongside CPU/RAM state. Larger wiring and cartridge RAM are rejected
+by exact header/length checks; no header rewriting or bank truncation occurs.

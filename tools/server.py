@@ -8,19 +8,20 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from build import ROOT
-from convert import ConversionError, MAX_ROM, convert
+from convert import ConversionError, convert
 from cpu import stack_rom
 from dense_rom import sample_rom as dense_sample_rom
+from mbc1 import sample_rom as mbc1_sample_rom
 from work_ram import sample_rom as ram_sample_rom
 
-MAX_REQUEST = 65536
+MAX_REQUEST = 196608
 CSP = "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
 
 def sample_rom():
     # Original demo, relocated behind the cartridge header. No Nintendo logo
     # or boot ROM is included; our CPU starts directly at 0100.
-    data = bytearray(MAX_ROM)
+    data = bytearray(32768)
     data[0x100:0x103] = bytes([0xC3, 0x50, 1])
     program = stack_rom()
     for offset in (7, 26):  # CALL operands inside the original Stack lab.
@@ -43,7 +44,7 @@ def fields_from_request(environ):
     except ValueError:
         raise ConversionError('A Content-Length header is required.')
     if not 0 < length <= MAX_REQUEST:
-        raise ConversionError('Upload request exceeds the 64 KiB limit or is empty.')
+        raise ConversionError('Upload request exceeds the 192 KiB limit or is empty.')
     content_type = environ.get('CONTENT_TYPE', '')
     if len(content_type) > 256 or '\r' in content_type or '\n' in content_type:
         raise ConversionError('Invalid upload encoding.')
@@ -94,6 +95,8 @@ def application(environ, start_response):
         return respond('200 OK', sample_rom(), 'application/octet-stream', [('Content-Disposition', 'attachment; filename="dmgss-stack.gb"')])
     if path == '/convert/ram.gb' and method in ('GET', 'HEAD'):
         return respond('200 OK', ram_sample_rom(), 'application/octet-stream', [('Content-Disposition', 'attachment; filename="dmgss-ram.gb"')])
+    if path == '/convert/mbc1.gb' and method in ('GET', 'HEAD'):
+        return respond('200 OK', mbc1_sample_rom(), 'application/octet-stream', [('Content-Disposition', 'attachment; filename="dmgss-mbc1.gb"')])
     if path == '/convert/dense.gb' and method in ('GET', 'HEAD'):
         return respond('200 OK', dense_sample_rom(), 'application/octet-stream', [('Content-Disposition', 'attachment; filename="dmgss-dense.gb"')])
     if path == '/convert/' and method in ('GET', 'HEAD'):

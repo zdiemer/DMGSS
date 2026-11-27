@@ -1,6 +1,6 @@
 image:
   repository: registry.zachd.duckdns.org/zdiemer/dmgss
-  tag: "0.19.0"
+  tag: "0.20.0"
   pullPolicy: IfNotPresent
 replicaCount: 2
 service:
@@ -22,4 +22,4 @@ converterResources:
     cpu: 10m
     memory: 256Mi
   limits:
-    memory: 1536Mi
+    memory: 2304Mi

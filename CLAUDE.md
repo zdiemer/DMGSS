@@ -39,7 +39,7 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
 - Keep README concise; track capabilities and remaining work in docs/ROADMAP.md.
 - Addressing uses old-state BC/DE/HL pairs and a separate 16-bit SP. A rejected
   data access must not update pointers, flags, memory, PC or ticks. ROM data is
-  readable but not writable; retain explicit traps until the memory map expands.
+  immutable; supported MBC1 control writes affect its bank register only; retain explicit traps until the memory map expands.
 - Word memory transfers validate both byte addresses before committing either.
   Untaken conditional calls/returns do not access the stack. POP AF masks the
   low nibble of F; signed SP arithmetic computes H/C from the unsigned low byte.
@@ -103,7 +103,7 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   intermediates registered and non-inheriting so expressions stay local and bounded; share identical pages.
   ROM helpers are combinational, never retained CPU state. Preserve fetch/data
   range validation and RAM/I/O overrides at page, word and 16-bit wrap boundaries.
-  The 32 KiB ROM-only and 4 KiB raw input bounds remain. Dense imports require
+  The ROM ONLY 32 KiB, MBC1 32–128 KiB without cartridge RAM, and 4 KiB raw bounds remain. Dense imports require
   Compatible, Automatic or Manual mode; reject dense Streaming conversions
   with a clear error. Its former animation banks did not initialize reliably;
   the scroll-storage replacement retains this cap pending dense-streaming coverage.
@@ -149,3 +149,16 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
 - Streaming shares Automatic scroll banks but commits one generic CPU stage at
   a time, using the native conditional decoder. Gate it on CSS if() and scroll
   timeline support; preserve the real-progress startup check and pause/reset.
+
+- MBC1 support is type 01 only at 32/64/128 KiB, with exact header/length and
+  no cartridge RAM. Retain the raw five-bit bank register (initial zero);
+  translate zero to one before masking the physical bank number. Translate
+  all fetch/data lanes independently; RAM/I/O overrides remain logical.
+  The other control writes are no-ops for this wiring. Larger carts, RAM,
+  MBC1M and other controllers are rejected; A000–BFFF still traps.
+- Bank control writes commit only after complete access validation. For two
+  lanes targeting the bank register, LD [nn],SP uses high-address data last;
+  stack writes use low-address data last. This final-state ordering does not
+  imply bus-cycle accuracy. Preserve bank selection through all storage modes.
+- Pinned Mooneye MBC1 tables are independent expectations; do not regenerate
+  them from the mapper. They establish bank-map results, not whole-ROM passes.

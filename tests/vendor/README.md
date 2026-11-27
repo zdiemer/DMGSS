@@ -70,3 +70,16 @@ all upstream assertion registers. The independent expected registers are read
 from the source; uppercase hex is supported. No boot/setup/printing harness or
 whole-ROM compatibility is claimed. Each source and output has a manifest hash;
 regeneration uses the same import command above.
+
+
+`mooneye/mbc1/rom_512kb.s` and `rom_1Mb.s` are unchanged MIT-licensed
+64/128 KiB bank tables from the same Mooneye pin. Their comments report testing
+on a genuine MBC1B1 cartridge. `mbc1/manifest.json` pins paths and SHA-256 hashes.
+The browser runner reads the 384 table entries per source directly, exercising
+all 128 selections in both modes with original programs. The switched-window
+table is used in both modes: 512 observations per source, 1,024 overall. No
+upstream harness is executed. Regenerate with:
+
+```sh
+python3 tools/import_mbc1.py --mooneye /path/to/pinned/mooneye-test-suite
+```

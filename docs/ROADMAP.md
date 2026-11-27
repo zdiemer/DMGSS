@@ -39,7 +39,9 @@
    byte semantics and manual checkpoints are unchanged.
    **Full work RAM:** 8 KiB at C000–DFFF, with E000–FDFF echo aliases,
    word-packed CPU state, grouped automatic readers and complete manual banks.
-   Next: cartridge banking, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
+   **MBC1 ROM banking:** 32–128 KiB type-01 cartridges without external RAM,
+   bank-zero translation, address-line masking and retained bank selection.
+   Next: larger cartridges/cartridge RAM, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
 4. **Started:** writable VRAM and verified two-bitplane tile viewer. Still needed:
    tile maps, the 160×144 display, LCD registers and scanline timing.
 5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.
@@ -49,7 +51,8 @@ Audio and persistent saves require separate feasibility research. HTML file
 inputs cannot expose ROM bytes to CSS: local import needs a JS loader or an
 external conversion step. **Shipped:** offline Python conversion plus a native
 HTML upload/download form. Both generate a self-contained HTML/CSS page for
-small test programs or unbanked 32 KiB ROMs, regardless of byte density.
+small test programs, unbanked 32 KiB ROMs or ROM-only MBC1 up to 128 KiB,
+regardless of byte density.
 The converter never executes the program; importing does not imply game
 compatibility. See [the converter](CONVERTER.md). No full-speed promise.
 

@@ -107,7 +107,7 @@ spec:
         - name: converter-tmp
           emptyDir:
             medium: Memory
-            sizeLimit: 192Mi
+            sizeLimit: 224Mi
         - name: tmp
           emptyDir:
             medium: Memory

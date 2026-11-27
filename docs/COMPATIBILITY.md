@@ -6,7 +6,7 @@ CPU stages; it never emulates ROM instructions or precomputes their execution.
 
 ## Current evidence
 
-Version 0.18.0 supports 243 unprefixed instructions and all 256 CB-prefixed
+Version 0.20.0 supports 243 unprefixed instructions and all 256 CB-prefixed
 operations: RLC/RRC/RL/RR, SLA/SRA/SRL, SWAP, BIT, RES and SET. Earlier
 8-bit ALU, accumulator rotates, decimal adjustment, load, branch, register-pair
 and stack support is retained.
@@ -58,16 +58,16 @@ arithmetic, carry, bitwise logic and rotations without JavaScript.
 
 | Upstream suite | Intended use | Current status |
 | --- | --- | --- |
-| [Mooneye](https://github.com/Gekkio/mooneye-test-suite) (MIT) | CPU and hardware behavior verified on real devices | DAA table is used above. The unmodified DAA ROM additionally needs broader work RAM and hardware I/O, its result/printing harness and cartridge setup. Dense lookup now accepts full 32 KiB ROM-only images. Eleven reduced timer bodies are also used below. The complete ROM harness still needs the broader hardware/memory map. |
-| [Blargg CPU tests](https://github.com/retrio/gb-test-roms/tree/c240dd7d700e5c0b00a7bbba52b53e4ee67b5f15/cpu_instrs) | Broad instruction behavior and checksums | Not run or bundled. Inspected `01-special.gb` and `04-op r,imm.gb` declare MBC1, which the converter still rejects. The former density blocker (1,815 and 2,640 exceptions respectively) is removed by paged lookup. The harness also needs additional CPU, memory and hardware behavior. No header patch or synthetic pass is applied. |
+| [Mooneye](https://github.com/Gekkio/mooneye-test-suite) (MIT) | CPU and hardware behavior verified on real devices | DAA table is used above. The unmodified DAA ROM additionally needs hardware I/O, its result/printing harness and cartridge setup. Dense lookup now accepts full 32 KiB ROM-only images. Eleven reduced timer bodies are also used below. The complete ROM harness still needs the broader hardware/memory map. |
+| [Blargg CPU tests](https://github.com/retrio/gb-test-roms/tree/c240dd7d700e5c0b00a7bbba52b53e4ee67b5f15/cpu_instrs) | Broad instruction behavior and checksums | Not run or bundled. Inspected `01-special.gb` and `04-op r,imm.gb` declare MBC1; ROM-only MBC1 up to 128 KiB is now accepted. The former density blocker (1,815 and 2,640 exceptions respectively) is removed by paged lookup. The harness also needs additional CPU, memory and hardware behavior. No header patch or synthetic pass is applied. |
 | [GBMicrotest](https://github.com/aappleby/GBMicrotest/tree/463eb6bc0fe31d61781ef63060ad6d74090c0255) (MIT) | Small cycle-accuracy and hardware-quirk tests | Deferred: upstream explicitly assumes an already functional emulator. Current gaps include most I/O, interrupt bus timing, PPU and cycle-by-cycle peripheral timing; its headers also declare cartridge hardware we reject. |
 | [dmg-acid2](https://github.com/mattcurrie/dmg-acid2) | DMG graphics output | Future target after a real PPU, tile maps, sprites and LCD registers exist. A one-tile viewer cannot establish a pass. |
 
 ## Next milestones
 
-1. Broader work RAM and additional interrupt sources;
+1. Additional interrupt sources;
    STOP behavior. STOP still traps explicitly.
-2. Cartridge controllers (dense ROM lookup is implemented). Do not silently patch
+2. Larger MBC1 cartridges, cartridge RAM and other controllers. Do not silently patch
    headers or bypass the converter's bounds to make a suite appear accepted.
 3. Unmodified CPU test ROMs with their actual completion protocol, plus
    cycle-accurate interrupt entry, register-write races and HALT timing.
@@ -312,3 +312,30 @@ Compatible, 24 MiB for Automatic, and 96 MiB for Manual. Automatic storage has
 8,435 cells; Manual has 67,056 bits per bank. Browser resource limits and mobile
 performance remain material constraints. Linux WebKit testing does not certify
 this expanded memory on real iOS devices.
+
+
+## MBC1 ROM banking (0.20.0)
+
+ROM-only MBC1 (type 01, no cartridge RAM) accepts exactly 32, 64 or 128 KiB
+with matching size headers. The low five-bit bank register starts at zero;
+reads map zero to one before applying the physical ROM address-line mask.
+All five fetch/data lanes translate independently; logical PC/SP are preserved.
+Control writes do not mutate ROM. RAM-enable, upper-bank and mode writes have
+no observable effect on this supported cartridge configuration. Larger wiring,
+MBC1M and cartridge RAM are not implemented; A000–BFFF still traps explicitly.
+
+The semantics follow [Pan Docs MBC1](https://gbdev.io/pandocs/MBC1.html).
+Two unchanged pinned Mooneye bank tables provide 768 independent expected table entries and 1,024 checked
+observations (fixed window in both modes and switched window in both modes,
+for 64 and 128 KiB). Original byte programs exercise all 128 combined bank
+selections, compare actual CSS reads to those tables, and never embed expected
+results in the generated emulator. These are bank-map checks, not executions
+of the original ROM harness or new whole-ROM passes.
+
+Original tests cover banked code/data, bank-zero masking, bank writes during
+switched execution, split fetch/data lanes, native reset, offline downloads,
+and bank retention through Automatic and Manual continuation. Word transfers
+retain atomic validation; controller conflicts use low-then-high order for
+LD [nn],SP and high-then-low order for stack writes. This determines the final
+bank register, without introducing individual bus cycles or full bus timing.
+Dense Streaming imports retain their existing explicit limit.
