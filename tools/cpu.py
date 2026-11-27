@@ -13,6 +13,9 @@ MEMORY = [*RAM, IF, IE, DIV, TIMA, TMA, TAC, SB, SC]
 
 
 def choose_native(key, values, default):
+    if default == 0 and values and all(value == 1 for value in values.values()):
+        # Range membership is decoder-independent; avoid one condition per byte.
+        return choose_math(key, values, default)
     return 'if(' + ''.join(f'style(--{key}:{k}):{v};' for k, v in values.items()) + f'else:{default})'
 
 
@@ -235,9 +238,18 @@ def machine(rom, storage, arithmetic=False, work_words=WORDS, accelerated=True):
         prefix = f'wram-{key}'
         memory_expr[prefix+'-index'] = f'calc(round(down,var(--{key}) / 2))'
         memory_expr[prefix+'-weight'] = f'calc(1 + 255 * mod(var(--{key}),2))'
-        memory_expr[prefix+'-word'] = choose(prefix+'-index', {a//2:f'var(--wram{a})' for a in work_words}, 0)
+        memory_expr[prefix+'-page'] = f'calc(round(down,var(--{key}) / 256))'
+        memory_expr[prefix+'-slot'] = f'calc(mod(round(down,var(--{key}) / 2),128))'
+        pages = {}
+        for address in work_words:
+            pages.setdefault(address // 256, {})[(address // 2) % 128] = f'var(--wram{address})'
+        # Native conditions select a page before its word: at most 32 + 128
+        # comparisons, instead of a flat chain of 4,096 style conditions.
+        native_lookup = choose_native(prefix+'-page', {
+            page: choose_native(prefix+'-slot', words, 0) for page, words in pages.items()}, 0)
+        memory_expr[prefix+'-word'] = choose_math(prefix+'-index', {a//2:f'var(--wram{a})' for a in work_words}, 0) if arithmetic else native_lookup
         if arithmetic and accelerated:
-            native_memory[prefix+'-word'] = choose_native(prefix+'-index', {a//2:f'var(--wram{a})' for a in work_words}, 0)
+            native_memory[prefix+'-word'] = native_lookup
         memory_expr[prefix+'-byte'] = f'calc(mod(round(down,var(--{prefix}-word) / var(--{prefix}-weight)),256))'
         selected = rom.lookup(key, choose, extra, valid)
         inside = f'max(0,min(1,var(--{key}) - {WRAM_START-1},{WRAM_END} - var(--{key})))'

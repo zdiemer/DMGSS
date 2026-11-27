@@ -116,7 +116,7 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   CPU storage uses 4,096 exact little-endian words. Keep byte semantics and atomic
   two-lane validation, including DFFF/E000 and FDFF/FE00 boundaries.
 - Bounded stages decode on pipeline-read and commit on pipeline-execute. WRAM
-  container queries update only the selected words; all other words inherit.
+  writes select a 256-byte page before its words; all other words inherit.
   Full production state is mandatory in every mode. Single-step conformance
   fixtures retain their declared C000–C03F operand window to bound test cost;
   preserve upstream expectations and separate full-map retention tests.
@@ -132,10 +132,13 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
 - Browser memory is a release constraint: run full-map probes in an isolated
   browser process/container with a hard memory limit, not beside the workspace
   agent. Keep explicit document budgets and converter tmpfs/worker headroom.
-- Keep the optional CSS if() WRAM path behind feature detection and the math
-  fallback testable. Chromium cannot afford the full container-query write table;
-  do not require CSS if() in engines that use the fallback. Single-step fixtures
-  disable the acceleration so both decoders remain independently exercised.
+- Keep optional CSS if() WRAM reads behind feature detection and the math
+  fallback testable. Writes use page queries and 256 local typed result slots
+  shared by every CPU stage. Separate slots for each bus lane prevent cross-page
+  writes from aliasing. Avoid flat per-word query tables or eager per-word
+  conditionals: both overwhelm Chromium. Native reads select a page before a
+  word; range membership uses compact numeric gates in both decoders. Single-step
+  fixtures disable read acceleration so both decoders remain independently checked.
 - Register small reusable calculation slots, not every input bit or timeline.
   Inactive manual bits must update only the comparison UI. Keep native sibling
   selectors (no :has), local raw-bit resets and separate input/copy stylesheets

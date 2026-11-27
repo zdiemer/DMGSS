@@ -153,3 +153,15 @@ for(const seed of [0,0x3412])test(`automatic RAM can become dormant and reactiva
   await page.goto(`/automatic/tests/full-ram/reactivate-${seed}/`);
   await run(page,{ticks:516,pc:788,sp:43981,a:171,b:205,m49152:205,m49153:171,halted:1,fault:0});
 });
+
+test('full work RAM crosses pages and echo boundaries without CSS if',async({page})=>{
+  await page.route('**/*.css',async route=>{
+    const response=await route.fetch();
+    await route.fulfill({response,body:(await response.text()).replaceAll('(width:if(style(--x:1):1px;else:2px))','(unknown-property: unsupported)')});
+  });
+  await page.goto('/portable/tests/full-ram-fallback/');
+  await run(page,{ticks:12,pc:288,sp:57072,a:222,h:254,l:0,halted:1,fault:0,
+    m49152:154,m49407:52,m49408:18,m53247:120,m53248:86,m57343:188,m56830:240,m56831:222});
+  await page.locator('.power-switch').click();
+  expect(await read(page,['ticks','m49152','m53248','m57343'])).toEqual({ticks:0,m49152:0,m53248:0,m57343:0});
+});

@@ -223,6 +223,7 @@ if __name__ == '__main__':
     if args.fixtures:
         import work_ram_fixtures
         work_ram_fixtures.build(build_automatic, ROOT / "dist/automatic/tests/full-ram")
+        build(work_ram_fixtures.fallback_code(), ROOT / "dist/portable/tests/full-ram-fallback", bounded=True)
         import packing_fixtures
         packing_fixtures.build(build_automatic, ROOT / 'dist/automatic/tests/packing')
         import rom_fixtures

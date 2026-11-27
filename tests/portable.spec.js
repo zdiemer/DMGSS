@@ -22,8 +22,6 @@ test('portable diagnostic runs without CSS if and resets to initial state', asyn
   await page.goto('/portable/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
-  const css=await (await page.request.get('/portable/machine.css')).text();
-  expect(css).toContain('@supports not (width:if(style(--x:1):1px;else:2px))');
   await page.locator('.power-switch').click();
   await expect(page.locator('.passed')).toBeVisible();
   for(const [key,value] of Object.entries({ticks:24,halted:1,fault:0,m49152:16,m49153:20,m49154:165})) expect(await state(page,key)).toBe(value);

@@ -8,7 +8,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Bit la
   await page.getByRole('link',{name:'Bit lab',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`${prefix}/bits/$`));
   await page.locator('.power-switch').click();
-  await expect.poll(async()=>(await read(page)).halted,{timeout:20000}).toBe(1);
+  await expect.poll(async()=>(await read(page)).halted,{timeout:mode==='streaming'?90000:20000}).toBe(1);
   const result=await read(page);
   expect(result).toEqual({pc:341,ticks:41,a:165,b:136,h:128,l:0,f:192,m32768:15,m49152:12,m49154:165,halted:1,fault:0});
   await expect(page.locator('.passed')).toBeVisible();

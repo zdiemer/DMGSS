@@ -160,7 +160,7 @@ def build(out):
     for arithmetic, mode in [(True,'math'), (False,'native')]:
         root = out / mode
         root.mkdir(parents=True, exist_ok=True)
-        css = machine(FixtureROM(), lambda states: storage(states,native=False), arithmetic=arithmetic, work_words=FIXTURE_WORDS, accelerated=False)
+        css = machine(FixtureROM(), storage, arithmetic=arithmetic, work_words=FIXTURE_WORDS, accelerated=False)
         css = css.replace('\n.machine {', '\n.pipeline-read {')
         (root / 'machine.css').write_text(css)
         for source, vectors in datasets.items():

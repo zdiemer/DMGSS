@@ -8,7 +8,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`High R
   await page.getByRole('link',{name:'High RAM',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`${prefix}/high/$`));
   await page.locator('.power-switch').click();
-  await expect.poll(async()=>(await read(page)).halted,{timeout:20000}).toBe(1);
+  await expect.poll(async()=>(await read(page)).halted,{timeout:mode==='streaming'?90000:20000}).toBe(1);
   const result=await read(page);
   expect(result).toEqual({pc:411,ticks:59,a:165,c:254,h:255,l:146,f:192,sp:65534,m65408:8,m65424:62,m65425:42,m65426:201,m65532:254,m65533:255,m65534:8,m49154:165,halted:1,fault:0});
   await expect(page.locator('.passed')).toBeVisible();

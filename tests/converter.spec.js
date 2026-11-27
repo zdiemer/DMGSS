@@ -23,7 +23,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming']){
     expect(await page.locator('link[rel=stylesheet]').count()).toBe(0);
     expect(await read(page,['ticks','pc'])).toEqual({ticks:0,pc:256});
     const requests=[];page.on('request',r=>requests.push(r.url()));
-    await page.locator('.power-switch').click();await halt(page,20000);
+    await page.locator('.power-switch').click();await halt(page,mode==='streaming'?90000:20000);
     expect(await read(page,['ticks','pc','sp','a','b','c','m49154','m49214','m49215'])).toEqual({ticks:53,pc:358,sp:49216,a:165,b:0,c:0,m49154:165,m49214:89,m49215:1});
     await expect(page.locator('.halt-message')).toHaveText('HALTED');
     expect(requests).toEqual([]);

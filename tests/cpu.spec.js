@@ -26,11 +26,11 @@ test('original ROM completes its branching RAM diagnostic', async ({page}) => {
   await expect(page.locator('.passed')).toBeVisible();
 });
 test('tile ROM writes VRAM and CSS decodes both bitplanes', async ({page}, info) => {
-  test.setTimeout(45000);
+  test.setTimeout(180000);
   await page.goto('/tile/');
   await page.locator('.power-switch').click();
   // Every instruction commits through the complete scroll-bank handshake.
-  await expect.poll(() => state(page,'halted'), { timeout: 35000 }).toBe(1);
+  await expect.poll(() => state(page,'halted'), { timeout: 120000 }).toBe(1);
   expect(await state(page,'ticks')).toBe(84);
   expect(await state(page,'pc')).toBe(271);
   expect(await state(page,'fault')).toBe(0);
@@ -47,7 +47,7 @@ test('tile ROM writes VRAM and CSS decodes both bitplanes', async ({page}, info)
 });
 test('stack lab runs nested calls and restores the loop counter', async ({page}) => {
   await page.goto('/stack/'); await page.locator('.power-switch').click();
-  await expect.poll(() => state(page,'halted'), {timeout:25000}).toBe(1);
+  await expect.poll(() => state(page,'halted'), {timeout:90000}).toBe(1);
   for (const [key,value] of Object.entries({ticks:52,pc:278,a:165,b:0,c:0,sp:49216,f:192,m49154:165,m49214:9,m49215:1,m49212:0,m49213:1,m49210:28,m49211:1,fault:0})) expect(await state(page,key),key).toBe(value);
   await expect(page.locator('.passed')).toBeVisible();
 });

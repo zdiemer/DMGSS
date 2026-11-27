@@ -639,11 +639,14 @@ updates one or two physical words atomically. DFFF/E000 crosses to physical C000
 FDFF/FE00 still traps without writing either lane.
 
 Bounded stages decode on the read element and commit on its execute child.
-The fallback uses container queries to assign only addressed words; unchanged
-words inherit. Engines supporting CSS `if()` use a feature-gated conditional
-path because the full query table exceeds Chromium memory limits. Small typed
-write helpers materialize results before inheritance. Streaming uses the same
-word representation and scroll storage with one generic CPU stage per commit.
+Writes select each bus lane's addressed 256-byte page before updating its words.
+Two sets of 128 local typed result slots materialize old-word plus byte deltas;
+untouched pages inherit. Separate lane slots preserve both pages when a word
+write crosses a boundary. This shared arithmetic path avoids both a flat
+8,192-query table and eager conditionals on every word at every stage, and works
+without CSS `if()`. Native reads optionally select a page before a word; range
+membership uses compact numeric gates in both decoders. Streaming uses the same
+words and scroll storage with one stage per commit.
 
 Automatic readers group 32 storage units, with non-inheriting raw timelines.
 They expose decoded source and inactive words to the CPU and complete-bank

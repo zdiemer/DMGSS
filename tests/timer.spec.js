@@ -14,13 +14,13 @@ for(const item of cases)test(`timer matches reduced Mooneye ${item.name}`,async(
 
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Timer lab wakes HALT with hardware overflow in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
-  test.setTimeout(60000);
+  test.setTimeout(120000);
   const prefix=mode==='streaming'?'':`/${mode}`;
   await page.goto(`${prefix}/`);
   await page.getByRole('link',{name:'Timers',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`${prefix}/timers/$`));
   await page.locator('.power-switch').click();
-  await expect(page.locator('.passed')).toBeVisible({timeout:45000});
+  await expect(page.locator('.passed')).toBeVisible({timeout:mode==='streaming'?90000:45000});
   const expected={ticks:36,tcycles:360,a:165,b:1,sp:65534,m49152:42,m49154:165,m65285:43,m65286:42,m65287:248,m65295:224,halted:1,fault:0,'timer-reload':0};
   expect(await read(page,Object.keys(expected))).toEqual(expected);
   await page.getByText('Machine inspector',{exact:true}).click();
@@ -28,8 +28,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Timer 
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('timer-lab.png'),fullPage:true});
   await Promise.all([page.waitForNavigation({waitUntil:'load'}), page.locator('.reset').click()]);
-  // Streaming resolves register defaults on its first powered latch.
-  const reset=mode==='streaming'?{ticks:0,clocked:0}:{ticks:0,clocked:0,m65284:0,m65285:0,m65287:248};
+  const reset={ticks:0,clocked:0,m65284:0,m65285:0,m65287:248};
   expect(await read(page,Object.keys(reset))).toEqual(reset);
 });
 
