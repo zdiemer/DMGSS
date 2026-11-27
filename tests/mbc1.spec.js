@@ -102,13 +102,13 @@ test(`MBC1 ${size}-byte bank map matches upstream in mode ${mode}`,async({page})
     await upload(page,rom);await run(page,values);
   }
 });
-test('dense 128 KiB MBC1 data and native reset stay within the upload limit',async({page})=>{
+for(const execution of ['portable','automatic','checkpoint'])test(`dense 128 KiB MBC1 data and native reset in ${execution}`,async({page})=>{
   test.setTimeout(300000);
   // All physical pages differ; values are data, including unreachable bytes.
   const rom=Buffer.from(Array.from({length:131072},(_,i)=>(i*73 ^ (i>>5)*29 ^ ((i*i)>>9))&255));
   rom.fill(0,0x100,0x150);rom.set([0xC3,0x50,1],0x100);rom[0x147]=1;rom[0x148]=2;
   rom.set([0x3E,7,0xEA,0,0x20,0xFA,0xFF,0x7F,0xEA,0,0xC0,0x3E,0x10,0xEA,0,0x20,0xFA,0,0x40,0x76],0x150);
-  await upload(page,rom);await run(page,{ticks:9,a:rom[0],m49152:rom[131071],'mbc-bank':16,halted:1,fault:0});
+  await upload(page,rom,execution);await run(page,{ticks:9,a:rom[0],m49152:rom[131071],'mbc-bank':16,halted:1,fault:0});
   const request=page.waitForRequest(r=>r.method()==='POST');
   await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.locator('.reset').click()]);
   expect((await request).postDataBuffer().length).toBeLessThanOrEqual(196608);
