@@ -87,8 +87,8 @@ test('converter download is one offline HTML file and metadata stays text',async
   await reset(page);
   expect(await read(page,['ticks'])).toEqual({ticks:0});expect(requests).toEqual([]);
 });
-test('converter rejects banking and exposes the caveat on mobile',async({page},info)=>{
-  const rom=Buffer.alloc(32768);rom[0x147]=1;
+test('converter rejects unsupported banking and exposes the caveat on mobile',async({page},info)=>{
+  const rom=Buffer.alloc(32768);rom[0x147]=2;
   await upload(page,rom,{format:'gb',name:'banked.gb'});
   await expect(page.getByRole('alert')).toContainText('ROM ONLY');
   await expect(page.locator('.caveat')).toContainText('Python on the server');

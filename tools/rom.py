@@ -5,7 +5,8 @@ DIRECT_LIMIT = 1024
 
 
 class ROM:
-    def __init__(self, data, base=0x100, compact=True):
+    def __init__(self, data, base=0x100, compact=True, mbc1=False):
+        self.mbc1 = mbc1
         self.compact = compact
         self.data = bytes(data)
         self.base = base
@@ -48,7 +49,8 @@ class ROM:
     def contains(self, key):
         if not self.data:
             return '0'
-        return f'max(0, min(1, var(--{key}) - {self.base} + 1, {self.end} - var(--{key})))'
+        end = 32768 if self.mbc1 else self.end
+        return f'max(0, min(1, var(--{key}) - {self.base} + 1, {end} - var(--{key})))'
 
     def readable(self, key, choose, addresses):
         ram = {address: 1 for address in addresses}
@@ -57,6 +59,15 @@ class ROM:
         return f'calc({self.contains(key)} + ({choose(key, ram, 0)}))'
 
     def lookup(self, key, choose, extra=None, valid=None):
+        if self.mbc1:
+            # All five bus lanes translate independently using OLD controller
+            # state. Zero adjustment precedes the physical address-line mask.
+            physical = f'cart-{key}'
+            banks = len(self.data) // 16384
+            self.lookup_expr[physical] = f'calc(mod(var(--{key}),16384) + min(1,round(down,var(--{key}) / 16384)) * mod(max(1,var(--mbc-bank)),{banks}) * 16384)'
+            selected = self.paged_lookup(physical, choose) if self.paged else choose(physical, self.exceptions, self.fill)
+            selected = choose(key, extra or {}, selected)
+            return f'calc(255 + ({valid or self.contains(key)}) * (({selected}) - 255))'
         table = {**self.exceptions, **(extra or {})}
         if not self.compact:
             # Preserve the small embedded cartridges' original lookup graph.

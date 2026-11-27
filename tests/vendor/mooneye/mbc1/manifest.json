@@ -1,0 +1,7 @@
+{
+  "commit": "31510e12eea6286d36eea060a6adde755e1067aa",
+  "files": {
+    "emulator-only/mbc1/rom_512kb.s": "b3b14011775578f7df64e06c169c598582111c8cf6ffa42adebee284613cfd80",
+    "emulator-only/mbc1/rom_1Mb.s": "5c5b5bf75a5206d7fb6f5ca5c377eed4e9420f50e74b09659f62df2c7c7285fc"
+  }
+}

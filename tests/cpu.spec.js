@@ -18,7 +18,9 @@ for (const item of cases) {
 test('original ROM completes its branching RAM diagnostic', async ({page}) => {
   await page.goto('/');
   await page.locator('.power-switch').click();
-  await expect.poll(() => state(page,'halted'), { timeout: 20000 }).toBe(1);
+  // Full-map Streaming commits 24 separate banks; shared CI exceeded 20s
+  // although the generated engine is unchanged. Keep exact result assertions.
+  await expect.poll(() => state(page,'halted'), { timeout: 60000 }).toBe(1);
   expect(await state(page,'fault')).toBe(0);
   expect(await state(page,'m49152')).toBe(16);
   expect(await state(page,'m49153')).toBe(20);

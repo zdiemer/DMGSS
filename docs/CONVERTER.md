@@ -9,7 +9,8 @@ original CPU fixture, not a claim of physical cartridge compatibility.
 
 The loader also offers an original **work RAM sample**. It checks both directions
 of C000–DFFF and its E000–FDFF echo aliases and halts after **24 instructions with A=165**.
-The rest of DMG work RAM remains unsupported.
+An original **MBC1 sample** calls bank 2, then reads bank 1 through zero-bank
+translation. It halts after **13 instructions with A=17 and RAM C000=42**.
 
 ## The caveat
 
@@ -46,8 +47,9 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
 
 ## Current limits
 
-- `gb`: exactly 32,768 bytes mapped at 0000–7FFF. Header cartridge type, ROM size
-  and RAM size must all be 00 (ROM ONLY, 32 KiB, no cartridge RAM). CGB-only ROMs
+- `gb`: ROM ONLY (type 00) at 32 KiB, or MBC1 (type 01) at 32, 64 or
+  128 KiB. ROM header size 00/01/02 must match the exact file length; RAM size
+  must be 00. Larger ROMs, RAM/battery types and other controllers are rejected. CGB-only ROMs
   are rejected. Logo and header checksums are not a boot/compatibility test and
   are not enforced. See [Pan Docs](https://gbdev.io/pandocs/The_Cartridge_Header.html).
 - `raw`: 1–4,096 bytes, loaded at 0100. No header is interpreted.
@@ -62,7 +64,8 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   Worst-case 32 KiB files are checked against HTML budgets of 12 MiB (Compatible),
   24 MiB (Automatic) and 96 MiB (Manual). Full work RAM makes even small programs
   large documents; manual pages can be slow on memory-constrained devices.
-- Server requests are limited to 64 KiB including multipart/form overhead.
+  The 128 KiB MBC1 budgets are 32, 40 and 104 MiB respectively.
+- Server requests are limited to 192 KiB including multipart/form overhead.
 - PC starts at 0100; CPU registers including SP start at zero. IF reads E0, SC reads 7E and
   TAC reads F8 initially because their unused bits read as one; IE and IME are zero. No boot ROM or
   post-boot state is synthesized. The CPU still supports 243 unprefixed and 256 CB-prefixed instructions, 8 KiB
@@ -72,7 +75,7 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   interrupts, including HALT wakeup, are supported at M-cycle boundaries.
   Disconnected SB/SC transfers and a 16-byte serial output monitor are supported;
   a full byte needs multiple batches. Clock phase and bus-write timing remain approximate.
-  Banking, full graphics, cable peers, joypad and audio are unimplemented. Unknown instructions and unmapped
+  Larger cartridge banking, cartridge RAM, full graphics, cable peers, joypad and audio are unimplemented. Unknown instructions and unmapped
   accesses trap. HALTED means the program halted, not that a game is compatible.
 
 The online result is also self-contained for execution. Reset resubmits its
@@ -97,3 +100,11 @@ Machine inspector shows 31 instructions and A=165 (decimal); the program also
 writes 165 to RAM C002. Imported
 pages deliberately show HALTED rather than TEST PASSED. This is a lookup test,
 not a whole-ROM compatibility suite or a game.
+
+MBC1 starts with its five-bit ROM register at zero (effective bank 1). Writes
+to 2000–3FFF change that register. Zero translation happens before masking to
+the connected ROM address lines, so nonzero selections can map physical bank 0.
+Other MBC1 control writes are accepted but have no observable effect for these
+small cartridges without RAM. A000–BFFF remains an explicit unsupported-access
+trap; open-bus behavior is not modeled. Each fetch/data lane uses the old bank,
+and the next instruction sees a successful bank write. See [MBC1](https://gbdev.io/pandocs/MBC1.html).

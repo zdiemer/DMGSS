@@ -312,6 +312,11 @@ def machine(rom, storage, arithmetic=False, work_words=WORDS, accelerated=True):
         'valid2': 'calc(var(--writing) * var(--writable2) + (1 - var(--writing)) * var(--readable2))',
         'read2': lookup('bus-address2', read_memory, 'var(--readable2)'),
     }
+    if rom.mbc1:
+        # The supported small ROM-only MBC1 has no connected RAM or upper
+        # bank lines. Writes to those control ranges are accepted no-ops.
+        for suffix in ('', '2'):
+            expr[f'writable{suffix}'] = f'calc(({expr[f"writable{suffix}"]}) + ({rom.contains("bus-address"+suffix)}))'
     immediates = (0xC6,0xCE,0xD6,0xDE,0xE6,0xEE,0xF6,0xFE)
     operand = choose('alu-index', {i: f'var(--{reg})' if reg else 'var(--read)' for i, reg in enumerate(REGS)}, 0)
     logic = {}
@@ -438,6 +443,16 @@ def machine(rom, storage, arithmetic=False, work_words=WORDS, accelerated=True):
             result = result.replace(f'var(--{name})', 'var(--hardware-if)')
             result = f'calc(224 + mod(({result}),32))'
         states[name] = (224 if addr == IF else 0, result)
+    if rom.mbc1:
+        hit = lambda suffix: f'max(0,min(1,var(--bus-address{suffix}) - 8191,16384 - var(--bus-address{suffix})))'
+        first, second = hit(''), f'var(--word) * ({hit("2")})'
+        # LD [nn],SP writes low then high; pushes/IRQ write high then low.
+        # Validate the whole transfer first, as for all existing word writes.
+        high_last = equals('opcode', 8)
+        use_first = f'({first}) * (1 - ({high_last}) * ({second}))'
+        use_second = f'({second}) * (1 - (1 - ({high_last})) * ({first}))'
+        result = f'calc(var(--mbc-bank) + var(--enabled) * var(--writing) * (({use_first}) * (mod(var(--write),32) - var(--mbc-bank)) + ({use_second}) * (mod(var(--write2),32) - var(--mbc-bank))))'
+        states['mbc-bank'] = (0, result)
     states.update(timer_states)
     states.update(serial_states)
     css += storage(states)

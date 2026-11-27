@@ -20,18 +20,17 @@ runs the `dmgss-converter` image at the same version: two Gunicorn workers handl
 is not exposed by the Service. No new public route bypasses authentication.
 
 `./build.sh` builds/pushes both Docker targets (`web` and `converter`). nginx
-limits and buffers upload bodies to 64 KiB; responses are not spilled to disk.
+limits and buffers upload bodies to 192 KiB; responses are not spilled to disk.
 HTML and CSS are compressed in transit when the browser accepts gzip.
-The converter has a separate 192 MiB memory-backed `/tmp` and a read-only root
+The converter has a separate 224 MiB memory-backed `/tmp` and a read-only root
 filesystem. Temporary generated files are removed before returning the response;
 no ROM/artifact volume or database is used. Both containers must be ready for a
 pod to receive traffic. Changing either image requires a fresh shared tag.
 
-Full work RAM makes the worst-case dense checkpoint document about 81 MiB.
-A fresh converter process peaked around 541 MiB RSS for that document. The
-converter requests 256 MiB and allows 1,536 MiB for two workers plus tmpfs.
-The 192 MiB temporary volume accommodates two simultaneous worst-case generated
-pages. Files remain request-local and are removed before returning the response.
+A worst-case dense 128 KiB MBC1 checkpoint document is about 100 MiB.
+The converter requests 256 MiB and allows 2,304 MiB for two workers plus tmpfs.
+The 224 MiB temporary volume accommodates two simultaneous generated pages.
+Files remain request-local and are removed before returning the response.
 
 Bump Chart.yaml version/appVersion and values.yaml image.tag together before
 building changed image inputs. Never reuse tags with IfNotPresent. Merge the app

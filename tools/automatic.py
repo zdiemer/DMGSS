@@ -9,6 +9,7 @@ from portable import storage
 
 
 def modulus(name):
+    if name == 'mbc-bank': return 32
     if name.startswith('wram'): return 65536
     if name == 'serial-phase': return 512
     if name == 'serial-bits': return 8

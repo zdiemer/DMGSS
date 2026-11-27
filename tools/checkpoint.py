@@ -12,6 +12,7 @@ def counter_rom():
 
 
 def width(name):
+    if name == 'mbc-bank': return 5
     return 16 if name.startswith('wram') else WIDTHS.get(name,8)
 
 

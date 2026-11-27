@@ -25,7 +25,7 @@ class ConverterTests(unittest.TestCase):
         for data, format in [(b'', 'raw'), (bytes(4097), 'raw'), (b'\x76', 'gb'), (bytes(32769), 'gb'), (b'\x76', 'other')]:
             with self.subTest(format=format, size=len(data)), self.assertRaises(ConversionError):
                 load_rom(data, format)
-        for offset, value in [(0x147, 1), (0x148, 1), (0x149, 2), (0x143, 0xC0)]:
+        for offset, value in [(0x147, 2), (0x148, 1), (0x149, 2), (0x143, 0xC0)]:
             data = bytearray(sample_rom()); data[offset] = value
             with self.subTest(offset=offset), self.assertRaises(ConversionError):
                 load_rom(data, 'gb')
