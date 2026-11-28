@@ -143,6 +143,9 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Inactive manual bits must update only the comparison UI. Keep native sibling
   selectors (no :has), local raw-bit resets and separate input/copy stylesheets
   so large selector tables remain within browser limits.
+  Name the checkpoint selector container and target it explicitly from the
+  grouped page/slot/commit queries. Chromium can cache hidden page 0 after
+  accessibility reads beneath powered-off controls; query a stable ancestor.
   Preserve the controls' source-order reading-flow scope: Chromium otherwise
   stalls on Tab traversal to high-index bits. Test native keyboard saves and commit.
 

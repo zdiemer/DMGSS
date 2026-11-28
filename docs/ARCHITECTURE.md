@@ -726,3 +726,8 @@ cycles when an instruction both reads and writes I/O. Explicit IF writes win.
 The converter only emits this generic circuit and ROM bytes; the browser
 computes every transition. See [compatibility limits](COMPATIBILITY.md#lcd-timing-foundation-0210)
 for the fixed-mode timing and deferred hardware quirks.
+
+Manual UI queries now target the named `checkpoint-copy` container outside the
+hidden controls. Pre-run accessibility inspection could otherwise leave Chromium
+using a hidden ancestor for group 0 and suppress its save button after Run. The
+LCD manual lab deliberately exercises that inspection before native copying.

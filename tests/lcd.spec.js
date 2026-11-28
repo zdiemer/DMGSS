@@ -13,6 +13,8 @@ for(const mode of ['automatic','checkpoint','streaming'])test(`LCD lab wakes HAL
   test.setTimeout(mode==='checkpoint'?300000:180000);
   const prefix=mode==='streaming'?'':`/${mode}`;
   await page.goto(`${prefix}/lcd/`);
+  // Deliberately inspect accessibility before Run: Chromium used to cache
+  // group 0 as hidden when the manual save controls were still powered off.
   await expect(page.getByRole('link',{name:'LCD timing',exact:true})).toHaveAttribute('aria-current','page');
   await page.locator('.power-switch').click();
   if(mode==='checkpoint')await copy(page);
@@ -35,9 +37,7 @@ async function copy(page){
     const state=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
     if(!state['copy-remaining'])break;
     expect(count++).toBeLessThan(200); // This fixture changes only a small number of bits.
-    // Native users activate the visible save control. Container queries may
-    // settle a frame after readback when resuming this large input bank.
-    await page.locator('.copy-page:visible').locator(`.copy-control.bank${1-state['bank-phase']}:visible`).click();
+    await page.locator(`.bank${1-state['bank-phase']}.copy-${state['copy-index']}`).click();
     await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(state['copy-remaining']-1);
     expect(await read(page,keys)).toEqual(before);
     if(count===1){
