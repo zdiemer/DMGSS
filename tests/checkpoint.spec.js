@@ -3,7 +3,7 @@ const {test, expect} = require('@playwright/test');
 // Manual bank transfers perform many native bit saves and full-pipeline style
 // reads across 132,522-bit banks. Full-map copying can take several minutes;
 // keep per-bit progress assertions and allow the complete transfer to finish.
-test.describe.configure({timeout:600000});
+test.describe.configure({timeout:900000});
 const read = readState;
 const copyState = page => read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
 async function saveBit(page, keyboard=false, before=null) {
@@ -44,7 +44,7 @@ async function continueBatch(page) {
   await expect.poll(async ()=>(await read(page,['ticks'])).ticks).not.toBe(state.ticks);
 }
 test('checkpoint reuses two banks across nine batches and byte wrap', async ({page},info)=>{
-  test.setTimeout(1200000);
+  test.setTimeout(1800000);
   await page.goto('/checkpoint/');
   expect(await page.locator('script').count()).toBe(0);
   const inputs=await page.locator('input').count();

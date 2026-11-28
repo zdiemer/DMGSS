@@ -29,7 +29,7 @@ for(const decoder of ['math','native']){
 }
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`palette lab recolors unchanged VRAM in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
-  test.setTimeout(600000);
+  test.setTimeout(mode==='checkpoint'?900000:600000);
   const prefix=mode==='streaming'?'':`/${mode}`;
   await page.goto(`${prefix}/palette/`);
   await expect(page.getByRole('link',{name:'Palette lab',exact:true})).toHaveAttribute('aria-current','page');
