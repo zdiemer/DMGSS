@@ -75,6 +75,9 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   interrupts, including HALT wakeup, are supported at M-cycle boundaries.
   Disconnected SB/SC transfers and a 16-byte serial output monitor are supported;
   a full byte needs multiple batches. Clock phase and bus-write timing remain approximate.
+  LCDC starts off; STAT reads 84. LCDC/STAT/LY/LYC, VBlank and STAT requests
+  use fixed-duration scanlines, including HALT waits. Pixel rendering, LCD
+  startup quirks, STAT write glitches and VRAM/OAM bus restrictions are absent.
   Larger cartridge banking, cartridge RAM, full graphics, cable peers, joypad and audio are unimplemented. Unknown instructions and unmapped
   accesses trap. HALTED means the program halted, not that a game is compatible.
 

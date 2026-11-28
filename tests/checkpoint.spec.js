@@ -1,7 +1,7 @@
 const {readState}=require('./helpers/state');
 const {test, expect} = require('@playwright/test');
 // Manual bank transfers perform many native bit saves and full-pipeline style
-// reads across 67,056-bit banks. Full-map copying can take several minutes;
+// reads across 67,106-bit banks. Full-map copying can take several minutes;
 // keep per-bit progress assertions and allow the complete transfer to finish.
 test.describe.configure({timeout:600000});
 const read = readState;
@@ -30,7 +30,7 @@ async function continueBatch(page) {
   let saved = 0;
   let pending=await copyState(page);
   while (pending['copy-remaining']) {
-    expect(saved++).toBeLessThan(67056);
+    expect(saved++).toBeLessThan(67106);
     await expect(page.locator('.commit-control')).not.toBeVisible();
     // Reuse the snapshot already asserted after the preceding native save.
     // Reading the same 128-stage pipeline again adds no coverage.
@@ -48,7 +48,7 @@ test('checkpoint reuses two banks across nine batches and byte wrap', async ({pa
   await page.goto('/checkpoint/');
   expect(await page.locator('script').count()).toBe(0);
   const inputs=await page.locator('input').count();
-  expect(inputs).toBe(134114); // 2 × 67056 bits, commit, power; no growing trace.
+  expect(inputs).toBe(134214); // 2 × 67106 bits, commit, power; no growing trace.
   await page.locator('.power-switch').click();
   for(let batch=1;batch<=9;batch++) {
     expect(await read(page,['ticks','pc','a','m49152','halted','fault'])).toEqual({ticks:batch*128,pc:256,a:(batch*32)%256,m49152:(batch*32)%256,halted:0,fault:0});

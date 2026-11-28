@@ -13,6 +13,7 @@ from bits import bits_rom
 from high import high_rom, high_continuation, high_fill
 from interrupts import interrupt_rom, interrupt_continuation
 from timers import timer_rom
+from lcd_lab import lcd_rom, boundary_rom as lcd_boundary, boundary_seed as lcd_seed, blocked_rom as lcd_blocked, blocked_seed as lcd_blocked_seed
 from serial_io import monitor_html
 from serial_lab import serial_rom, boundary_rom as serial_boundary, boundary_seed as serial_seed
 from rom import ROM
@@ -27,10 +28,10 @@ def current_cartridge(html, path):
     return re.sub(r'<nav class="cartridges".*?</nav>', mark, html)
 
 
-def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False, interrupts=False, timers=False, serial=False, initial=None, steps=portable.STEPS):
+def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False, interrupts=False, timers=False, serial=False, lcd=False, initial=None, steps=portable.STEPS):
     out = out or ROOT / 'dist'
     if not bounded:
-        cartridge = next((name for name,selected in [('serial',serial),('timers',timers),('interrupts',interrupts),('high',high),('bits',bits),('alu',alu),('stack',stack)] if selected), 'diagnostic')
+        cartridge = next((name for name,selected in [('lcd',lcd),('serial',serial),('timers',timers),('interrupts',interrupts),('high',high),('bits',bits),('alu',alu),('stack',stack)] if selected), 'diagnostic')
         return build_automatic(diagnostic() if rom is None else rom, out, tile=tile, cartridge=cartridge, initial=initial, streaming=True)
     if out.exists():
         shutil.rmtree(out)
@@ -51,6 +52,9 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         html = html.replace('SYSTEM DIAGNOSTIC', 'BITS / ROTATE + SHIFT')
     if interrupts:
         html = html.replace('SYSTEM DIAGNOSTIC', 'INTERRUPTS / REQUEST + RETURN')
+    if lcd:
+        html = html.replace('SYSTEM DIAGNOSTIC', 'LCD / SCANLINE + WAKE')
+        html = html.replace('</aside>', '<p class="lcd-note">LCD lab waits for scanline 2, then wakes through a STAT interrupt. It needs multiple batches: <a href="/automatic/lcd/">use automatic mode</a> or save manual checkpoints. Compatible mode stops while waiting. This is fixed-duration LCD timing; pixels, scrolling, sprites and DMA are not rendered yet.</p></aside>')
     if serial:
         html = html.replace('SYSTEM DIAGNOSTIC', 'SERIAL / SEND + RECEIVE')
         html = html.replace('<details class="serial-monitor">', '<details class="serial-monitor" open>')
@@ -66,24 +70,24 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         html = html.replace('</head>', '<link rel="stylesheet" href="portable.css"></head>')
         html = html.replace('POWER ON', 'RUN').replace('POWER OFF', 'RESET VIEW').replace('class="start">POWER', 'class="start">RUN / RESET')
         html = html.replace('STREAMING MODE / TILE MEMORY', 'COMPATIBLE MODE / 128 STEPS')
-        html = html.replace('href="/"', 'href="/portable/"').replace('href="/tile/"', 'href="/portable/tile/"').replace('href="/stack/"', 'href="/portable/stack/"').replace('href="/alu/"', 'href="/portable/alu/"').replace('href="/bits/"', 'href="/portable/bits/"').replace('href="/high/"', 'href="/portable/high/"').replace('href="/interrupts/"', 'href="/portable/interrupts/"').replace('href="/timers/"', 'href="/portable/timers/"').replace('href="/serial/"', 'href="/portable/serial/"')
+        html = html.replace('href="/"', 'href="/portable/"').replace('href="/tile/"', 'href="/portable/tile/"').replace('href="/stack/"', 'href="/portable/stack/"').replace('href="/alu/"', 'href="/portable/alu/"').replace('href="/bits/"', 'href="/portable/bits/"').replace('href="/high/"', 'href="/portable/high/"').replace('href="/interrupts/"', 'href="/portable/interrupts/"').replace('href="/timers/"', 'href="/portable/timers/"').replace('href="/serial/"', 'href="/portable/serial/"').replace('href="/lcd/"', 'href="/portable/lcd/"')
         html = html.replace('<a href="/portable/">Switch to compatible mode</a>', '<a href="/">Switch to streaming mode</a>')
         html = html.replace('>RUNNING<', '>STEP LIMIT<').replace('CPU WRITING VRAM', '128-STEP LIMIT')
         html = html.replace('Testing CSS state storage…', 'Evaluating CSS stages…')
         html = html.replace('READY WHEN YOU ARE', 'UP TO 128 INSTRUCTIONS')
         html = html.replace('The clock and state live in your browser’s stylesheet engine. No JavaScript. No hidden emulator.', 'Your browser executes the ROM through 128 CSS stages. No JavaScript. No execution trace generated ahead of time.')
-        html = re.sub(r'<div class="compat-warning">.*?</div>', '<div class="compat-warning"><strong>Bounded execution: 128 instructions.</strong> Run evaluates the cartridge in CSS. Quiescent HALT and faults stop it early; timer waits also consume the batch budget. A loop reaches the step limit; this mode cannot run games indefinitely. Tested in WebKit and reported working in iOS Chrome.</div>', html)
+        html = re.sub(r'<div class="compat-warning">.*?</div>', '<div class="compat-warning"><strong>Bounded execution: 128 instructions.</strong> Run evaluates the cartridge in CSS. Quiescent HALT and faults stop it early; peripheral waits also consume the batch budget. A loop reaches the step limit; this mode cannot run games indefinitely. Tested in WebKit and reported working in iOS Chrome.</div>', html)
         html = re.sub(r'<div class="unsupported-screen">.*?</div>', '<div class="unsupported-screen"><strong>CSS SUPPORT NEEDED</strong><span>Please update your browser.</span><span>This mode needs CSS math and style queries.</span></div>', html)
         html = html.replace('INSTRUCTIONS EXECUTED', 'INSTRUCTIONS / MAX 128')
         html = html.replace('</aside>', '<p class="checkpoint-link"><a href="/checkpoint/">Try manual checkpoints →</a></p></aside>')
         html = html.replace('Reset reloads the machine. Nothing is saved.', 'Reset view clears the run. Cartridge state is not saved.')
         (out / 'machine.css').write_text(portable.stylesheet(program, initial=initial))
-    active = ('/portable' if bounded else '') + ('/serial/' if serial else '/timers/' if timers else '/interrupts/' if interrupts else '/high/' if high else '/bits/' if bits else '/alu/' if alu else '/stack/' if stack else '/tile/' if tile else '/')
+    active = ('/portable' if bounded else '') + ('/lcd/' if lcd else '/serial/' if serial else '/timers/' if timers else '/interrupts/' if interrupts else '/high/' if high else '/bits/' if bits else '/alu/' if alu else '/stack/' if stack else '/tile/' if tile else '/')
     (out / 'index.html').write_text(current_cartridge(html, active))
 
 
 def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
-    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial')
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial', lcd=cartridge == 'lcd')
     css, commit, inputs, controls, readers, input_css, copy_css = checkpoint.generate(rom, initial=initial)
     (out / 'machine.css').write_text(css)
     # Keep each stylesheet below Chromium's per-sheet selector budget.
@@ -108,20 +112,21 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
     html = html.replace('href="/portable/interrupts/"', 'href="/checkpoint/interrupts/"')
     html = html.replace('href="/portable/timers/"', 'href="/checkpoint/timers/"')
     html = html.replace('href="/portable/serial/"', 'href="/checkpoint/serial/"')
-    active = '/checkpoint/serial/' if cartridge == 'serial' else '/checkpoint/timers/' if cartridge == 'timers' else '/checkpoint/interrupts/' if cartridge == 'interrupts' else '/checkpoint/high/' if cartridge == 'high' else '/checkpoint/bits/' if cartridge == 'bits' else '/checkpoint/alu/' if cartridge == 'alu' else '/checkpoint/stack/' if cartridge == 'stack' else '/checkpoint/tile/' if tile else '/checkpoint/diagnostic/' if cartridge == 'diagnostic' else '/checkpoint/'
+    html = html.replace('href="/portable/lcd/"', 'href="/checkpoint/lcd/"')
+    active = '/checkpoint/lcd/' if cartridge == 'lcd' else '/checkpoint/serial/' if cartridge == 'serial' else '/checkpoint/timers/' if cartridge == 'timers' else '/checkpoint/interrupts/' if cartridge == 'interrupts' else '/checkpoint/high/' if cartridge == 'high' else '/checkpoint/bits/' if cartridge == 'bits' else '/checkpoint/alu/' if cartridge == 'alu' else '/checkpoint/stack/' if cartridge == 'stack' else '/checkpoint/tile/' if tile else '/checkpoint/diagnostic/' if cartridge == 'diagnostic' else '/checkpoint/'
     html = current_cartridge(html, active)
     if cartridge == 'counter' and not tile:
         html = html.replace('SYSTEM DIAGNOSTIC', 'RAM C000: <span class="checkpoint-memory"></span>')
     html = html.replace('<a href="/">Switch to streaming mode</a>', '<a href="/portable/">Back to compatible mode</a>')
     html = html.replace('<div><dt>F</dt>', '<div><dt>RAM C000</dt><dd class="checkpoint-memory"></dd></div><div><dt>F</dt>')
-    html = re.sub(r'<div class="compat-warning">.*?</div>', '<div class="compat-warning"><strong>Manual checkpoint experiment.</strong> Each run executes up to 128 instructions. Save each changed bit, then tap Run next 128 to continue from that state. Timer waits also consume batch steps. Several taps may be needed; there is no automatic copying. Pause keeps stored banks; Reset clears everything. The total counter wraps at 65,536. This new mode still needs iOS verification.</div>', html)
+    html = re.sub(r'<div class="compat-warning">.*?</div>', '<div class="compat-warning"><strong>Manual checkpoint experiment.</strong> Each run executes up to 128 instructions. Save each changed bit, then tap Run next 128 to continue from that state. Peripheral waits also consume batch steps. Several taps may be needed; there is no automatic copying. Pause keeps stored banks; Reset clears everything. The total counter wraps at 65,536. This new mode still needs iOS verification.</div>', html)
     html = html.replace('Reset view clears the run. Cartridge state is not saved.', 'State lives in native checkbox controls. Reset clears the banks; there is no save-file persistence.')
     html = html.replace('Embedded diagnostic: loads, arithmetic, branches and RAM.', 'Counter cartridge: repeatedly increments RAM C000, wrapping at 255. CPU check runs the original diagnostic.')
     (out / 'index.html').write_text(html)
 
 
 def build_automatic(rom, out, tile=False, cartridge="counter", initial=None, streaming=False):
-    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial', steps=1 if streaming else portable.STEPS)
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial', lcd=cartridge == 'lcd', steps=1 if streaming else portable.STEPS)
     # Keep the shared shell's streaming-mode visibility/clock rules below this
     # mode's rules, including when its capability gate fails.
     shell = (out / 'style.css').read_text()
@@ -151,7 +156,8 @@ def build_automatic(rom, out, tile=False, cartridge="counter", initial=None, str
     html = html.replace('href="/portable/interrupts/"', 'href="/automatic/interrupts/"')
     html = html.replace('href="/portable/timers/"', 'href="/automatic/timers/"')
     html = html.replace('href="/portable/serial/"', 'href="/automatic/serial/"')
-    active = '/automatic/serial/' if cartridge == 'serial' else '/automatic/timers/' if cartridge == 'timers' else '/automatic/interrupts/' if cartridge == 'interrupts' else '/automatic/high/' if cartridge == 'high' else '/automatic/bits/' if cartridge == 'bits' else '/automatic/alu/' if cartridge == 'alu' else '/automatic/stack/' if cartridge == 'stack' else '/automatic/tile/' if tile else '/automatic/diagnostic/' if cartridge == 'diagnostic' else '/automatic/'
+    html = html.replace('href="/portable/lcd/"', 'href="/automatic/lcd/"')
+    active = '/automatic/lcd/' if cartridge == 'lcd' else '/automatic/serial/' if cartridge == 'serial' else '/automatic/timers/' if cartridge == 'timers' else '/automatic/interrupts/' if cartridge == 'interrupts' else '/automatic/high/' if cartridge == 'high' else '/automatic/bits/' if cartridge == 'bits' else '/automatic/alu/' if cartridge == 'alu' else '/automatic/stack/' if cartridge == 'stack' else '/automatic/tile/' if tile else '/automatic/diagnostic/' if cartridge == 'diagnostic' else '/automatic/'
     html = current_cartridge(html, active)
     if cartridge == 'counter' and not tile:
         html = html.replace('SYSTEM DIAGNOSTIC', 'RAM C000: <span class="automatic-memory"></span>')
@@ -220,7 +226,18 @@ if __name__ == '__main__':
     build(serial_rom(), ROOT / 'dist/portable/serial', bounded=True, serial=True)
     build_checkpoint(serial_rom(), ROOT / 'dist/checkpoint/serial', cartridge='serial')
     build_automatic(serial_rom(), ROOT / 'dist/automatic/serial', cartridge='serial')
+    build(lcd_rom(), ROOT / 'dist/lcd', lcd=True)
+    build(lcd_rom(), ROOT / 'dist/portable/lcd', bounded=True, lcd=True)
+    build_checkpoint(lcd_rom(), ROOT / 'dist/checkpoint/lcd', cartridge='lcd')
+    build_automatic(lcd_rom(), ROOT / 'dist/automatic/lcd', cartridge='lcd')
     if args.fixtures:
+        build_checkpoint(lcd_blocked(), ROOT / 'dist/checkpoint/tests/lcd-blocked', initial=lcd_blocked_seed())
+        import lcd_fixtures
+        lcd_fixtures.build(ROOT / 'dist/tests/lcd')
+        build_checkpoint(lcd_boundary(), ROOT / 'dist/checkpoint/tests/lcd-boundary', initial=lcd_seed())
+        build_automatic(lcd_boundary(), ROOT / 'dist/automatic/tests/lcd-boundary', initial=lcd_seed())
+        build_automatic(ROM([0x76]), ROOT / 'dist/automatic/tests/lcd-idle', initial={'halted':1,'m65344':128,'m65345':134})
+
         import work_ram_fixtures
         work_ram_fixtures.build(build_automatic, ROOT / "dist/automatic/tests/full-ram")
         build(work_ram_fixtures.fallback_code(), ROOT / "dist/portable/tests/full-ram-fallback", bounded=True)

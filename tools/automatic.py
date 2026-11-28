@@ -11,6 +11,8 @@ from portable import storage
 def modulus(name):
     if name == 'mbc-bank': return 32
     if name.startswith('wram'): return 65536
+    if name == 'lcd-dot': return 512
+    if name == 'lcd-stat': return 2
     if name == 'serial-phase': return 512
     if name == 'serial-bits': return 8
     if name == 'serial-length': return 32
@@ -116,7 +118,7 @@ def generate(rom, initial=None, arithmetic=True):
     # Commit a halted/faulted RESULT before stopping. A halted SOURCE may still
     # wake on an enabled request or advance a live peripheral / pending reload.
     pending = ' + '.join(f'mod(round(down,var(--seed-m65295) / {1<<bit}),2) * mod(round(down,var(--seed-m65535) / {1<<bit}),2)' for bit in range(5))
-    pending += ' + mod(round(down,var(--seed-m65287) / 4),2) + var(--seed-timer-reload) + round(down,var(--seed-m65282) / 128) * mod(var(--seed-m65282),2)'
+    pending += ' + mod(round(down,var(--seed-m65287) / 4),2) + var(--seed-timer-reload) + round(down,var(--seed-m65282) / 128) * mod(var(--seed-m65282),2) + round(down,var(--seed-m65344) / 128)'
     rules.append('.auto-output {--enabled-copy:calc(var(--run) * (1 - max(var(--seed-halted) * (1 - min(1,' + pending + ')), var(--seed-fault))));' +
                  '--ready:calc(1 - min(1, ' + ' + '.join(differences) + '));}')
     rules.append('body[data-automatic] .machine {' + ''.join(display) + '}')
