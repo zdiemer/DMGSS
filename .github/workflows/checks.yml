@@ -15,24 +15,35 @@ jobs:
       - name: Reject plaintext deployment values
         run: test -z "$(git ls-files '*values.local.yaml')"
   browser:
-    name: browser (${{ matrix.project }}, ${{ matrix.suite }}, ${{ matrix.shard }}/2)
+    name: browser (${{ matrix.project }}, ${{ matrix.suite }}, ${{ matrix.shard }}/${{ matrix.total_shards }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         project: [desktop, chromium-mobile, webkit-mobile]
         suite: [compute, automatic, checkpoint, integration]
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
+        exclude:
+          - {suite: automatic, shard: 3}
+          - {suite: automatic, shard: 4}
+          - {suite: checkpoint, shard: 3}
+          - {suite: checkpoint, shard: 4}
         # Manual transfers alone can take 26 minutes on shared runners. Keep
-        # each retention file independent; every new spec joins integration.
+        # each retention file independent. Full-map CPU/integration suites
+        # exceed an hour with two shards; split them four ways without changing
+        # coverage or the one-browser-per-runner memory bound.
         include:
           - suite: compute
+            total_shards: 4
             file_filter: '(^|/)(cpu|conformance|portable)\.spec\.js$'
           - suite: automatic
+            total_shards: 2
             file_filter: '(^|/)automatic\.spec\.js$'
           - suite: checkpoint
+            total_shards: 2
             file_filter: '(^|/)checkpoint\.spec\.js$'
           - suite: integration
+            total_shards: 4
             file_filter: '(^|/)(?!(cpu|conformance|portable|automatic|checkpoint)\.spec\.js$)[^/]+\.spec\.js$'
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +71,7 @@ jobs:
       - run: npx playwright install --with-deps chromium webkit
         timeout-minutes: 10
       - run: sudo apt-get install -y shared-mime-info
-      - run: npx playwright test --reporter=list --project=${{ matrix.project }} --shard=${{ matrix.shard }}/2 '${{ matrix.file_filter }}'
+      - run: npx playwright test --reporter=list --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.total_shards }} '${{ matrix.file_filter }}'
   converter:
     runs-on: ubuntu-latest
     steps:

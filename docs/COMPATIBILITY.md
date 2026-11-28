@@ -426,7 +426,11 @@ background/window rendering, OAM, sprites and DMA remain unimplemented. Resource
 requirements have grown. Individual WebKit probes passed with a 4 GiB container
 limit, but running Manual followed by the full-map Automatic test in one browser
 run exceeded that cap. The same sequence passed with a 6 GiB limit and a measured
-4.25 GiB peak (including the test runner/server), without OOM events. Keep this
-transition headroom in future probes. Chromium's full mobile suite passed under
-4 GiB. Manual is especially memory-heavy; prefer Compatible or Automatic mode
+4.25 GiB peak (including the test runner/server), without OOM events. A sample
+and dense 128 KiB Manual upload/reset sequence also passed under 6 GiB, peaking
+at 5.24 GiB including its local converter. Keep this transition headroom in
+future probes. Chromium's complete VRAM mobile suite passed under 4 GiB, but
+the Manual palette-to-dense-ROM sequence exceeded that cap. Individual passes
+do not establish a general 4 GiB browser budget.
+Manual is especially memory-heavy; prefer Compatible or Automatic mode
 on constrained devices. Linux WebKit coverage is not real-device iOS approval.

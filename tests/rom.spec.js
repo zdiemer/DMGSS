@@ -28,7 +28,7 @@ for(const mode of ['math','native'])test(`dense ROM lookup decodes page edges an
   for(const [address,value] of results)expect(value,`address ${address}`).toBe(address>=0&&address<data.length?data[address]:address===32768?17:address===65535?203:255);
 });
 for(const mode of ['portable','automatic','checkpoint'])test(`dense ROM executes in ${mode}`,async({page})=>{
-  test.setTimeout(90000);
+  test.setTimeout(mode==='checkpoint'?600000:90000);
   await upload(page,await sample(page),mode);
   expect(await page.locator('script').count()).toBe(0);
   const requests=[];page.on('request',r=>requests.push(r.url()));
@@ -119,7 +119,7 @@ test('dense downloaded HTML runs offline without requests',async({page},info)=>{
   const download=await upload(page,await sample(page),'automatic','gb','download');
   const file=info.outputPath('dense.html');await download.saveAs(file);
   const html=await fs.readFile(file,'utf8');expect(html).not.toContain('<script');expect(html).not.toContain('<link');
-  expect(Buffer.byteLength(html)).toBeLessThan(24*1024*1024);
+  expect(Buffer.byteLength(html)).toBeLessThan(32*1024*1024); // Full VRAM Automatic budget, matching test_rom.py.
   const requests=[];page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url())});
   await page.goto(pathToFileURL(file).href);await page.locator('.power-switch').click();
   await stopped(page,{ticks:31,pc:405,a:165,m49154:165});

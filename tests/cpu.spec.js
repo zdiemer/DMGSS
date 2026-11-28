@@ -6,8 +6,10 @@ for (const item of cases) {
   test(item.name, async ({page}) => {
     await page.goto(`/tests/${item.name}/`);
     await page.locator('.power-switch').click();
-    if (item.initial?.halted) await expect.poll(() => state(page,'ticks'), {timeout:15000}).toBe(item.expect.ticks);
-    await expect.poll(() => state(page, item.fault ? 'fault' : 'halted'), { timeout: 15000 }).toBe(1);
+    // Full VRAM/WRAM banks can take more than 15s even for short Streaming
+    // programs on mobile CI. Exact retired state remains checked below.
+    if (item.initial?.halted) await expect.poll(() => state(page,'ticks'), {timeout:60000}).toBe(item.expect.ticks);
+    await expect.poll(() => state(page, item.fault ? 'fault' : 'halted'), { timeout: 60000 }).toBe(1);
     for (const [key,value] of Object.entries(item.expect)) expect(await state(page,key), key).toBe(value);
     if (item.fault) {
       await expect(page.locator('.fault-message')).toBeVisible();

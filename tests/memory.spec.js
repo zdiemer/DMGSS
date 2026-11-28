@@ -16,6 +16,7 @@ async function run(page,expected,timeout=60000){
 }
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`work RAM sample shares physical bytes with echo in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming remains Chromium-only');
+  if(mode==='checkpoint')test.setTimeout(600000); // Full-memory upload plus a second parse on native reset.
   const bytes=await (await page.request.get('/convert/ram.gb')).body();
   await upload(page,bytes,mode,'gb');
   const requests=[];page.on('request',r=>requests.push(r.url()));

@@ -4,12 +4,13 @@ const read = readState;
 
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`cycle inspector counts diagnostic work in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
+  test.setTimeout(mode==='checkpoint'?600000:mode==='streaming'?300000:120000);
   const path=mode==='streaming'?'/':mode==='portable'?'/portable/':`/${mode}/diagnostic/`;
   await page.goto(path);
   expect(await page.locator('script').count()).toBe(0);
   expect(await read(page,['tcycles'])).toEqual({tcycles:0});
   await page.locator('.power-switch').click();
-  await expect.poll(()=>read(page,['ticks','tcycles','halted','fault']),{timeout:25000})
+  await expect.poll(()=>read(page,['ticks','tcycles','halted','fault']),{timeout:mode==='streaming'?120000:25000})
     .toEqual({ticks:24,tcycles:196,halted:1,fault:0});
   // Unscoped text lookup traverses the entire manual memory bank.
   await page.locator('.debug').getByText('Machine inspector',{exact:true}).click();

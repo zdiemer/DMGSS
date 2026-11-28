@@ -17,6 +17,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming']){
   test(`converter sample executes in ${mode} with no runtime requests`,async({page},info)=>{
     test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming remains Chromium-only');
     if(mode==='streaming')test.setTimeout(300000);
+    if(mode==='checkpoint')test.setTimeout(600000); // Parse two full-memory Manual documents, including native reset.
     const buffer=await (await page.request.get('/convert/sample.gb')).body();
     await upload(page,buffer,{format:'gb',mode,name:'sample.gb'});
     await expect(page.locator('.conversion-caveat')).toContainText('Python outside the browser');

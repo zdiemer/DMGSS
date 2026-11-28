@@ -98,6 +98,9 @@ spec:
               port: converter
             initialDelaySeconds: 5
             periodSeconds: 30
+            # Both sync workers can be sending large documents for up to 180s.
+            # Readiness removes busy pods; liveness must not kill valid replies.
+            failureThreshold: 8
           volumeMounts:
             - name: converter-tmp
               mountPath: /tmp

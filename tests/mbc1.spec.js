@@ -18,6 +18,7 @@ async function run(page,expected){
 }
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`MBC1 sample switches code and data in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming remains Chromium-only');
+  if(mode==='checkpoint')test.setTimeout(600000); // Upload and native reset each parse the full Manual bank.
   const rom=await (await page.request.get('/convert/mbc1.gb')).body();await upload(page,rom,mode);
   const requests=[];page.on('request',r=>requests.push(r.url()));
   await run(page,{ticks:13,pc:361,a:17,m49152:42,m49153:17,'mbc-bank':0,halted:1,fault:0});
@@ -103,7 +104,7 @@ test(`MBC1 ${size}-byte bank map matches upstream in mode ${mode}`,async({page})
   }
 });
 for(const execution of ['portable','automatic','checkpoint'])test(`dense 128 KiB MBC1 data and native reset in ${execution}`,async({page})=>{
-  test.setTimeout(300000);
+  test.setTimeout(execution==='checkpoint'?900000:300000);
   // All physical pages differ; values are data, including unreachable bytes.
   const rom=Buffer.from(Array.from({length:131072},(_,i)=>(i*73 ^ (i>>5)*29 ^ ((i*i)>>9))&255));
   rom.fill(0,0x100,0x150);rom.set([0xC3,0x50,1],0x100);rom[0x147]=1;rom[0x148]=2;

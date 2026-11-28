@@ -13,7 +13,7 @@ COPY --from=build /app/tools/ tools/
 COPY --from=build /app/src/ src/
 USER 101:101
 EXPOSE 8090
-CMD ["gunicorn", "--chdir", "/app/tools", "--bind", "0.0.0.0:8090", "--workers", "2", "--no-control-socket", "--timeout", "30", "--max-requests", "100", "--worker-tmp-dir", "/tmp", "--access-logfile", "-", "server:application"]
+CMD ["gunicorn", "--chdir", "/app/tools", "--bind", "0.0.0.0:8090", "--workers", "2", "--no-control-socket", "--timeout", "180", "--max-requests", "100", "--worker-tmp-dir", "/tmp", "--access-logfile", "-", "server:application"]
 
 FROM nginx/nginx-unprivileged:1.31.9-alpine AS web
 COPY nginx.conf /etc/nginx/conf.d/default.conf

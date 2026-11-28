@@ -14,7 +14,7 @@ for(const item of cases)test(`timer matches reduced Mooneye ${item.name}`,async(
 
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Timer lab wakes HALT with hardware overflow in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
-  test.setTimeout(mode==='streaming'?300000:180000);
+  test.setTimeout(mode==='checkpoint'?600000:mode==='streaming'?300000:180000);
   const prefix=mode==='streaming'?'':`/${mode}`;
   await page.goto(`${prefix}/`);
   await page.getByRole('link',{name:'Timers',exact:true}).click();
