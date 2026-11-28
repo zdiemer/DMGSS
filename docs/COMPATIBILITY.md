@@ -430,7 +430,8 @@ run exceeded that cap. The same sequence passed with a 6 GiB limit and a measure
 and dense 128 KiB Manual upload/reset sequence also passed under 6 GiB, peaking
 at 5.24 GiB including its local converter. Keep this transition headroom in
 future probes. Chromium's complete VRAM mobile suite passed under 4 GiB, but
-the Manual palette-to-dense-ROM sequence exceeded that cap. Individual passes
-do not establish a general 4 GiB browser budget.
+the Manual palette-to-dense-ROM sequence exceeded that cap. Its complete
+regression sequence passed under 6 GiB with a 5.60 GiB peak and no OOM events.
+Individual passes do not establish a general 4 GiB browser budget.
 Manual is especially memory-heavy; prefer Compatible or Automatic mode
 on constrained devices. Linux WebKit coverage is not real-device iOS approval.

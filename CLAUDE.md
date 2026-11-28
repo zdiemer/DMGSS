@@ -134,8 +134,9 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   agent. Consecutive full-memory pages need transition headroom: the WebKit
   Manual-to-Automatic probe peaked at 4.25 GiB; a dense 128 KiB Manual upload/reset
   sequence reached 5.24 GiB including its local converter, under a 6 GiB cap.
-  Individual lab cases passed under 4 GiB, but Chromium also exceeded that cap
-  when opening dense ROMs after the Manual palette lab. Check OOM counters as well as assertions.
+  Individual lab cases passed under 4 GiB, but Chromium exceeded that cap when
+  opening dense ROMs after the Manual palette lab; the sequence passed under
+  6 GiB with a 5.60 GiB peak. Check OOM counters as well as assertions.
   Keep explicit document budgets and converter tmpfs/worker headroom.
 - Keep optional CSS if() RAM reads behind feature detection and the math
   fallback testable. Writes use page queries and 256 local typed result slots

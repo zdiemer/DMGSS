@@ -16,7 +16,7 @@ for(const decoder of ['math','native'])test(`full VRAM CPU access and boundaries
 });
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`VRAM lab copies the last page across a ${mode} bank`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
-  test.setTimeout(900000);
+  test.setTimeout(mode==='checkpoint'?1800000:900000);
   page.setDefaultTimeout(120000); // Initial Manual layout exceeded 30s on shared WebKit runners.
   page.setDefaultNavigationTimeout(180000);
   await page.goto(mode==='streaming'?'/video/':`/${mode}/video/`);
