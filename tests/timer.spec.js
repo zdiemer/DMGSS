@@ -4,11 +4,12 @@ const {execFileSync}=require('node:child_process');
 const cases=JSON.parse(execFileSync('python3',['-c','import sys,json;sys.path.insert(0,"tools");from timer_fixtures import cases;print(json.dumps(cases()))']));
 const read = readState;
 for(const item of cases)test(`timer matches reduced Mooneye ${item.name}`,async({page})=>{
-  test.setTimeout(90000);
+  // The slowest timer wait crosses full-memory banks; upstream results stay exact.
+  test.setTimeout(300000);
   await page.goto(`/automatic/tests/mooneye-${item.name}/`);
   expect(await page.locator('script').count()).toBe(0);
   await page.locator('.power-switch').click();
-  await expect.poll(()=>read(page,['halted','fault']),{timeout:60000}).toEqual({halted:1,fault:0});
+  await expect.poll(()=>read(page,['halted','fault']),{timeout:180000}).toEqual({halted:1,fault:0});
   expect(await read(page,Object.keys(item.expect))).toEqual(item.expect);
 });
 

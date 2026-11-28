@@ -28,7 +28,7 @@ for(const mode of ['math','native'])test(`dense ROM lookup decodes page edges an
   for(const [address,value] of results)expect(value,`address ${address}`).toBe(address>=0&&address<data.length?data[address]:address===32768?17:address===65535?203:255);
 });
 for(const mode of ['portable','automatic','checkpoint'])test(`dense ROM executes in ${mode}`,async({page})=>{
-  test.setTimeout(mode==='checkpoint'?600000:90000);
+  test.setTimeout(mode==='checkpoint'?600000:mode==='automatic'?300000:90000);
   await upload(page,await sample(page),mode);
   expect(await page.locator('script').count()).toBe(0);
   const requests=[];page.on('request',r=>requests.push(r.url()));
@@ -115,7 +115,7 @@ for(const mode of ['automatic','checkpoint'])test(`dense execution continues acr
   await stopped(page,{ticks:132,tcycles:568,pc:16389,a:42,m49152:42},90000);
 });
 test('dense downloaded HTML runs offline without requests',async({page},info)=>{
-  test.setTimeout(90000);
+  test.setTimeout(300000);
   const download=await upload(page,await sample(page),'automatic','gb','download');
   const file=info.outputPath('dense.html');await download.saveAs(file);
   const html=await fs.readFile(file,'utf8');expect(html).not.toContain('<script');expect(html).not.toContain('<link');

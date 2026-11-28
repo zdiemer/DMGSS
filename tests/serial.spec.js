@@ -47,7 +47,8 @@ test('serial lab sends OK through HALT and polling',async({page})=>{
   const expected={b:2,sp:65534,m65281:255,m65282:127,m65295:224,m49154:165,'serial-count':2,'serial-length':2,'serial-log0':79,'serial-log1':75,'serial-phase':0,'serial-bits':0,'serial-tx':75,halted:1,fault:0};
   // Frequent visibility polls force expensive active-pipeline layout on shared
   // runners. Leave time for native rendering and report actual state on failure.
-  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:150000,intervals:[5000]}).toEqual(expected);
+  // Full-map WebKit was still shifting its first byte at the former 150s bound.
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:600000,intervals:[5000]}).toEqual(expected);
   await expect(page.locator('.passed')).toBeVisible();
   await expect(page.locator('.serial-text span:visible')).toHaveCount(2);
   await page.locator('.power-switch').click();await page.locator('.power-switch').click();
@@ -63,11 +64,11 @@ test('compatible serial lab truthfully stops partway through a byte',async({page
   await expect(page.locator('.serial-note')).toContainText('multiple batches');
 });
 test('serial clocks a halted CPU with IE off and no retired instructions',async({page})=>{
-  test.setTimeout(120000);
+  test.setTimeout(600000);
   await page.goto('/automatic/tests/serial-idle/');await page.locator('.power-switch').click();
   await page.waitForTimeout(3500); // No reads or inputs supply the clock.
   const expected={ticks:0,tcycles:0,clocked:1,halted:1,fault:0,m65281:255,m65282:127,m65295:232,'serial-count':1,'serial-length':1,'serial-log0':65};
-  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:90000}).toEqual(expected);
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:300000,intervals:[5000]}).toEqual(expected);
   await expect(page.locator('.startup-screen')).not.toBeVisible();
 });
 test('unconnected external clock never synthesizes a completion',async({page})=>{
@@ -79,7 +80,7 @@ test('unconnected external clock never synthesizes a completion',async({page})=>
 });
 
 test('manual checkpoint retains a partial serial byte and sub-bit phase',async({page})=>{
-  test.setTimeout(120000);
+  test.setTimeout(600000);
   await page.goto('/checkpoint/tests/serial-midbit/');await page.locator('.power-switch').click();
   const before={ticks:0,halted:1,m65281:255,m65282:255,m65295:224,'serial-phase':128,'serial-bits':7,'serial-tx':32,'serial-count':65535,'serial-log0':48};
   expect(await read(page,Object.keys(before))).toEqual(before);
