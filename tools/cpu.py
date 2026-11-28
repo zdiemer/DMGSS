@@ -9,8 +9,9 @@ from serial_io import SB, SC, circuit as serial_circuit, monitor_css
 REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
 RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xE000), *range(0xFF80, 0xFFFF)]
 IF, IE = 0xFF0F, 0xFFFF
+BGP = 0xFF47
 NATIVE_SUPPORT = '(width:if(style(--x:1):1px;else:2px))'
-MEMORY = [*RAM, IF, IE, DIV, TIMA, TMA, TAC, SB, SC, *LCD_REGISTERS]
+MEMORY = [*RAM, IF, IE, DIV, TIMA, TMA, TAC, SB, SC, *LCD_REGISTERS, BGP]
 
 
 def choose_native(key, values, default):
@@ -466,7 +467,7 @@ def machine(rom, storage, arithmetic=False, work_words=WORDS, accelerated=True):
     css += storage(states)
     pending = ' + '.join(f'mod(round(down,var(--m{IF}) / {1<<bit}),2) * mod(round(down,var(--m{IE}) / {1<<bit}),2)' for bit in range(5))
     css += '\n.machine{--resume:calc(min(1,' + pending + f' + mod(round(down,var(--m{TAC}) / 4),2) + var(--timer-reload) + round(down,var(--m{SC}) / 128) * mod(var(--m{SC}),2) + round(down,var(--m{LCDC}) / 128)));}}\n'
-    for name in ['pc', 'a', 'b', 'f', 'sp', 'ticks', 'tcycles', *[f'm{i}' for i in (DIV,TIMA,TMA,TAC,SB,SC,*LCD_REGISTERS)]]:
+    for name in ['pc', 'a', 'b', 'f', 'sp', 'ticks', 'tcycles', *[f'm{i}' for i in (DIV,TIMA,TMA,TAC,SB,SC,*LCD_REGISTERS,BGP)]]:
         css += f'.register-{name}::after {{counter-reset:value var(--{name});content:counter(value);}}\n'
     for pair in ('bc', 'de', 'hl'):
         css += f'.register-{pair}::after {{counter-reset:value calc(var(--{pair[0]}) * 256 + var(--{pair[1]}));content:counter(value);}}\n'
@@ -491,26 +492,37 @@ TILE = [
 ]
 
 
-def tile_rom():
-    """A pointer loop copies original 2bpp ROM data to VRAM at runtime."""
+def tile_data():
+    """Encode original artwork; this is ROM data, never an execution trace."""
     data = []
     for row in TILE:
         for plane in range(2):
             data.append(sum(((int(pixel) >> plane) & 1) << (7 - x) for x, pixel in enumerate(row)))
-    # LD HL,010F; LD DE,8000; LD B,16
+    return data
+
+
+def tile_rom():
+    """A pointer loop copies original 2bpp ROM data to VRAM at runtime."""
+    # Set the identity background palette explicitly; reset does not run a boot ROM.
+    # LD A,E4; LDH [47],A; LD HL,0113; LD DE,8000; LD B,16
     # loop: LD A,[HL+]; LD [DE],A; INC DE; DEC B; JR NZ,loop; HALT
-    return [0x21,0x0F,0x01,0x11,0x00,0x80,0x06,16,
-            0x2A,0x12,0x13,0x05,0x20,0xFA,0x76] + data
+    return [0x3E,0xE4,0xE0,0x47,0x21,0x13,0x01,0x11,0x00,0x80,0x06,16,
+            0x2A,0x12,0x13,0x05,0x20,0xFA,0x76] + tile_data()
 
 
 def tile_css(arithmetic=False):
     css = '@property --shade {syntax:"<integer>";inherits:false;initial-value:0;}\n'
+    css += '@property --color-index {syntax:"<integer>";inherits:false;initial-value:0;}\n'
     colors = {0: '#b1c37e', 1: '#8baf62', 2: '#527547', 3: '#31452c'}
     for y in range(8):
         for x in range(8):
             bit = 2 ** (7 - x)
             shade = f'calc(mod(round(down, var(--m{0x8000 + y * 2}) / {bit}), 2) + 2 * mod(round(down, var(--m{0x8001 + y * 2}) / {bit}), 2))'
-            css += f'.pixel-{y * 8 + x} {{--shade:{shade};}}\n'
+            css += f'.pixel-{y * 8 + x} {{--color-index:{shade};}}\n'
+    # Bitplane color IDs select a two-bit BGP field. ID 0 is opaque for BG;
+    # it is not the transparent OBJ color. This viewer is not a scanout PPU.
+    shades = {i:f'mod(round(down,var(--m{BGP}) / {4**i}),4)' for i in range(4)}
+    css += '.tile-grid i {--shade:' + choose_math('color-index', shades, 0) + ';}\n'
     if arithmetic:
         channels = [choose_math('shade', {k: int(v[i:i+2], 16) for k, v in colors.items()}, int(colors[0][i:i+2], 16)) for i in [1, 3, 5]]
         css += '.tile-grid i {background:rgb(' + ' '.join(channels) + '); }\n'

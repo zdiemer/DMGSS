@@ -47,7 +47,7 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   forms validate writability even for no-op results. Truncated prefixes trap.
 - Instruction fetch uses mapped ROM/RAM and validates every required byte.
   FF is RST 38, never a substitute for an unmapped fetch. HRAM ends at FFFE;
-  Serial registers FF01–FF02, timer registers FF04–FF07, IF (FF0F), IE (FFFF) and LCDC/STAT/LY/LYC are mapped; other I/O traps.
+  Serial registers FF01–FF02, timer registers FF04–FF07, IF (FF0F), IE (FFFF) and LCDC/STAT/LY/LYC plus BGP (FF47) are mapped; other I/O traps.
 - EI takes effect after the following retired instruction; DI cancels the delay,
   RETI enables immediately, and interrupt entry clears IME/delay. Preserve both
   latches and the HALT bug across banks. Pending low IE/IF bits wake HALT even
@@ -120,14 +120,14 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Full production state is mandatory in every mode. Single-step conformance
   fixtures retain their declared C000–C03F operand window to bound test cost;
   preserve upstream expectations and separate full-map retention tests.
-- Automatic mode has 8,449 scroll cells and grouped, non-inheriting raw timeline
+- Automatic mode has 8,451 scroll cells and grouped, non-inheriting raw timeline
   readers. Disable snapping on the source bank and whenever copying is disabled.
   Dormant WRAM cells may disappear only when source, destination and result all
   equal their initial word (zero encoded offset). Test reactivation and nonzero
   seeds. FFFE and IE remain separate; peripheral fields are never paired.
 - Manual checkpoints use grouped native bit inputs, local numeric readers and
   a staged difference selector. Keep native pointer/keyboard behavior, source
-  immutability during every bit save, and the 67,106-bit complete-bank check.
+  immutability during every bit save, and the 67,114-bit complete-bank check.
   Avoid inheriting unevaluated bit sums or thousands of raw animation values.
 - Browser memory is a release constraint: run full-map probes in an isolated
   browser process/container with a hard memory limit, not beside the workspace
@@ -178,3 +178,9 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Clocked read values must not depend on CPU write data. Merge LCD write-induced
   requests after clocked IF reads, then let explicit IF writes win. Enabled LCD
   timing keeps HALT alive even with IE/IME off; pause/fault/traps freeze it.
+
+- BGP (FF47) retains all eight bits and resets to zero; built-in tile ROMs must
+  initialize their own palette. Decode VRAM color IDs before mapping BGP shades;
+  background ID 0 is opaque. Preserve palette state through every bank and
+  atomic traps. The tile viewer shows committed memory independently of LCDC,
+  not scanline output. OBJ/CGB palettes and mid-scanline effects remain absent.

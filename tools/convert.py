@@ -18,8 +18,8 @@ MODES = {'portable': 'Compatible · 128 instructions', 'automatic': 'Automatic c
 CAVEAT = ('Conversion uses Python outside the browser. The generated page executes CPU and memory '
           'transitions in HTML/CSS only: no JavaScript, WebAssembly, server emulation or precomputed trace.')
 LIMITS = ('Experimental CPU and peripheral timing: 243 unprefixed and 256 CB-prefixed instructions, 8 KiB RAM C000–DFFF (C000–DDFF mirrored at E000–FDFF), HRAM FF80–FFFE and one VRAM tile. '
-          'Instruction durations, software interrupts and DIV/TIMA/TMA/TAC timer interrupts and disconnected SB/SC serial transfers are supported; LCDC/STAT/LY/LYC, VBlank and STAT interrupts use fixed-duration scanlines. No boot ROM, pixel renderer, cable peer, audio or joypad. ROM-only MBC1 banking supports 32, 64 and 128 KiB; larger cartridges and cartridge RAM are unsupported. Bus timing and serial clock phase are approximate. A serial byte needs multiple batches; the monitor keeps the last 16 completed bytes. '
-          'PC starts at 0100; other CPU registers, including SP, start at zero. IF reads E0, SC reads 7E, TAC reads F8 and STAT reads 84 initially; LCDC is off. '
+          'Instruction durations, software interrupts and DIV/TIMA/TMA/TAC timer interrupts and disconnected SB/SC serial transfers are supported; LCDC/STAT/LY/LYC, VBlank and STAT interrupts use fixed-duration scanlines. BGP (FF47) stores the four background shade mappings; the tile viewer applies them in CSS. No boot ROM, pixel renderer, cable peer, audio or joypad. ROM-only MBC1 banking supports 32, 64 and 128 KiB; larger cartridges and cartridge RAM are unsupported. Bus timing and serial clock phase are approximate. A serial byte needs multiple batches; the monitor keeps the last 16 completed bytes. '
+          'PC starts at 0100; other CPU registers, including SP, start at zero. IF reads E0, SC reads 7E, TAC reads F8 and STAT reads 84 initially; LCDC is off and BGP starts at zero. '
           'Unsupported instructions and unmapped accesses trap. Import does not imply game compatibility.')
 
 

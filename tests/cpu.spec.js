@@ -33,8 +33,8 @@ test('tile ROM writes VRAM and CSS decodes both bitplanes', async ({page}, info)
   await page.locator('.power-switch').click();
   // Every instruction commits through the complete scroll-bank handshake.
   await expect.poll(() => state(page,'halted'), { timeout: 120000 }).toBe(1);
-  expect(await state(page,'ticks')).toBe(84);
-  expect(await state(page,'pc')).toBe(271);
+  expect(await state(page,'ticks')).toBe(86);
+  expect(await state(page,'pc')).toBe(275);
   expect(await state(page,'fault')).toBe(0);
   const rows = ['00333300','03111130','31211213','31111113','31211213','31122113','03111130','00333300'];
   for(let y=0;y<8;y++) for(let plane=0;plane<2;plane++) {

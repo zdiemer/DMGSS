@@ -6,13 +6,13 @@ CPU stages; it never emulates ROM instructions or precomputes their execution.
 
 ## Current evidence
 
-Version 0.21.0 supports 243 unprefixed instructions and all 256 CB-prefixed
+Version 0.22.0 supports 243 unprefixed instructions and all 256 CB-prefixed
 operations: RLC/RRC/RL/RR, SLA/SRA/SRL, SWAP, BIT, RES and SET. Earlier
 8-bit ALU, accumulator rotates, decimal adjustment, load, branch, register-pair
 and stack support is retained.
 All eight RST vectors and four LDH forms are implemented. HRAM FF80–FFFE
 is readable, writable and executable; mapped work RAM and VRAM are executable
-too. Serial registers (FF01–FF02), timer registers (FF04–FF07), IE (FFFF), IF (FF0F), and LCDC/STAT/LY/LYC (FF40/FF41/FF44/FF45) are mapped. Other
+too. Serial registers (FF01–FF02), timer registers (FF04–FF07), IE (FFFF), IF (FF0F), and LCDC/STAT/LY/LYC (FF40/FF41/FF44/FF45) and BGP (FF47) are mapped. Other
 I/O addresses remain unmapped and trap. DI, delayed EI, RETI, interrupt priority
 and instruction-level HALT behavior are implemented.
 Unknown opcodes, missing instruction bytes and unsupported accesses trap atomically.
@@ -309,7 +309,7 @@ unmapped-memory fixtures move to FE00 or the FDFF/FE00 boundary.
 
 Full-map documents are much larger. Worst-case converter budgets are 12 MiB for
 Compatible, 24 MiB for Automatic, and 96 MiB for Manual. Automatic storage has
-8,449 cells; Manual has 67,106 bits per bank (including LCD timing state). Browser resource limits and mobile
+8,451 cells; Manual has 67,114 bits per bank (including LCD timing and BGP state). Browser resource limits and mobile
 performance remain material constraints. Linux WebKit testing does not certify
 this expanded memory on real iOS devices.
 
@@ -381,3 +381,27 @@ waits for scanline 2 and wakes through STAT. Compatible mode stops mid-wait;
 automatic and manual continuation carry it to completion. Generation-time
 boundary fixtures exercise VBlank without waiting an entire CSS-driven frame.
 These fixtures supply initial states, never execution traces or runtime writes.
+
+
+## Background palette (0.22.0)
+
+BGP (FF47) is an eight-bit readable/writable register. Each two-bit field maps
+one background/window color ID to shade 0–3, as specified by
+[Pan Docs palettes](https://gbdev.io/pandocs/Palettes.html#ff47--bgp-non-cgb-mode-only-bg-palette-data).
+The tile viewer first decodes the two VRAM bitplanes into IDs, then applies BGP
+and the console's four green shades. Background ID 0 is opaque, not transparent.
+BGP starts at zero in this experiment; the built-in tile ROM explicitly writes
+E4 for the identity mapping. This is not a boot-ROM/post-boot register image.
+
+The original Palette lab copies the tile, continues past a 128-stage boundary,
+then writes 1B to reverse its shades and reads the register back. VRAM stays
+unchanged. Compatible mode stops with E4; Automatic, Manual and Streaming finish
+with 1B. Register writes survive bank copying, pause and offline conversion.
+Original tests check all 256 palettes × four IDs, CPU reads/writes, CB operations,
+reset and atomic traps at FF46/FF48. These are register/renderer contracts,
+not a whole-ROM or PPU-suite pass.
+
+The viewer reads current committed VRAM/BGP and remains a debugging view even
+with LCDC off. It does not model per-pixel palette sampling, mid-scanline effects,
+LCD blanking, a frame buffer, full VRAM, tile maps, windows, sprites or OBJ/CGB
+palettes. FF48/FF49 remain unmapped; LCD timing retains its previous limitations.

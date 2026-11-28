@@ -111,3 +111,8 @@ Other MBC1 control writes are accepted but have no observable effect for these
 small cartridges without RAM. A000–BFFF remains an explicit unsupported-access
 trap; open-bus behavior is not modeled. Each fetch/data lane uses the old bank,
 and the next instruction sees a successful bank write. See [MBC1](https://gbdev.io/pandocs/MBC1.html).
+
+
+BGP (FF47) is now available to imported ROMs, with an initial value of zero.
+The tile viewer applies its background shade mappings. This does not add a
+160×144 renderer or game compatibility; conversion still only encodes ROM data.

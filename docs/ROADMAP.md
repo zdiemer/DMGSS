@@ -45,6 +45,8 @@
 4. **Started:** writable VRAM and verified two-bitplane tile viewer.
    **LCD timing foundation:** LCDC/STAT/LY/LYC, fixed-duration scanlines,
    VBlank/STAT interrupt requests and LCD-driven HALT waits across banks.
+   **Background palettes:** BGP read/write and live tile shade mapping, including
+   palette changes retained across continuation modes.
    Still needed: pixel rendering, full VRAM, tile maps, the 160×144 display,
    variable mode-3 timing and DMG startup/STAT quirks.
 5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.

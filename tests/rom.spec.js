@@ -104,7 +104,7 @@ for(const mode of ['automatic','checkpoint'])test(`dense execution continues acr
     while(true){
       const before=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!before['copy-remaining'])break;
-      expect(saved++).toBeLessThan(67106);
+      expect(saved++).toBeLessThan(67114);
       const label=page.locator(`.bank${1-before['bank-phase']}.copy-${before['copy-index']}`);
       if(info.project.name.endsWith('mobile'))await label.tap();else await label.click();
       await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(before['copy-remaining']-1);

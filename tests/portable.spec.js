@@ -36,7 +36,7 @@ test('portable diagnostic runs without CSS if and resets to initial state', asyn
 test('portable tile cartridge decodes actual VRAM into all four shades', async ({page},info)=>{
   await page.goto('/portable/tile/'); await page.locator('.power-switch').click();
   await expect(page.locator('.tile-ready')).toBeVisible();
-  expect(await state(page,'ticks')).toBe(84);
+  expect(await state(page,'ticks')).toBe(86);
   const rows=['00333300','03111130','31211213','31111113','31211213','31122113','03111130','00333300'];
   const shades=await page.locator('.tile-grid i').evaluateAll(els=>els.map(e=>Number(getComputedStyle(e).getPropertyValue('--shade'))));
   expect(shades).toEqual([...rows.join('')].map(Number));
