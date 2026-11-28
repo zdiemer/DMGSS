@@ -417,8 +417,16 @@ checks all 8,192 bytes after automatic bank copies; reactivation covers zero and
 nonzero initial words. The last-page lab crosses a manual/automatic checkpoint.
 These are original memory contracts, not an upstream whole-ROM pass. Existing
 pinned CPU expectations are unchanged; the original unmapped-CB timing case
-moves from newly supported 9000 to still-unmapped A000.
+moves from newly supported 9000 to still-unmapped A000. Original fetch-boundary
+and IRQ-before-unmapped-fetch fixtures likewise move their boundary/PC to
+9FFF/A000; their instruction and interrupt semantics stay unchanged.
 
 The tile viewer still displays only 8000–800F. LCD mode-3 access restrictions,
 background/window rendering, OAM, sprites and DMA remain unimplemented. Resource
-requirements have grown; Linux WebKit coverage is not real-device iOS approval.
+requirements have grown. Individual WebKit probes passed with a 4 GiB container
+limit, but running Manual followed by the full-map Automatic test in one browser
+run exceeded that cap. The same sequence passed with a 6 GiB limit and a measured
+4.25 GiB peak (including the test runner/server), without OOM events. Keep this
+transition headroom in future probes. Chromium's full mobile suite passed under
+4 GiB. Manual is especially memory-heavy; prefer Compatible or Automatic mode
+on constrained devices. Linux WebKit coverage is not real-device iOS approval.

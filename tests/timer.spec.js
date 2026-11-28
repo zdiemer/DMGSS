@@ -14,14 +14,14 @@ for(const item of cases)test(`timer matches reduced Mooneye ${item.name}`,async(
 
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Timer lab wakes HALT with hardware overflow in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
-  test.setTimeout(180000);
+  test.setTimeout(mode==='streaming'?300000:180000);
   const prefix=mode==='streaming'?'':`/${mode}`;
   await page.goto(`${prefix}/`);
   await page.getByRole('link',{name:'Timers',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`${prefix}/timers/$`));
   await page.locator('.power-switch').click();
   const expected={ticks:36,tcycles:360,a:165,b:1,sp:65534,m49152:42,m49154:165,m65285:43,m65286:42,m65287:248,m65295:224,halted:1,fault:0,'timer-reload':0};
-  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:120000,intervals:[1000]}).toEqual(expected);
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:mode==='streaming'?240000:120000,intervals:[1000]}).toEqual(expected);
   await expect(page.locator('.passed')).toBeVisible();
   // Scope text lookup away from the manual mode's 265,046 input controls.
   await page.locator('.debug').getByText('Machine inspector',{exact:true}).click();

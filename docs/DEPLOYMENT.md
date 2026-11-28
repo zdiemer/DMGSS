@@ -31,7 +31,7 @@ A worst-case dense 128 KiB MBC1 checkpoint document is bounded below 160 MiB.
 The converter requests 256 MiB and allows 3,072 MiB for two workers plus tmpfs.
 The 352 MiB temporary volume accommodates two simultaneous generated pages.
 Two concurrent 128 KiB dense Manual conversions were verified under that limit:
-158.1 MiB responses, 315.8 MiB temporary files at peak, and 2.09 GiB peak total
+responses below 159 MiB, temporary files below 316 MiB, and less than 2.1 GiB peak total
 container memory with no OOM events. Files remain request-local and are removed
 before returning the response.
 

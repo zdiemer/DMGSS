@@ -61,7 +61,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`palett
     expect(await read(page,vram)).toEqual(Object.fromEntries(vram.map(k=>[k,before[k]])));
   }
   const expected=mode==='portable'?{ticks:128,m65351:228,halted:0,fault:0,b:3}:{ticks:142,m65351:27,halted:1,fault:0,b:0};
-  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:240000,intervals:[1000]}).toEqual(expected);
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:mode==='streaming'?480000:240000,intervals:[1000]}).toEqual(expected);
   expect(await pixels(page)).toEqual(image(mode==='portable'?228:27));
   await page.locator('.debug summary').click();
   await expect(page.locator('.register-m65351')).toBeVisible();

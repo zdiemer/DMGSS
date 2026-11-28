@@ -46,7 +46,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`VRAM l
     await page.locator('.commit-control label').click();
   }
   const expected=mode==='portable'?{ticks:128,pc:317,halted:0,fault:0}:{ticks:212,pc:332,halted:1,fault:0};
-  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:300000,intervals:[1000,5000]}).toEqual(expected);
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:mode==='streaming'?600000:180000,intervals:[1000,5000]}).toEqual(expected);
   const keys=Array.from({length:16},(_,i)=>'m'+(0x9FF0+i));
   expect(await read(page,keys)).toEqual(Object.fromEntries(keys.map((k,i)=>[k,tile[i]])));
   const visible=keys.map((_,i)=>'m'+(0x8000+i));

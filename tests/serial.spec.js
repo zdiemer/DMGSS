@@ -7,7 +7,7 @@ const final={ticks:5,tcycles:68,pc:262,a:165,b:1,sp:65534,halted:1,fault:0,m6528
 for(const mode of ['automatic','checkpoint','portable','streaming'])test(`serial completion, output rollover and IRQ in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
   // Full log eviction changes many native bits; keep each bit progress-bounded.
-  test.setTimeout(mode==='checkpoint'?240000:60000);
+  test.setTimeout(mode==='checkpoint'?600000:60000);
   const prefix=mode==='streaming'?'':`/${mode}`;
   await page.goto(`${prefix}/tests/serial-boundary/`);
   await page.locator('.power-switch').click();

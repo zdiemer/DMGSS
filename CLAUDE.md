@@ -131,7 +131,10 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Avoid inheriting unevaluated bit sums or thousands of raw animation values.
 - Browser memory is a release constraint: run full-map probes in an isolated
   browser process/container with a hard memory limit, not beside the workspace
-  agent. Keep explicit document budgets and converter tmpfs/worker headroom.
+  agent. Consecutive full-memory WebKit pages need transition headroom: the
+  Manual-to-Automatic probe peaked at 4.25 GiB under a 6 GiB cap, even though
+  individual cases passed under 4 GiB. Check OOM counters as well as assertions.
+  Keep explicit document budgets and converter tmpfs/worker headroom.
 - Keep optional CSS if() RAM reads behind feature detection and the math
   fallback testable. Writes use page queries and 256 local typed result slots
   shared by every CPU stage. Separate slots for each bus lane prevent cross-page
