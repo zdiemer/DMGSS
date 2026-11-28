@@ -28,7 +28,7 @@ for(const mode of ['math','native'])test(`dense ROM lookup decodes page edges an
   for(const [address,value] of results)expect(value,`address ${address}`).toBe(address>=0&&address<data.length?data[address]:address===32768?17:address===65535?203:255);
 });
 for(const mode of ['portable','automatic','checkpoint'])test(`dense ROM executes in ${mode}`,async({page})=>{
-  test.setTimeout(90000);
+  test.setTimeout(mode==='checkpoint'?600000:mode==='automatic'?300000:90000);
   await upload(page,await sample(page),mode);
   expect(await page.locator('script').count()).toBe(0);
   const requests=[];page.on('request',r=>requests.push(r.url()));
@@ -104,7 +104,7 @@ for(const mode of ['automatic','checkpoint'])test(`dense execution continues acr
     while(true){
       const before=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!before['copy-remaining'])break;
-      expect(saved++).toBeLessThan(67114);
+      expect(saved++).toBeLessThan(132522);
       const label=page.locator(`.bank${1-before['bank-phase']}.copy-${before['copy-index']}`);
       if(info.project.name.endsWith('mobile'))await label.tap();else await label.click();
       await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(before['copy-remaining']-1);
@@ -115,11 +115,11 @@ for(const mode of ['automatic','checkpoint'])test(`dense execution continues acr
   await stopped(page,{ticks:132,tcycles:568,pc:16389,a:42,m49152:42},90000);
 });
 test('dense downloaded HTML runs offline without requests',async({page},info)=>{
-  test.setTimeout(90000);
+  test.setTimeout(300000);
   const download=await upload(page,await sample(page),'automatic','gb','download');
   const file=info.outputPath('dense.html');await download.saveAs(file);
   const html=await fs.readFile(file,'utf8');expect(html).not.toContain('<script');expect(html).not.toContain('<link');
-  expect(Buffer.byteLength(html)).toBeLessThan(24*1024*1024);
+  expect(Buffer.byteLength(html)).toBeLessThan(32*1024*1024); // Full VRAM Automatic budget, matching test_rom.py.
   const requests=[];page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url())});
   await page.goto(pathToFileURL(file).href);await page.locator('.power-switch').click();
   await stopped(page,{ticks:31,pc:405,a:165,m49154:165});

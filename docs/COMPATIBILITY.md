@@ -309,7 +309,7 @@ unmapped-memory fixtures move to FE00 or the FDFF/FE00 boundary.
 
 Full-map documents are much larger. Worst-case converter budgets are 12 MiB for
 Compatible, 24 MiB for Automatic, and 96 MiB for Manual. Automatic storage has
-8,451 cells; Manual has 67,114 bits per bank (including LCD timing and BGP state). Browser resource limits and mobile
+16,627 cells; Manual has 132,522 bits per bank (including LCD timing and BGP state). Browser resource limits and mobile
 performance remain material constraints. Linux WebKit testing does not certify
 this expanded memory on real iOS devices.
 
@@ -405,3 +405,33 @@ The viewer reads current committed VRAM/BGP and remains a debugging view even
 with LCDC off. It does not model per-pixel palette sampling, mid-scanline effects,
 LCD blanking, a frame buffer, full VRAM, tile maps, windows, sprites or OBJ/CGB
 palettes. FF48/FF49 remain unmapped; LCD timing retains its previous limitations.
+
+
+## Full VRAM (build 0.23)
+
+The full 8000–9FFF range is writable and executable, following the
+[Pan Docs memory map](https://gbdev.io/pandocs/Memory_Map.html#vram-memory-map). Original contracts cover
+both decoders, packed byte lanes, page boundaries, stack access, truncated fetch,
+9FFF/A000 atomic failures and separation from WRAM echo. A seeded full-map test
+checks all 8,192 bytes after automatic bank copies; reactivation covers zero and
+nonzero initial words. The last-page lab crosses a manual/automatic checkpoint.
+These are original memory contracts, not an upstream whole-ROM pass. Existing
+pinned CPU expectations are unchanged; the original unmapped-CB timing case
+moves from newly supported 9000 to still-unmapped A000. Original fetch-boundary
+and IRQ-before-unmapped-fetch fixtures likewise move their boundary/PC to
+9FFF/A000; their instruction and interrupt semantics stay unchanged.
+
+The tile viewer still displays only 8000–800F. LCD mode-3 access restrictions,
+background/window rendering, OAM, sprites and DMA remain unimplemented. Resource
+requirements have grown. Individual WebKit probes passed with a 4 GiB container
+limit, but running Manual followed by the full-map Automatic test in one browser
+run exceeded that cap. The same sequence passed with a 6 GiB limit and a measured
+4.25 GiB peak (including the test runner/server), without OOM events. A sample
+and dense 128 KiB Manual upload/reset sequence also passed under 6 GiB, peaking
+at 5.24 GiB including its local converter. Keep this transition headroom in
+future probes. Chromium's complete VRAM mobile suite passed under 4 GiB, but
+the Manual palette-to-dense-ROM sequence exceeded that cap. Its complete
+regression sequence passed under 6 GiB with a 5.60 GiB peak and no OOM events.
+Individual passes do not establish a general 4 GiB browser budget.
+Manual is especially memory-heavy; prefer Compatible or Automatic mode
+on constrained devices. Linux WebKit coverage is not real-device iOS approval.

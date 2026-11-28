@@ -1,13 +1,13 @@
 """Emit SM83 instruction semantics as CSS expressions (not an execution trace)."""
 from rom import ROM
-from work_memory import START as WRAM_START, END as WRAM_END, WORDS, views
+from work_memory import START as WRAM_START, END as WRAM_END, WORDS, VIDEO_WORDS, VIDEO_START, VIDEO_END, packed, word_name, views
 from timing import duration
 from timer import DIV, TIMA, TMA, TAC, circuit
 from lcd import LCDC, STAT, LY, LYC, REGISTERS as LCD_REGISTERS, circuit as lcd_circuit
 from serial_io import SB, SC, circuit as serial_circuit, monitor_css
 
 REGS = ['b', 'c', 'd', 'e', 'h', 'l', None, 'a']
-RAM = [*range(0x8000, 0x8010), *range(0xC000, 0xE000), *range(0xFF80, 0xFFFF)]
+RAM = [*range(0x8000, 0xA000), *range(0xC000, 0xE000), *range(0xFF80, 0xFFFF)]
 IF, IE = 0xFF0F, 0xFFFF
 BGP = 0xFF47
 NATIVE_SUPPORT = '(width:if(style(--x:1):1px;else:2px))'
@@ -214,12 +214,13 @@ def instruction_set():
     return ops
 
 
-def machine(rom, storage, arithmetic=False, work_words=WORDS, accelerated=True):
+def machine(rom, storage, arithmetic=False, work_words=WORDS, video_words=VIDEO_WORDS, accelerated=True):
+    memory_words = (*video_words, *work_words)
     choose = choose_math if arithmetic else choose_native
     timer_expr, timer_states = circuit(choose, equals)
     serial_expr, serial_states = serial_circuit(equals)
     lcd_expr, lcd_states = lcd_circuit(equals)
-    read_memory = {i: f'var(--m{i})' for i in MEMORY if not WRAM_START <= i < WRAM_END}
+    read_memory = {i: f'var(--m{i})' for i in MEMORY if not packed(i)}
     # Peripheral data reads observe the final M-cycle. Opcode/immediate fetch still
     # uses the old bank; full bus scheduling is a separate milestone.
     read_memory.update({DIV:'calc(round(down,var(--timer-end) / 256))',
@@ -239,24 +240,24 @@ def machine(rom, storage, arithmetic=False, work_words=WORDS, accelerated=True):
     rom.lookup_expr.clear()
     memory_expr, native_memory = {}, {}
     def lookup(key, extra, valid):
-        prefix = f'wram-{key}'
+        prefix = f'ram-{key}'
         memory_expr[prefix+'-index'] = f'calc(round(down,var(--{key}) / 2))'
         memory_expr[prefix+'-weight'] = f'calc(1 + 255 * mod(var(--{key}),2))'
         memory_expr[prefix+'-page'] = f'calc(round(down,var(--{key}) / 256))'
         memory_expr[prefix+'-slot'] = f'calc(mod(round(down,var(--{key}) / 2),128))'
         pages = {}
-        for address in work_words:
-            pages.setdefault(address // 256, {})[(address // 2) % 128] = f'var(--wram{address})'
-        # Native conditions select a page before its word: at most 32 + 128
-        # comparisons, instead of a flat chain of 4,096 style conditions.
+        for address in memory_words:
+            pages.setdefault(address // 256, {})[(address // 2) % 128] = f'var(--{word_name(address)})'
+        # Native conditions select a page before its word: at most 64 + 128
+        # comparisons, instead of a flat chain of 8,192 style conditions.
         native_lookup = choose_native(prefix+'-page', {
             page: choose_native(prefix+'-slot', words, 0) for page, words in pages.items()}, 0)
-        memory_expr[prefix+'-word'] = choose_math(prefix+'-index', {a//2:f'var(--wram{a})' for a in work_words}, 0) if arithmetic else native_lookup
+        memory_expr[prefix+'-word'] = choose_math(prefix+'-index', {a//2:f'var(--{word_name(a)})' for a in memory_words}, 0) if arithmetic else native_lookup
         if arithmetic and accelerated:
             native_memory[prefix+'-word'] = native_lookup
         memory_expr[prefix+'-byte'] = f'calc(mod(round(down,var(--{prefix}-word) / var(--{prefix}-weight)),256))'
         selected = rom.lookup(key, choose, extra, valid)
-        inside = f'max(0,min(1,var(--{key}) - {WRAM_START-1},{WRAM_END} - var(--{key})))'
+        inside = f'(max(0,min(1,var(--{key}) - {WRAM_START-1},{WRAM_END} - var(--{key}))) + max(0,min(1,var(--{key}) - {VIDEO_START-1},{VIDEO_END} - var(--{key}))))'
         return f'calc(({selected}) * (1 - {inside}) + var(--{prefix}-byte) * {inside})'
     props = {'opcode': 0, 'raw-opcode': 0, 'exec-pc': 256, 'duration': 0,
              'pending-mask': 0, 'pending': 0, 'irq': 0, 'irq-mask': 0,
@@ -382,13 +383,13 @@ def machine(rom, storage, arithmetic=False, work_words=WORDS, accelerated=True):
     for lane, (name, pc) in enumerate([('raw-opcode', 'pc'), ('imm', 'pc1'), ('upper', 'pc2')]):
         pc = f'bus-{pc}'
         expr[f'fetch{lane}'] = rom.readable(pc, choose, MEMORY)
-        expr[name] = lookup(pc, {i: f'var(--m{i})' for i in MEMORY if not WRAM_START <= i < WRAM_END}, f'var(--fetch{lane})')
+        expr[name] = lookup(pc, {i: f'var(--m{i})' for i in MEMORY if not packed(i)}, f'var(--fetch{lane})')
     for lane, suffix in [('address',''),('address2','2')]:
-        memory_expr[f'wram-delta{suffix}'] = f'calc((var(--write{suffix}) - var(--wram-bus-{lane}-byte)) * var(--wram-bus-{lane}-weight))'
-    same_word = 'max(0,1 - abs(var(--wram-bus-address-index) - var(--wram-bus-address2-index)))'
-    memory_expr['wram-write-low'] = f'calc(var(--wram-bus-address-word) + var(--wram-delta) + var(--word) * {same_word} * var(--wram-delta2))'
-    memory_expr['wram-write-high'] = f'calc(var(--wram-bus-address2-word) + var(--wram-delta2) + {same_word} * var(--wram-delta))'
-    css += '\n' + '\n'.join(f'@property --{name} {{syntax:"<integer>";inherits:{"true" if name in ("wram-bus-address-index","wram-bus-address2-index","wram-delta","wram-delta2","wram-write-low","wram-write-high") else "false"};initial-value:0;}}' for name in memory_expr)
+        memory_expr[f'ram-delta{suffix}'] = f'calc((var(--write{suffix}) - var(--ram-bus-{lane}-byte)) * var(--ram-bus-{lane}-weight))'
+    same_word = 'max(0,1 - abs(var(--ram-bus-address-index) - var(--ram-bus-address2-index)))'
+    memory_expr['ram-write-low'] = f'calc(var(--ram-bus-address-word) + var(--ram-delta) + var(--word) * {same_word} * var(--ram-delta2))'
+    memory_expr['ram-write-high'] = f'calc(var(--ram-bus-address2-word) + var(--ram-delta2) + {same_word} * var(--ram-delta))'
+    css += '\n' + '\n'.join(f'@property --{name} {{syntax:"<integer>";inherits:{"true" if name in ("ram-bus-address-index","ram-bus-address2-index","ram-delta","ram-delta2","ram-write-low","ram-write-high") else "false"};initial-value:0;}}' for name in memory_expr)
     expr.update(memory_expr)
     # ROM helpers belong to this combinational stage, not its descendants or banks.
     css += '\n' + '\n'.join(f'@property --{name} {{syntax:"<integer>";inherits:false;initial-value:0;}}' for name in rom.lookup_expr)
@@ -435,12 +436,12 @@ def machine(rom, storage, arithmetic=False, work_words=WORDS, accelerated=True):
             if name == 'fault':
                 result = 'calc(max(var(--fault), var(--run, 1) * (1 - var(--sleeping)) * var(--invalid)))'
         states[name] = (initial, result)
-    for address in work_words:
-        name = f'wram{address}'
-        result = f'if(style(--enabled:1) and style(--writing:1) and style(--wram-bus-address-index:{address//2}):var(--wram-write-low);style(--enabled:1) and style(--writing:1) and style(--word:1) and style(--wram-bus-address2-index:{address//2}):var(--wram-write-high);else:var(--{name}))'
+    for address in memory_words:
+        name = word_name(address)
+        result = f'if(style(--enabled:1) and style(--writing:1) and style(--ram-bus-address-index:{address//2}):var(--ram-write-low);style(--enabled:1) and style(--writing:1) and style(--word:1) and style(--ram-bus-address2-index:{address//2}):var(--ram-write-high);else:var(--{name}))'
         states[name] = (0, result)
     for addr in MEMORY:
-        if WRAM_START <= addr < WRAM_END: continue
+        if packed(addr): continue
         if addr in (DIV,TIMA,TMA,TAC,SB,SC,*LCD_REGISTERS): continue
         name = f'm{addr}'
         result = f'if(style(--enabled:1) and style(--writing:1) and style(--bus-address:{addr}):var(--write);style(--enabled:1) and style(--writing:1) and style(--word:1) and style(--bus-address2:{addr}):var(--write2);else:var(--{name}))'

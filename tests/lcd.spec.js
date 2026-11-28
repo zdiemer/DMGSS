@@ -10,9 +10,9 @@ for(const decoder of ['math','native'])test(`LCD boundary contracts with ${decod
 });
 for(const mode of ['automatic','checkpoint','streaming'])test(`LCD lab wakes HALT through STAT in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
-  // Streaming commits over 200 individual CPU/idle steps (~114s locally).
+  // Streaming commits over 200 individual steps through both full RAM regions.
   // Leave progress headroom on shared runners without reducing assertions.
-  test.setTimeout(mode==='automatic'?180000:300000);
+  test.setTimeout(mode==='streaming'?600000:mode==='automatic'?180000:900000);
   const prefix=mode==='streaming'?'':`/${mode}`;
   await page.goto(`${prefix}/lcd/`);
   // Deliberately inspect accessibility before Run: Chromium used to cache
@@ -21,7 +21,7 @@ for(const mode of ['automatic','checkpoint','streaming'])test(`LCD lab wakes HAL
   await page.locator('.power-switch').click();
   if(mode==='checkpoint')await copy(page);
   const expected={ticks:26,tcycles:236,a:165,b:3,sp:65534,m49154:165,m65344:0,m65345:192,m65348:0,m65349:2,'lcd-line':0,'lcd-dot':0,'lcd-stat':0,halted:1,fault:0};
-  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:mode==='streaming'?240000:120000,intervals:[1000]}).toEqual(expected);
+  await expect.poll(()=>read(page,Object.keys(expected)),{timeout:mode==='streaming'?480000:120000,intervals:[1000]}).toEqual(expected);
   await expect(page.locator('.passed')).toBeVisible();
   await page.locator('.debug summary').click();
   await page.setViewportSize({width:320,height:844});
@@ -68,6 +68,7 @@ for(const mode of ['automatic','checkpoint'])test(`VBlank request crosses ${mode
   await page.waitForTimeout(200);expect(await read(page,Object.keys(expected))).toEqual(expected);
 });
 test('LCD continues with IE off and pause freezes its retained phase',async({page})=>{
+  test.setTimeout(600000); // Repeated active readback includes both full RAM banks.
   await page.goto('/automatic/tests/lcd-idle/');await page.locator('.power-switch').click();
   await page.waitForTimeout(3500); // No script inspection supplies a clock.
   await page.locator('.power-switch').click();
@@ -78,7 +79,7 @@ test('LCD continues with IE off and pause freezes its retained phase',async({pag
   await expect(page.locator('.startup-screen')).not.toBeVisible();
   await page.waitForTimeout(300);expect(await read(page,keys)).toEqual(paused);
   await page.locator('.power-switch').click();
-  await expect.poll(async()=>{const s=await read(page,['lcd-line','lcd-dot']);return s['lcd-line']*456+s['lcd-dot'];}).not.toBe(paused['lcd-line']*456+paused['lcd-dot']);
+  await expect.poll(async()=>{const s=await read(page,['lcd-line','lcd-dot']);return s['lcd-line']*456+s['lcd-dot'];},{timeout:180000}).not.toBe(paused['lcd-line']*456+paused['lcd-dot']);
 });
 
 test('downloaded HTML polls LY offline without runtime requests',async({page},info)=>{
@@ -99,7 +100,7 @@ test('downloaded HTML polls LY offline without runtime requests',async({page},in
 });
 
 test('manual bank retains a high STAT signal without retriggering',async({page})=>{
-  test.setTimeout(180000);
+  test.setTimeout(600000);
   await page.goto('/checkpoint/tests/lcd-blocked/');await page.locator('.power-switch').click();
   const before={ticks:5,halted:1,m65295:224,'lcd-line':145,'lcd-dot':76,'lcd-stat':1};
   expect(await read(page,Object.keys(before))).toEqual(before);

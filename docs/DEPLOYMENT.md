@@ -22,15 +22,23 @@ is not exposed by the Service. No new public route bypasses authentication.
 `./build.sh` builds/pushes both Docker targets (`web` and `converter`). nginx
 limits and buffers upload bodies to 192 KiB; responses are not spilled to disk.
 HTML and CSS are compressed in transit when the browser accepts gzip.
-The converter has a separate 224 MiB memory-backed `/tmp` and a read-only root
+Gunicorn and converter proxy delivery limits are 180 seconds: a large Manual
+document can keep a response open while the browser parses it. The former
+30-second worker limit could truncate a native reset response. Converter
+liveness allows eight failed 30-second checks so two busy sync workers can
+finish within that delivery limit; readiness continues to gate new traffic.
+The converter has a separate 352 MiB memory-backed `/tmp` and a read-only root
 filesystem. Temporary generated files are removed before returning the response;
 no ROM/artifact volume or database is used. Both containers must be ready for a
 pod to receive traffic. Changing either image requires a fresh shared tag.
 
-A worst-case dense 128 KiB MBC1 checkpoint document is about 100 MiB.
-The converter requests 256 MiB and allows 2,304 MiB for two workers plus tmpfs.
-The 224 MiB temporary volume accommodates two simultaneous generated pages.
-Files remain request-local and are removed before returning the response.
+A worst-case dense 128 KiB MBC1 checkpoint document is bounded below 160 MiB.
+The converter requests 256 MiB and allows 3,072 MiB for two workers plus tmpfs.
+The 352 MiB temporary volume accommodates two simultaneous generated pages.
+Two concurrent 128 KiB dense Manual conversions were verified under that limit:
+responses below 159 MiB, temporary files below 316 MiB, and less than 2.1 GiB peak total
+container memory with no OOM events. Files remain request-local and are removed
+before returning the response.
 
 Bump Chart.yaml version/appVersion and values.yaml image.tag together before
 building changed image inputs. Never reuse tags with IfNotPresent. Merge the app

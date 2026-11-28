@@ -25,7 +25,7 @@ The original subset shipped with 84 unprefixed opcodes: NOP; HALT; register-to-r
 LD r8,d8; INC/DEC r8; ADD/SUB/CP d8; XOR A; JP a16; JR and all four JR
 conditions; LD [a16],A and LD A,[a16]. Z/N/H/C are packed in the F register.
 The addressing milestone below expands this to 127. Instruction fetch reads embedded bytes at 0100. The initial registers are zero,
-not a boot-ROM or post-boot register image. Mapped RAM is C000–DFFF (C000–DDFF also accessible at E000–FDFF), FF80–FFFE (HRAM), and one tile at VRAM 8000–800F.
+not a boot-ROM or post-boot register image. Mapped RAM is C000–DFFF (C000–DDFF also accessible at E000–FDFF), FF80–FFFE (HRAM), and VRAM 8000–9FFF.
 
 Unknown opcodes and unmapped data accesses trap without advancing PC. HALT
 stops execution until reset (interrupt wakeup and the halt bug are not implemented).
@@ -105,8 +105,8 @@ validation of the new checkpoint mode below.
 ## Manual checkpoints (build 05)
 
 `/checkpoint/` feeds the same 128-stage arithmetic CPU from one of two reusable
-native HTML checkbox banks. Each bank stores 67,114 bits, including CPU registers,
-bookkeeping, peripheral state and 8,335 bytes of RAM/VRAM/HRAM. A commit checkbox selects the source bank.
+native HTML checkbox banks. Each bank stores 132,522 bits, including CPU registers,
+bookkeeping, peripheral state and 16,511 bytes of RAM/VRAM/HRAM. A commit checkbox selects the source bank.
 No DOM nodes are appended: every run uses the same inputs and CPU stages.
 
 Groups of native inputs precede their matching readers. Local sibling selectors
@@ -132,7 +132,7 @@ without raising the stage budget or precomputing a ROM execution trace.
 
 This is not automatic state capture: one tap/key activation is needed per
 changed bit, plus commit. The counter demo usually takes a few saves per batch;
-a program rewriting most of memory can require up to 67,114. Visually hidden storage
+a program rewriting most of memory can require up to 132,522. Visually hidden storage
 inputs hold their native checked state.
 There is no disk persistence. Reset/reload restores both banks to their defaults;
 pause keeps a partial copy and displays the last committed source state.
@@ -160,8 +160,8 @@ using touch input; current WebKit and Chromium receive the full regression suite
 with CSS scroll snapping and scroll-driven animations. No click sequence, script,
 server request or precomputed ROM trace clocks the machine after Run.
 
-There are two banks of 4,225 scroll cells plus one commit cell (8,451 total),
-covering 4,295 CPU, memory and peripheral fields. Adjacent physical RAM bytes
+There are two banks of 8,313 scroll cells plus one commit cell (16,627 total),
+covering 8,376 CPU, memory and peripheral fields. Adjacent physical RAM bytes
 share one 16-bit cell; CPU reads and writes remain byte-addressed. Each cell's native vertical scroll offset stores an integer. A marker
 is positioned at the desired value in pixels; mandatory scroll snapping moves
 the offset to it after layout. A named scroll timeline reads the offset into a
@@ -748,3 +748,29 @@ No image or execution trace is generated from the running ROM in Python.
 BGP begins at zero; the tile ROM now writes E4 explicitly (86 instructions).
 The palette lab changes it to 1B after a batch boundary without rewriting VRAM.
 The tile viewer is independent of LCD enable/timing, not a frame scanout engine.
+
+
+## Full video RAM (build 0.23)
+
+All 8 KiB at 8000–9FFF are now byte-addressable for reads, writes and instruction
+fetch. A000–BFFF remains an explicit unsupported-cartridge-RAM trap. VRAM has
+no echo; the existing WRAM aliases are unchanged. LCD mode restrictions are
+still absent. This supplies tile data and both map regions as memory, not a PPU.
+
+The CPU stores VRAM in 4,096 little-endian words alongside 4,096 WRAM words.
+Both use the page-first decoder and the same 256 typed write slots. Two-byte
+accesses validate both addresses before either lane commits, including the
+9FFF/A000 boundary. Only the first tile's 16 bytes are decoded for the viewer.
+
+Automatic mode has 16,627 cells. Its readers own 64 words each; unchanged VRAM
+cells may become dormant under the same three-way initial-value check as WRAM.
+Manual mode has 132,522 bits per bank (265,046 inputs including power/commit).
+Reader groups of 64 and comparison groups of 256 keep the complete document
+below the browser's nesting limit. Readers seed next-state fields directly without retaining a second source alias
+for every word. Bank phase is non-inheriting; the named checkpoint-bank ancestor
+supplies phase queries; input/copy selector tables are split into bounded stylesheets.
+The user still saves every changed bit through native controls.
+
+The original VRAM lab writes the last 16 bytes, completes the first 128 steps,
+then reads them back into the tile viewer. It finishes at instruction 212.
+Compatible mode leaves the viewer empty at the first batch boundary.

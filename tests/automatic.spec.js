@@ -23,13 +23,15 @@ function assertCounter(state, initial=0) {
 }
 
 test('automatic state advances beyond 1,000 instructions with one input, then pauses/resumes/resets', async ({page}, info) => {
-  // RAM, timer and serial state expand retention to 8451 cells, with mapped-RAM
+  // RAM, timer and serial state expand retention to 16627 cells, with mapped-RAM
   // fetches. Budget repeated tap/readback cycles; retain bounded progress checks.
-  test.setTimeout(600000);
+  // The full VRAM map doubles the retained RAM; the complete mobile interaction
+  // sequence exceeded ten minutes on shared CI. Individual progress stays bounded.
+  test.setTimeout(1200000);
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
-  expect(await page.locator('.scroll-memory').count()).toBe(8451);
+  expect(await page.locator('.scroll-memory').count()).toBe(16627);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   const nodes = await page.locator('*').count();
   await toggle(page);
@@ -97,8 +99,11 @@ test('automatic tile renders committed VRAM, including while paused', async ({pa
 });
 
 test('automatic pointer loops fill RAM then copy backwards to VRAM across banks', async ({page}) => {
+  // Three full-memory batches exceeded the old 60s wall-clock bound on WebKit CI.
+  // Keep the exact retired state and every destination byte checked below.
+  test.setTimeout(300000);
   await page.goto('/automatic/tests/addressing-loop/'); await toggle(page);
-  await expect.poll(() => read(page, ['halted']), {timeout:STATE_TIMEOUT}).toEqual({halted:1});
+  await expect.poll(() => read(page, ['halted']), {timeout:180000}).toEqual({halted:1});
   expect(await read(page, ['ticks','pc','a','b','h','l','d','e','sp','f','fault'])).toEqual({ticks:344,pc:286,a:48,b:0,h:192,l:47,d:128,e:16,sp:65244,f:192,fault:0});
   const keys = [...Array.from({length:64}, (_,i)=>`m${0xC000+i}`), ...Array.from({length:16}, (_,i)=>`m${0x8000+i}`)];
   const memory = await read(page, keys);
@@ -118,7 +123,7 @@ test('automatic bookkeeping wraps through 65535 without losing CPU state', async
 
 test('automatic repeated pause/resume preserves committed state', async ({page}) => {
   // Five complete tap/readback cycles need the same overall budget as above.
-  test.setTimeout(600000);
+  test.setTimeout(1200000);
   await page.goto('/automatic/');
   for (let i=0; i<5; i++) {
     const before = await ticks(page);

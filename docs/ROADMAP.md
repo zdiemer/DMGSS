@@ -42,12 +42,12 @@
    **MBC1 ROM banking:** 32–128 KiB type-01 cartridges without external RAM,
    bank-zero translation, address-line masking and retained bank selection.
    Next: larger cartridges/cartridge RAM, full bus timing and STOP. See [external-test status](COMPATIBILITY.md).
-4. **Started:** writable VRAM and verified two-bitplane tile viewer.
+4. **Started:** full 8 KiB writable VRAM and verified two-bitplane tile viewer.
    **LCD timing foundation:** LCDC/STAT/LY/LYC, fixed-duration scanlines,
    VBlank/STAT interrupt requests and LCD-driven HALT waits across banks.
    **Background palettes:** BGP read/write and live tile shade mapping, including
    palette changes retained across continuation modes.
-   Still needed: pixel rendering, full VRAM, tile maps, the 160×144 display,
+   Still needed: pixel rendering, tile maps, the 160×144 display,
    variable mode-3 timing and DMG startup/STAT quirks.
 5. Complete SM83 control/timing behavior, hardware interrupt sources, timers and DMA, verified against test ROMs.
 6. Joypad integration, sprites, scrolling, cartridge banking and game testing.

@@ -3,12 +3,13 @@ const {test,expect}=require('@playwright/test');
 const read = page => readState(page,['pc','ticks','a','f','sp','m49152','m49154','halted','fault']);
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`ALU lab checks decimal, carry, bitwise and rotate operations in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming requires Chromium');
+  if(mode==='streaming')test.setTimeout(300000);
   const prefix=mode==='streaming'?'':`/${mode}`;
   await page.goto(`${prefix}/`);
   await page.getByRole('link',{name:'ALU lab',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`${prefix}/alu/$`));
   await page.locator('.power-switch').click();
-  await expect.poll(async()=>(await read(page)).halted,{timeout:mode==='streaming'?90000:20000}).toBe(1);
+  await expect.poll(async()=>(await read(page)).halted,{timeout:mode==='streaming'?180000:20000}).toBe(1);
   const result=await read(page);
   expect(result).toEqual({pc:340,ticks:43,a:165,f:192,sp:49216,m49152:16,m49154:165,halted:1,fault:0});
   await expect(page.locator('.passed')).toBeVisible();

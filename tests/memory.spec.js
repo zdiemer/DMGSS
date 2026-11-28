@@ -16,6 +16,7 @@ async function run(page,expected,timeout=60000){
 }
 for(const mode of ['portable','automatic','checkpoint','streaming'])test(`work RAM sample shares physical bytes with echo in ${mode}`,async({page},info)=>{
   test.skip(mode==='streaming'&&info.project.name==='webkit-mobile','Streaming remains Chromium-only');
+  if(mode==='checkpoint')test.setTimeout(600000); // Full-memory upload plus a second parse on native reset.
   const bytes=await (await page.request.get('/convert/ram.gb')).body();
   await upload(page,bytes,mode,'gb');
   const requests=[];page.on('request',r=>requests.push(r.url()));
@@ -33,7 +34,7 @@ test('all 256 work RAM bytes survive automatic banks with distinct values',async
   await expect.poll(()=>read(page,['ticks','pc','h','l','f','halted','fault']),{timeout:600000,intervals:[1000,5000]}).toEqual({ticks:770,pc:264,h:192,l:0,f:160,halted:1,fault:0});
   const expected=Object.fromEntries(Array.from({length:256},(_,i)=>['m'+(49152+i),i]));
   expect(await read(page,Object.keys(expected))).toEqual(expected);
-  expect(await page.locator('.scroll-memory').count()).toBe(8451);
+  expect(await page.locator('.scroll-memory').count()).toBe(16627);
 });
 for(const mode of ['automatic','checkpoint'])test(`new work RAM and echo survive a ${mode} bank`,async({page},info)=>{
   test.setTimeout(900000);
@@ -48,7 +49,7 @@ for(const mode of ['automatic','checkpoint'])test(`new work RAM and echo survive
     while(true){
       const state=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!state['copy-remaining'])break;
-      expect(saved++).toBeLessThan(67114);
+      expect(saved++).toBeLessThan(132522);
       const label=page.locator(`.bank${1-state['bank-phase']}.copy-${state['copy-index']}`);
       if(info.project.name.endsWith('mobile'))await label.tap();else await label.click();
       await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(state['copy-remaining']-1);
