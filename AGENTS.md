@@ -47,7 +47,7 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   forms validate writability even for no-op results. Truncated prefixes trap.
 - Instruction fetch uses mapped ROM/RAM and validates every required byte.
   FF is RST 38, never a substitute for an unmapped fetch. HRAM ends at FFFE;
-  Serial registers FF01–FF02, timer registers FF04–FF07, IF (FF0F) and IE (FFFF) are mapped; other I/O traps.
+  Serial registers FF01–FF02, timer registers FF04–FF07, IF (FF0F), IE (FFFF) and LCDC/STAT/LY/LYC are mapped; other I/O traps.
 - EI takes effect after the following retired instruction; DI cancels the delay,
   RETI enables immediately, and interrupt entry clears IME/delay. Preserve both
   latches and the HALT bug across banks. Pending low IE/IF bits wake HALT even
@@ -68,8 +68,8 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   IF bit 2 requests. Data reads observe the final M-cycle; writes occur at the
   retirement boundary. Word transfers are still atomic, not bus-ordered.
 - HALT waits continue while TAC is enabled, reload is pending, or an internal
-  serial transfer is active, including with
-  IME/IE off. With no timer/reload/internal serial transfer and no pending enabled interrupt, halt is
+  serial transfer is active, or the LCD is enabled, including with
+  IME/IE off. With no timer/reload/internal serial transfer/LCD and no pending enabled interrupt, halt is
   quiescent and the experiment stops all clocks. Pause/fault/traps freeze timer
   state. Do not claim STOP/CGB, arbitrary T-phase or general bus-race accuracy.
 - Keep timer state and the clock-progress latch in the complete-bank handshake.
@@ -120,14 +120,14 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Full production state is mandatory in every mode. Single-step conformance
   fixtures retain their declared C000–C03F operand window to bound test cost;
   preserve upstream expectations and separate full-map retention tests.
-- Automatic mode has 8,435 scroll cells and grouped, non-inheriting raw timeline
+- Automatic mode has 8,449 scroll cells and grouped, non-inheriting raw timeline
   readers. Disable snapping on the source bank and whenever copying is disabled.
   Dormant WRAM cells may disappear only when source, destination and result all
   equal their initial word (zero encoded offset). Test reactivation and nonzero
   seeds. FFFE and IE remain separate; peripheral fields are never paired.
 - Manual checkpoints use grouped native bit inputs, local numeric readers and
   a staged difference selector. Keep native pointer/keyboard behavior, source
-  immutability during every bit save, and the 67,056-bit complete-bank check.
+  immutability during every bit save, and the 67,106-bit complete-bank check.
   Avoid inheriting unevaluated bit sums or thousands of raw animation values.
 - Browser memory is a release constraint: run full-map probes in an isolated
   browser process/container with a hard memory limit, not beside the workspace
@@ -143,6 +143,9 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   Inactive manual bits must update only the comparison UI. Keep native sibling
   selectors (no :has), local raw-bit resets and separate input/copy stylesheets
   so large selector tables remain within browser limits.
+  Name the checkpoint selector container and target it explicitly from the
+  grouped page/slot/commit queries. Chromium can cache hidden page 0 after
+  accessibility reads beneath powered-off controls; query a stable ancestor.
   Preserve the controls' source-order reading-flow scope: Chromium otherwise
   stalls on Tab traversal to high-index bits. Test native keyboard saves and commit.
 
@@ -162,3 +165,16 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   imply bus-cycle accuracy. Preserve bank selection through all storage modes.
 - Pinned Mooneye MBC1 tables are independent expectations; do not regenerate
   them from the mapper. They establish bank-map results, not whole-ROM passes.
+
+- LCD timing maps FF40/FF41/FF44/FF45, retaining all four registers plus internal
+  line, nine-bit dot phase and the shared STAT signal. Fixed visible modes use
+  80/172/204 dots; VBlank is lines 144–153. LY becomes zero at dot 4 of line 153
+  without leaving mode 1. LCD enable starts immediately at line 0/mode 2;
+  disable resets phase. LCDC starts off and STAT reads 84. These are documented
+  approximations: no pixels, mode-3 stalls, startup quirks, STAT-write glitch,
+  special mode-2 VBlank request or VRAM/OAM access restrictions yet.
+- STAT requests only on a rising edge of its ORed enabled sources. Preserve
+  that latch across every bank; clearing IF while it stays high cannot retrigger.
+  Clocked read values must not depend on CPU write data. Merge LCD write-induced
+  requests after clocked IF reads, then let explicit IF writes win. Enabled LCD
+  timing keeps HALT alive even with IE/IME off; pause/fault/traps freeze it.

@@ -35,7 +35,7 @@ byte; it does not set it itself. Inspector values are decimal.
 
 Build 02 was instruction-level execution, without a PPU, timer, interrupt
 controller, cartridge banking or audio. Later milestones below add stack,
-interrupts, timer/serial circuits and limited MBC1 ROM banking. Full bus timing,
+interrupts, timer/serial circuits, LCD timing and limited MBC1 ROM banking. Full bus timing,
 PPU and audio remain unimplemented.
 
 
@@ -45,7 +45,8 @@ A separate embedded ROM writes all 16 bytes of an original 8×8 tile, then HALTs
 Each pixel reads the corresponding low/high bitplane bits directly from VRAM:
 `shade = bit(low, 7-x) + 2 * bit(high, 7-x)`. CSS selects one of four LCD shades.
 The renderer is a magnified tile viewer, not a full 160×144 PPU: tile maps,
-sprites, LCD registers, scrolling, DMA and scanline timing are still absent.
+sprites, scrolling, DMA and pixel rendering are still absent. LCD registers
+and a fixed-duration scanline timing model are implemented.
 Switching cartridges is normal HTML navigation; no runtime ROM parsing is used.
 
 
@@ -104,7 +105,7 @@ validation of the new checkpoint mode below.
 ## Manual checkpoints (build 05)
 
 `/checkpoint/` feeds the same 128-stage arithmetic CPU from one of two reusable
-native HTML checkbox banks. Each bank stores 67,056 bits, including CPU registers,
+native HTML checkbox banks. Each bank stores 67,106 bits, including CPU registers,
 bookkeeping, peripheral state and 8,335 bytes of RAM/VRAM/HRAM. A commit checkbox selects the source bank.
 No DOM nodes are appended: every run uses the same inputs and CPU stages.
 
@@ -131,7 +132,7 @@ without raising the stage budget or precomputing a ROM execution trace.
 
 This is not automatic state capture: one tap/key activation is needed per
 changed bit, plus commit. The counter demo usually takes a few saves per batch;
-a program rewriting most of memory can require up to 67,056. Visually hidden storage
+a program rewriting most of memory can require up to 67,106. Visually hidden storage
 inputs hold their native checked state.
 There is no disk persistence. Reset/reload restores both banks to their defaults;
 pause keeps a partial copy and displays the last committed source state.
@@ -159,8 +160,8 @@ using touch input; current WebKit and Chromium receive the full regression suite
 with CSS scroll snapping and scroll-driven animations. No click sequence, script,
 server request or precomputed ROM trace clocks the machine after Run.
 
-There are two banks of 4,217 scroll cells plus one commit cell (8,435 total),
-covering 4,288 CPU, memory and peripheral fields. Adjacent physical RAM bytes
+There are two banks of 4,224 scroll cells plus one commit cell (8,449 total),
+covering 4,295 CPU, memory and peripheral fields. Adjacent physical RAM bytes
 share one 16-bit cell; CPU reads and writes remain byte-addressed. Each cell's native vertical scroll offset stores an integer. A marker
 is positioned at the desired value in pixels; mandatory scroll snapping moves
 the offset to it after layout. A named scroll timeline reads the offset into a
@@ -704,3 +705,29 @@ Only MBC1 pages add the state field: two extra scroll cells in Automatic or
 five extra bits per Manual bank. Generic storage, readiness and copy controls
 retain it alongside CPU/RAM state. Larger wiring and cartridge RAM are rejected
 by exact header/length checks; no header rewriting or bank truncation occurs.
+
+
+## LCD timing (0.21.0)
+
+`tools/lcd.py` emits a six-M-cycle combinational circuit sharing the timer's
+accepted-operation clock and HALT idle steps. Four mapped registers and three
+internal fields (`lcd-line`, nine-bit `lcd-dot`, one-bit `lcd-stat`) are retained
+in every mode. Keeping internal line 153 separate from LY permits early LY zero
+without entering mode 2 early. The signal latch preserves STAT blocking across
+instructions and bank copies. The added state costs 50 bits per manual bank
+and 14 scroll cells across both automatic banks; built-ins now use 67,106 bits
+per bank / 134,214 inputs and 8,449 scroll cells. MBC1 still adds five bits per
+bank / two scroll cells.
+
+Clocked LCD requests join timer/serial requests after IRQ acknowledgement.
+`hardware-if` is the pre-write read value; `lcd-final-if` then adds requests
+caused by final-boundary LCD-register writes. This separation prevents CSS
+cycles when an instruction both reads and writes I/O. Explicit IF writes win.
+The converter only emits this generic circuit and ROM bytes; the browser
+computes every transition. See [compatibility limits](COMPATIBILITY.md#lcd-timing-foundation-0210)
+for the fixed-mode timing and deferred hardware quirks.
+
+Manual UI queries now target the named `checkpoint-copy` container outside the
+hidden controls. Pre-run accessibility inspection could otherwise leave Chromium
+using a hidden ancestor for group 0 and suppress its save button after Run. The
+LCD manual lab deliberately exercises that inspection before native copying.

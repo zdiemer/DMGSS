@@ -6,13 +6,13 @@ CPU stages; it never emulates ROM instructions or precomputes their execution.
 
 ## Current evidence
 
-Version 0.20.0 supports 243 unprefixed instructions and all 256 CB-prefixed
+Version 0.21.0 supports 243 unprefixed instructions and all 256 CB-prefixed
 operations: RLC/RRC/RL/RR, SLA/SRA/SRL, SWAP, BIT, RES and SET. Earlier
 8-bit ALU, accumulator rotates, decimal adjustment, load, branch, register-pair
 and stack support is retained.
 All eight RST vectors and four LDH forms are implemented. HRAM FF80–FFFE
 is readable, writable and executable; mapped work RAM and VRAM are executable
-too. Serial registers (FF01–FF02), timer registers (FF04–FF07), IE (FFFF) and IF (FF0F) are mapped. Other
+too. Serial registers (FF01–FF02), timer registers (FF04–FF07), IE (FFFF), IF (FF0F), and LCDC/STAT/LY/LYC (FF40/FF41/FF44/FF45) are mapped. Other
 I/O addresses remain unmapped and trap. DI, delayed EI, RETI, interrupt priority
 and instruction-level HALT behavior are implemented.
 Unknown opcodes, missing instruction bytes and unsupported accesses trap atomically.
@@ -180,9 +180,9 @@ STOP and CGB timer differences remain unsupported. A rejected fetch/transfer
 freezes the timer as part of the experiment's atomic-trap contract.
 
 HALT consumes one four-T-cycle timer step while TAC is enabled, a reload is
-pending, or an internal serial transfer is active, without retiring an instruction or increasing the CPU-work counter.
+pending, an internal serial transfer is active, or the LCD is enabled, without retiring an instruction or increasing the CPU-work counter.
 Timer requests wake HALT with IME off too, if IE enables the request. With no
-live timer/reload/internal serial transfer and no enabled pending request, the experiment is quiescent:
+live timer/reload/internal serial transfer/LCD and no enabled pending request, the experiment is quiescent:
 all clocks freeze, including DIV. It does not represent free-running hardware
 observed by future external inputs. Pause freezes all clocks. Timer waits and
 interrupt entries share the 128-stage batch budget; the instruction count can
@@ -309,7 +309,7 @@ unmapped-memory fixtures move to FE00 or the FDFF/FE00 boundary.
 
 Full-map documents are much larger. Worst-case converter budgets are 12 MiB for
 Compatible, 24 MiB for Automatic, and 96 MiB for Manual. Automatic storage has
-8,435 cells; Manual has 67,056 bits per bank. Browser resource limits and mobile
+8,449 cells; Manual has 67,106 bits per bank (including LCD timing state). Browser resource limits and mobile
 performance remain material constraints. Linux WebKit testing does not certify
 this expanded memory on real iOS devices.
 
@@ -339,3 +339,45 @@ retain atomic validation; controller conflicts use low-then-high order for
 LD [nn],SP and high-then-low order for stack writes. This determines the final
 bank register, without introducing individual bus cycles or full bus timing.
 Dense Streaming imports retain their existing explicit limit.
+
+
+## LCD timing foundation (0.21.0)
+
+LCDC (FF40), STAT (FF41), LY (FF44, read-only) and LYC (FF45) are mapped.
+LCDC starts off; STAT reads 84. Enabling LCDC bit 7 starts line 0 in mode 2.
+Disabling it resets the internal line/dot and LY to zero and suppresses LCD
+requests. Other LCDC bits retain their values but have no rendering effect yet.
+
+The fixed-duration model uses 154 lines of 456 T-cycles: visible lines use
+80 dots in mode 2, 172 in mode 3 and 204 in mode 0; lines 144–153 use mode 1.
+LY reports zero from dot 4 of internal line 153, while mode 1 lasts until the
+frame wraps. VBlank requests IF bit 0 on entry to line 144. Mode 0/1/2 and
+LY=LYC conditions selected by STAT bits 3–6 share one ORed signal; only its
+rising edge requests IF bit 1. Consecutive active sources therefore block
+retriggering. STAT bit 7 reads high; bits 0–2 and LY ignore CPU writes.
+
+Timing follows the documented baseline in [Pan Docs rendering](https://gbdev.io/pandocs/Rendering.html),
+[LCD status](https://gbdev.io/pandocs/STAT.html) and
+[interrupt sources](https://gbdev.io/pandocs/Interrupt_Sources.html).
+This is an **approximation**, not a full or cycle-accurate PPU: mode 3 does not
+vary, startup begins immediately, and the DMG STAT-write glitch, special
+mode-2 request at VBlank entry, model-specific LY/LYC comparison delays and
+sub-M-cycle races are not implemented. VRAM/OAM access restrictions, pixels,
+scrolling, sprites and DMA remain absent. No PPU test-ROM pass is claimed.
+
+Six generic M-cycle lanes sample the LCD alongside timers. Data reads see the
+final clocked boundary; writes retire atomically afterwards. LYC/STAT/LCDC
+writes can raise the shared signal. Read-modify-write instructions read the
+clocked IF/STAT before applying their own data; explicit IF writes win over
+all hardware requests. Pause, faults and rejected transfers freeze the clock.
+Enabled LCD timing continues during HALT even with IE/IME off, without adding
+retired instructions or CPU-work T-cycles. All LCD state participates in the
+complete-bank handshake.
+
+Original browser contract cases cover boundaries, signal blocking, register
+masks, write requests, simultaneous timer/serial/LCD requests and atomic traps.
+The [LCD lab](https://dmgss.zachd.duckdns.org/automatic/lcd/) starts from reset,
+waits for scanline 2 and wakes through STAT. Compatible mode stops mid-wait;
+automatic and manual continuation carry it to completion. Generation-time
+boundary fixtures exercise VBlank without waiting an entire CSS-driven frame.
+These fixtures supply initial states, never execution traces or runtime writes.

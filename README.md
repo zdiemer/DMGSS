@@ -12,6 +12,7 @@ The current build executes original embedded ROMs on a CSS CPU supporting 243 un
 Power on to run it; the screen reports success or a CPU trap. Tile lab runs a
 second original ROM that copies a four-shade tile from ROM data into 16 bytes of VRAM using pointers. Stack lab exercises nested calls and saved registers. The full
 PPU, joypad interrupt sources and game compatibility remain ahead.
+[Try LCD timing](https://dmgss.zachd.duckdns.org/automatic/lcd/): a ROM waits for scanline 2 and wakes through a STAT interrupt. LCDC/STAT/LY/LYC and VBlank requests use fixed-duration scanlines; pixel rendering is still pending.
 See [the roadmap](docs/ROADMAP.md) for supported behavior and remaining work.
 
 ## Development

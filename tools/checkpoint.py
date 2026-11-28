@@ -3,7 +3,7 @@ from work_memory import pack_initial
 from cpu import machine, tile_css, choose_math
 from portable import storage as pipeline_storage
 
-WIDTHS = {'pc': 16, 'sp': 16, 'halted': 1, 'fault': 1, 'ticks': 16, 'tcycles': 16, 'ime': 1, 'ime-delay': 1, 'halt-bug': 1, 'timer-reload': 1, 'clocked': 1, 'serial-phase': 9, 'serial-bits': 3, 'serial-count': 16, 'serial-length': 5}
+WIDTHS = {'lcd-dot': 9, 'lcd-stat': 1, 'pc': 16, 'sp': 16, 'halted': 1, 'fault': 1, 'ticks': 16, 'tcycles': 16, 'ime': 1, 'ime-delay': 1, 'halt-bug': 1, 'timer-reload': 1, 'clocked': 1, 'serial-phase': 9, 'serial-bits': 3, 'serial-count': 16, 'serial-length': 5}
 
 
 def counter_rom():
@@ -103,7 +103,9 @@ def generate(rom, initial=None):
         bindings.append('--diff-selected:'+choose_math('diff-first',{base[name]:f'var(--diff-mask-{i})' for i,name in enumerate(group)},0)+';')
         bindings.append('--diff-base-next:min(var(--diff-base-old),var(--diff-first));--diff-bits-next:calc(var(--diff-bits-old) + (1 - min(1,var(--diff-bits-old))) * var(--diff-selected));')
         rules.append(f'.checkpoint-diff-execute-{g} {{'+''.join(bindings)+'}')
-    rules.append('.checkpoint-select {--copy-remaining:var(--diff-count-next);--copy-index:min('+str(count)+',var(--diff-base-next) + min('+','.join(f'{bit} + (1 - mod(round(down,var(--diff-bits-next) / {1<<bit}),2)) * 16' for bit in range(16))+'));--copy-group:calc(round(down,var(--copy-index) / 32));--copy-slot:mod(var(--copy-index),32);}')
+    # Query a stable parent outside the hidden controls. Accessibility reads
+    # can make Chromium cache queries against a display:none unnamed ancestor.
+    rules.append('.checkpoint-select {container-name:checkpoint-copy;--copy-remaining:var(--diff-count-next);--copy-index:min('+str(count)+',var(--diff-base-next) + min('+','.join(f'{bit} + (1 - mod(round(down,var(--diff-bits-next) / {1<<bit}),2)) * 16' for bit in range(16))+'));--copy-group:calc(round(down,var(--copy-index) / 32));--copy-slot:mod(var(--copy-index),32);}')
     def control(ident,classes):
         return f'<div class="copy-control {classes}"><label for={ident}>SAVE NEXT BIT</label><a href=#{ident}>Keyboard: focus, then Space</a></div>'
     controls=[]
@@ -115,9 +117,9 @@ def generate(rom, initial=None):
                 ident=f'c{bank}-{i}'
                 controls.append(f'<label class="copy-control bank{bank} copy-{i} slot-{i%32}" for={ident}>SAVE NEXT BIT<a href=#{ident}>Keyboard: focus, then Space</a></label>')
         controls.append('</div>')
-        rules.append(f'@container style(--copy-group:calc({group})) {{.copy-page-{group}{{display:block}}}}')
-    for bit in range(32):rules.append(f'@container style(--copy-slot:calc({bit})) {{.copy-control.slot-{bit}{{display:block}}}}')
-    rules.append('@container style(--copy-remaining:0) {.checkpoint-controls .commit-control {display:block}.save-hint {display:none}} .checkpoint-memory::after {counter-reset:value var(--m49152);content:counter(value);}')
+        rules.append(f'@container checkpoint-copy style(--copy-group:calc({group})) {{.copy-page-{group}{{display:block}}}}')
+    for bit in range(32):rules.append(f'@container checkpoint-copy style(--copy-slot:calc({bit})) {{.copy-control.slot-{bit}{{display:block}}}}')
+    rules.append('@container checkpoint-copy style(--copy-remaining:0) {.checkpoint-controls .commit-control {display:block}.save-hint {display:none}} .checkpoint-memory::after {counter-reset:value var(--m49152);content:counter(value);}')
     controls.append('<div class="copy-control commit-control"><label for=commit>RUN NEXT 128</label><a href=#commit>Keyboard: focus, then Space</a></div>')
     html='<div class="checkpoint-values">'+''.join(diff_open)+'<div class="checkpoint-select"><div class="checkpoint-controls">'+''.join(controls)
     html+='<p class="save-hint"><span class="copy-remaining"></span> changed bits to save.<br>Tap once per bit, then run the next batch.</p></div></div>'+('</div></div>'*len(diff_groups))+'</div>'

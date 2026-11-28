@@ -13,7 +13,7 @@ def circuit(choose, equals):
         'timer-period': choose('timer-select', {0:1024,1:16,2:64,3:256},1024),
         'timer-select': f'calc(mod(var(--m{TAC}),4))',
         'timer-live': 'calc(max(var(--timer-on),var(--timer-reload)))',
-        'timer-idle': 'calc(var(--run,1) * (1 - var(--fault)) * var(--sleeping) * max(var(--timer-live),var(--serial-live)))',
+        'timer-idle': 'calc(var(--run,1) * (1 - var(--fault)) * var(--sleeping) * max(var(--timer-live),var(--serial-live),var(--lcd-live)))',
         'timer-cycles': 'calc(var(--enabled) * var(--duration) + 4 * var(--timer-idle))',
         'timer-phase': f'calc(256 * var(--m{DIV}) + var(--div-low))',
         'timer-t0': f'var(--m{TIMA})',
