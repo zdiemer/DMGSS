@@ -61,15 +61,15 @@ choose another mode; fallback messages do not switch to an unrelated cartridge.
   accepts at most 1,024 bytes differing from the most common byte; larger
   lookup graphs failed in its former animation banks. The replacement scroll
   storage keeps this conservative cap pending separate dense-streaming validation.
-  Worst-case 32 KiB files are checked against HTML budgets of 12 MiB (Compatible),
-  24 MiB (Automatic) and 96 MiB (Manual). Full work RAM makes even small programs
+  Worst-case 32 KiB files are checked against HTML budgets of 16 MiB (Compatible),
+  32 MiB (Automatic) and 144 MiB (Manual). Full work and video RAM make even small programs
   large documents; manual pages can be slow on memory-constrained devices.
-  The 128 KiB MBC1 budgets are 32, 40 and 104 MiB respectively.
+  The 128 KiB MBC1 budgets are 40, 48 and 160 MiB respectively.
 - Server requests are limited to 192 KiB including multipart/form overhead.
 - PC starts at 0100; CPU registers including SP start at zero. IF reads E0, SC reads 7E and
   TAC reads F8 initially because their unused bits read as one; IE and IME are zero. No boot ROM or
   post-boot state is synthesized. The CPU still supports 243 unprefixed and 256 CB-prefixed instructions, 8 KiB
-  of work RAM, 127 bytes of high RAM and one VRAM tile. DI/EI/RETI, software interrupt requests and the HALT bug are supported.
+  of work RAM, 127 bytes of high RAM and 8 KiB of VRAM (one tile is displayed). DI/EI/RETI, software interrupt requests and the HALT bug are supported.
   The Machine inspector counts T-cycles modulo 65,536; bus timing is approximate and HALT idle
   clocks are excluded from that CPU-work counter. DIV/TIMA/TMA/TAC and timer
   interrupts, including HALT wakeup, are supported at M-cycle boundaries.

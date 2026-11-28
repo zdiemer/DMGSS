@@ -10,7 +10,7 @@ from portable import storage
 
 def modulus(name):
     if name == 'mbc-bank': return 32
-    if name.startswith('wram'): return 65536
+    if name.startswith(('wram','vram')): return 65536
     if name == 'lcd-dot': return 512
     if name == 'lcd-stat': return 2
     if name == 'serial-phase': return 512
@@ -51,19 +51,19 @@ def generate(rom, initial=None, arithmetic=True):
     results = {unit: f'var(--{members[0]})' if len(members) == 1 else
                f'var(--{members[0]}) + 256 * var(--{members[1]})'
                for unit, members in units.items()}
-    # Each reader owns at most 64 raw timelines. Materialize decoded source and
+    # Each reader owns at most 128 raw timelines. Materialize decoded source and
     # inactive words through reusable local integers, then expose their values, rather than inheriting thousands of raw
     # animation values through every later reader and CPU stage.
-    batches = [list(units)[i:i+32] for i in range(0,len(units),32)]
+    batches = [list(units)[i:i+64] for i in range(0,len(units),64)]
     groups = [['select']] + [[f'b{bank}-{unit}' for unit in batch for bank in range(2)] for batch in batches]
     names = [name for group in groups for name in group]
     rules = [css, 'body[data-automatic] {timeline-scope:' + ','.join('--t-' + n for n in names) + ';}']
     for name in ('select', 'ready', 'enabled-copy'):
         rules.append(f'@property --{name} {{syntax:"<integer>";inherits:true;initial-value:0;}}')
     rules.append('body[data-automatic] .clock {--run:0;animation:none;} .auto-reader-0 {--select:round(var(--raw-0));} .auto-reader,.auto-seed {display:contents;}')
-    for i in range(64):
+    for i in range(128):
         rules.append(f'@property --raw-{i} {{syntax:"<number>";inherits:false;initial-value:0;}}')
-    for i in range(32):
+    for i in range(64):
         for prefix in ('source-word','inactive-word','source-low','source-high'):
             rules.append(f'@property --{prefix}-{i} {{syntax:"<integer>";inherits:false;initial-value:0;}}')
     keyframes = set()
@@ -111,7 +111,7 @@ def generate(rom, initial=None, arithmetic=True):
                 bindings.append(f'--seed-{name}:var(--{source});')
                 seed.append(f'--next-{name}:var(--seed-{name});')
                 display.append(f'--{name}:var(--seed-{name});')
-            if unit.startswith('wram'):
+            if unit.startswith(('wram','vram')):
                 rules.append(f'@container style(--{unit}:{value}) and style(--seed-{unit}:{value}) and style(--inactive-{unit}:{value}) {{.memory-b0-{unit},.memory-b1-{unit}{{display:none}}}}')
         rules.append(f'.auto-reader-{i} {{' + ''.join(bindings) + '}')
     rules.append('body[data-automatic] .auto-seed {' + ''.join(seed) + '}')

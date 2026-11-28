@@ -115,24 +115,24 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   remain logical; DE00–DFFF has no echo. FE00/OAM is still unsupported.
   CPU storage uses 4,096 exact little-endian words. Keep byte semantics and atomic
   two-lane validation, including DFFF/E000 and FDFF/FE00 boundaries.
-- Bounded stages decode on pipeline-read and commit on pipeline-execute. WRAM
+- Bounded stages decode on pipeline-read and commit on pipeline-execute. WRAM/VRAM
   writes select a 256-byte page before its words; all other words inherit.
   Full production state is mandatory in every mode. Single-step conformance
   fixtures retain their declared C000–C03F operand window to bound test cost;
   preserve upstream expectations and separate full-map retention tests.
-- Automatic mode has 8,451 scroll cells and grouped, non-inheriting raw timeline
+- Automatic mode has 16,627 scroll cells and grouped, non-inheriting raw timeline
   readers. Disable snapping on the source bank and whenever copying is disabled.
-  Dormant WRAM cells may disappear only when source, destination and result all
+  Dormant WRAM/VRAM cells may disappear only when source, destination and result all
   equal their initial word (zero encoded offset). Test reactivation and nonzero
   seeds. FFFE and IE remain separate; peripheral fields are never paired.
 - Manual checkpoints use grouped native bit inputs, local numeric readers and
   a staged difference selector. Keep native pointer/keyboard behavior, source
-  immutability during every bit save, and the 67,114-bit complete-bank check.
+  immutability during every bit save, and the 132,522-bit complete-bank check.
   Avoid inheriting unevaluated bit sums or thousands of raw animation values.
 - Browser memory is a release constraint: run full-map probes in an isolated
   browser process/container with a hard memory limit, not beside the workspace
   agent. Keep explicit document budgets and converter tmpfs/worker headroom.
-- Keep optional CSS if() WRAM reads behind feature detection and the math
+- Keep optional CSS if() RAM reads behind feature detection and the math
   fallback testable. Writes use page queries and 256 local typed result slots
   shared by every CPU stage. Separate slots for each bus lane prevent cross-page
   writes from aliasing. Avoid flat per-word query tables or eager per-word
@@ -184,3 +184,14 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   background ID 0 is opaque. Preserve palette state through every bank and
   atomic traps. The tile viewer shows committed memory independently of LCDC,
   not scanline output. OBJ/CGB palettes and mid-scanline effects remain absent.
+
+- VRAM retains all 8 KiB at 8000–9FFF as 4,096 additional words, with byte
+  fetch/data semantics and atomic two-lane validation. It has no echo alias.
+  A000 cartridge RAM remains unmapped; VRAM is currently accessible regardless
+  of LCD mode. Do not claim mode-3 restrictions or PPU rendering.
+- Keep automatic readers to 64 words and manual readers/comparisons to 64/256
+  words so full-state pages remain below browser DOM-depth limits. Manual input
+  selectors use the named checkpoint-bank ancestor for bank phase; chunk each
+  table into at most 65,536 selectors per sheet. Preserve unique reader classes
+  per group so browsers do not match the full bit table at every reader. Test
+  native saves and commits.

@@ -13,7 +13,7 @@ def counter_rom():
 
 def width(name):
     if name == 'mbc-bank': return 5
-    return 16 if name.startswith('wram') else WIDTHS.get(name,8)
+    return 16 if name.startswith(('wram','vram')) else WIDTHS.get(name,8)
 
 
 def generate(rom, initial=None):
@@ -28,7 +28,7 @@ def generate(rom, initial=None):
     rules = [css,tile_css(arithmetic=True)]
     names = list(states)
     positions = {name:i for i,name in enumerate(names)}
-    groups = [names[i:i+32] for i in range(0,len(names),32)]
+    groups = [names[i:i+64] for i in range(0,len(names),64)]
     bits = [(name,bit,(states[name][0] >> bit)&1) for name in states for bit in range(width(name))]
     count = len(bits)
     base, offset = {},0
@@ -36,16 +36,19 @@ def generate(rom, initial=None):
         base[name]=offset;offset+=width(name)
     for name in ('bank-phase','copy-index','copy-group','copy-slot','copy-remaining'):
         rules.append(f'@property --{name} {{syntax:"<integer>";inherits:true;initial-value:0;}}')
+    rules.append('.clock {container-name:checkpoint-bank}')
     rules.append('#commit:checked ~ .clock {--bank-phase:1} .checkpoint-reader,.checkpoint-seed {display:contents} .copy-page {display:none}')
     # Unregistered raw bits are reset locally. Only active-bank bits affect
     # source readers; inactive-bank bits update the UI without touching CPU state.
-    rules.append('.checkpoint-reader {' + ''.join(f'--bit-{i}:0;' for i in range(512)) + '}')
-    rules.append('.checkpoint-diff-execute {' + ''.join(f'--diff-bit-{i}:0;' for i in range(2048)) + '}')
+    rules.append('.checkpoint-reader {' + ''.join(f'--bit-{i}:0;' for i in range(1024)) + '}')
+    rules.append('.checkpoint-diff-execute {' + ''.join(f'--diff-bit-{i}:0;' for i in range(4096)) + '}')
     rules.append('.checkpoint-bit {display:none} .checkpoint-bit:target {display:block}')
-    for i in range(32):
+    for i in range(64):
         rules.append(f'@property --source-local-{i} {{syntax:"<integer>";inherits:false;initial-value:0;}}')
     opening=[]
-    read_rules, diff_rules = [], []
+    # Keep a unique reader class per group: a shared class makes every reader
+    # match the entire bit-rule table before rejecting unrelated siblings.
+    read_rules, diff_rules = {0:[],1:[]}, {0:[],1:[]}
     inactive={}
     for g,group in enumerate(groups):
         bindings=[]
@@ -59,12 +62,10 @@ def generate(rom, initial=None):
                     i=base[name]+bit;ident=f'c{bank}-{i}'
                     checked=' checked' if bits[i][2] else ''
                     opening.append(f'<input class="sr-only checkpoint-bit" type=checkbox id={ident} tabindex=-1 autocomplete=off{checked}>')
-                    phase=':checked' if bank else ':not(:checked)'
-                    read_rules.append(f'#commit{phase} ~ .clock #{ident}:checked ~ .checkpoint-reader-{g} {{--bit-{local}:1}}')
-                    diff_group=positions[name]//128
-                    diff_local=i-base[names[diff_group*128]]
-                    opposite=':not(:checked)' if bank else ':checked'
-                    diff_rules.append(f'#commit{opposite} ~ .clock #{ident}:checked ~ .checkpoint-reader-{g} .checkpoint-diff-execute-{diff_group} {{--diff-bit-{diff_local}:1}}')
+                    read_rules[bank].append(f'#{ident}:checked ~ .checkpoint-reader-{g} {{--bit-{local}:1}}')
+                    diff_group=positions[name]//256
+                    diff_local=i-base[names[diff_group*256]]
+                    diff_rules[1-bank].append(f'#{ident}:checked ~ .checkpoint-reader-{g} .checkpoint-diff-execute-{diff_group} {{--diff-bit-{diff_local}:1}}')
                     diff_terms.append(f'var(--diff-bit-{diff_local}) * {1<<bit}')
                     terms.append(f'var(--bit-{local}) * {1<<bit}');local+=1
                 bank_words[bank][name]='('+' + '.join(terms)+')'
@@ -78,8 +79,8 @@ def generate(rom, initial=None):
     rules.append('.checkpoint-seed {'+''.join(f'--next-{name}:var(--source-{name});' for name in states)+'}')
     # Fold the UI comparison in small stages. Reuse local helper names rather
     # than registering a distinct global property for every RAM bit or word.
-    diff_groups = [names[i:i+128] for i in range(0,len(names),128)]
-    for i in range(128):
+    diff_groups = [names[i:i+256] for i in range(0,len(names),256)]
+    for i in range(256):
         for prefix in ('diff-target','diff-mask'):
             rules.append(f'@property --{prefix}-{i} {{syntax:"<integer>";inherits:false;initial-value:0;}}')
     for name in ('diff-first','diff-selected'):
@@ -125,4 +126,4 @@ def generate(rom, initial=None):
     html+='<p class="save-hint"><span class="copy-remaining"></span> changed bits to save.<br>Tap once per bit, then run the next batch.</p></div></div>'+('</div></div>'*len(diff_groups))+'</div>'
     css='\n'.join(rules).replace('calc(var(--ticks) + 1)',f'calc(mod(var(--ticks) + 1,{1<<WIDTHS["ticks"]}))')
     commit='<input class="sr-only checkpoint-bit" type=checkbox id=commit tabindex=-1 autocomplete=off aria-label="Run next 128 instructions">'
-    return css,commit,''.join(opening),html,len(groups)+1,'\n'.join(read_rules),'\n'.join(diff_rules)
+    return css,commit,''.join(opening),html,len(groups)+1,read_rules,diff_rules

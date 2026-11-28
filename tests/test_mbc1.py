@@ -31,7 +31,7 @@ class MBC1Tests(unittest.TestCase):
         reset=urlencode({'payload':base64.urlsafe_b64encode(data).decode(),'name':'x'*80,
                          'format':'gb','mode':'checkpoint','delivery':'open'}).encode()
         self.assertLess(len(reset),MAX_REQUEST)
-        for mode,limit in [('portable',32),('automatic',40),('checkpoint',104)]:
+        for mode,limit in [('portable',40),('automatic',48),('checkpoint',160)]:
             with self.subTest(mode=mode):
                 page=convert(data,'max.gb','gb',mode,online=True)
                 self.assertLess(len(page.encode()),limit*1024*1024)

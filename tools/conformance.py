@@ -14,7 +14,9 @@ from rom import ROM
 ROOT = Path(__file__).resolve().parents[1]
 CHUNK = 128
 # Single-step fixtures relocate operands/stacks into C000–C03F. Omitted
-# WRAM starts at zero and is unobserved; production always uses all 4,096 words.
+# WRAM starts at zero and is unobserved. VRAM keeps the original 16-byte
+# operand window; full-map contracts live in video_fixtures.py. Production
+# always uses all 4,096 words in each RAM region.
 FIXTURE_WORDS = range(0xC000, 0xC040, 2)
 REGISTERS = ['pc','sp','a','b','c','d','e','f','h','l']
 
@@ -135,7 +137,7 @@ def cases():
         ('interrupt stack failure',0,0,{'ime':1,'m65295':225,'m65535':1,'sp':0xC001},0,0,0,1),
         ('illegal opcode',0xD3,0,{},0,0,0,1),
         ('unsupported STOP',0x10,0,{},0,0,0,1),
-        ('CB unmapped operand',0xCB,0x06,{'h':0x90,'l':0},0,0,0,1),
+        ('CB unmapped operand',0xCB,0x06,{'h':0xA0,'l':0},0,0,0,1),
         ('word write second lane invalid',0xC5,0,{'sp':0xFE01},0,0,0,1),
         ('faulted CPU stays frozen',0,0,{'fault':1},0,0,0,1),
         ('cycle counter wraps',0,0,{'tcycles':65532},1,4,0,0),
@@ -160,7 +162,7 @@ def build(out):
     for arithmetic, mode in [(True,'math'), (False,'native')]:
         root = out / mode
         root.mkdir(parents=True, exist_ok=True)
-        css = machine(FixtureROM(), storage, arithmetic=arithmetic, work_words=FIXTURE_WORDS, accelerated=False)
+        css = machine(FixtureROM(), storage, arithmetic=arithmetic, work_words=FIXTURE_WORDS, video_words=range(0x8000,0x8010,2), accelerated=False)
         css = css.replace('\n.machine {', '\n.pipeline-read {')
         (root / 'machine.css').write_text(css)
         for source, vectors in datasets.items():
