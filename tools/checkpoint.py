@@ -34,10 +34,11 @@ def generate(rom, initial=None):
     base, offset = {},0
     for name in names:
         base[name]=offset;offset+=width(name)
-    for name in ('bank-phase','copy-index','copy-group','copy-slot','copy-remaining'):
+    rules.append('@property --bank-phase {syntax:"<integer>";inherits:false;initial-value:0;}')
+    for name in ('copy-index','copy-group','copy-slot','copy-remaining'):
         rules.append(f'@property --{name} {{syntax:"<integer>";inherits:true;initial-value:0;}}')
     rules.append('.clock {container-name:checkpoint-bank}')
-    rules.append('#commit:checked ~ .clock {--bank-phase:1} .checkpoint-reader,.checkpoint-seed {display:contents} .copy-page {display:none}')
+    rules.append('#commit:checked ~ .clock,#commit:checked ~ .clock .checkpoint-select {--bank-phase:1} .checkpoint-reader,.checkpoint-seed {display:contents} .copy-page {display:none}')
     # Unregistered raw bits are reset locally. Only active-bank bits affect
     # source readers; inactive-bank bits update the UI without touching CPU state.
     rules.append('.checkpoint-reader {' + ''.join(f'--bit-{i}:0;' for i in range(1024)) + '}')
@@ -73,10 +74,11 @@ def generate(rom, initial=None):
         opening.append(f'<div class="checkpoint-reader checkpoint-reader-{g}">')
         for i,name in enumerate(group):
             a,b=bank_words[0][name],bank_words[1][name]
-            bindings.append(f'--source-local-{i}:calc({a});--source-{name}:var(--source-local-{i});')
+            bindings.append(f'--source-local-{i}:calc({a});--next-{name}:var(--source-local-{i});')
         rules.append(f'.checkpoint-reader-{g} {{'+''.join(bindings)+'}')
     opening.append('<div class="checkpoint-seed">')
-    rules.append('.checkpoint-seed {'+''.join(f'--next-{name}:var(--source-{name});' for name in states)+'}')
+    # Readers seed next-state fields directly. A second inherited source alias
+    # for every word needlessly survives through the whole pipeline and UI.
     # Fold the UI comparison in small stages. Reuse local helper names rather
     # than registering a distinct global property for every RAM bit or word.
     diff_groups = [names[i:i+256] for i in range(0,len(names),256)]

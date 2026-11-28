@@ -194,4 +194,6 @@ never selfhosted's submodule. Keep this file and CLAUDE.md identical.
   selectors use the named checkpoint-bank ancestor for bank phase; chunk each
   table into at most 65,536 selectors per sheet. Preserve unique reader classes
   per group so browsers do not match the full bit table at every reader. Test
-  native saves and commits.
+  native saves and commits. Readers seed next-state fields directly; avoid an
+  extra inherited source alias per word. Bank phase stays local to its named
+  container and the checkpoint UI.

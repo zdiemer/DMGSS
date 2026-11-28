@@ -766,8 +766,9 @@ Automatic mode has 16,627 cells. Its readers own 64 words each; unchanged VRAM
 cells may become dormant under the same three-way initial-value check as WRAM.
 Manual mode has 132,522 bits per bank (265,046 inputs including power/commit).
 Reader groups of 64 and comparison groups of 256 keep the complete document
-below the browser's nesting limit. The named checkpoint-bank ancestor supplies
-phase queries; input/copy selector tables are split into bounded stylesheets.
+below the browser's nesting limit. Readers seed next-state fields directly without retaining a second source alias
+for every word. Bank phase is non-inheriting; the named checkpoint-bank ancestor
+supplies phase queries; input/copy selector tables are split into bounded stylesheets.
 The user still saves every changed bit through native controls.
 
 The original VRAM lab writes the last 16 bytes, completes the first 128 steps,

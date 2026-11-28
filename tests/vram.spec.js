@@ -26,7 +26,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`VRAM l
     expect(await page.locator('.checkpoint-select').evaluate(el=>{let depth=0;for(;el;el=el.parentElement)depth++;return depth})).toBeLessThan(500);
     const before={ticks:128,pc:317,m32768:0,m40944:60,m40959:60};
     expect(await read(page,Object.keys(before))).toEqual(before);
-    let saves=0;
+    let saves=0, point;
     while(true){
       const state=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!state['copy-remaining'])break;
@@ -34,7 +34,12 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`VRAM l
       const label=page.locator(`.bank${1-state['bank-phase']}.copy-${state['copy-index']}`);
       if(saves===1){
         await label.locator('a').focus();await page.keyboard.press('Enter');await page.keyboard.press('Space');
-      }else if(info.project.name.endsWith('mobile'))await label.tap();else await label.click();
+      }else{
+        // The single visible save control stays in place. Use native pointer
+        // events at its actual position; no forced actions or state writes.
+        if(!point){await label.scrollIntoViewIfNeeded();const box=await label.boundingBox();expect(box).not.toBeNull();point={x:box.x+box.width/2,y:box.y+box.height/2};}
+        if(info.project.name.endsWith('mobile'))await page.touchscreen.tap(point.x,point.y);else await page.mouse.click(point.x,point.y);
+      }
       await expect.poll(async()=>(await read(page,['copy-remaining'],'.checkpoint-select'))['copy-remaining']).toBe(state['copy-remaining']-1);
       expect(await read(page,Object.keys(before))).toEqual(before);
     }

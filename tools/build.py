@@ -30,7 +30,7 @@ def current_cartridge(html, path):
     return re.sub(r'<nav class="cartridges".*?</nav>', mark, html)
 
 
-def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False, interrupts=False, timers=False, serial=False, lcd=False, palette=False, video=False, initial=None, steps=portable.STEPS):
+def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False, bits=False, high=False, interrupts=False, timers=False, serial=False, lcd=False, palette=False, video=False, initial=None, steps=portable.STEPS, emit_machine=True):
     out = out or ROOT / 'dist'
     if not bounded:
         cartridge = next((name for name,selected in [('video',video),('palette',palette),('lcd',lcd),('serial',serial),('timers',timers),('interrupts',interrupts),('high',high),('bits',bits),('alu',alu),('stack',stack)] if selected), 'diagnostic')
@@ -91,13 +91,14 @@ def build(rom=None, out=None, tile=False, bounded=False, stack=False, alu=False,
         html = html.replace('INSTRUCTIONS EXECUTED', 'INSTRUCTIONS / MAX 128')
         html = html.replace('</aside>', '<p class="checkpoint-link"><a href="/checkpoint/">Try manual checkpoints →</a></p></aside>')
         html = html.replace('Reset reloads the machine. Nothing is saved.', 'Reset view clears the run. Cartridge state is not saved.')
-        (out / 'machine.css').write_text(portable.stylesheet(program, initial=initial))
+        if emit_machine:
+            (out / 'machine.css').write_text(portable.stylesheet(program, initial=initial))
     active = ('/portable' if bounded else '') + ('/video/' if video else '/palette/' if palette else '/lcd/' if lcd else '/serial/' if serial else '/timers/' if timers else '/interrupts/' if interrupts else '/high/' if high else '/bits/' if bits else '/alu/' if alu else '/stack/' if stack else '/tile/' if tile else '/')
     (out / 'index.html').write_text(current_cartridge(html, active))
 
 
 def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
-    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial', lcd=cartridge == 'lcd', palette=cartridge == 'palette', video=cartridge == 'video')
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial', lcd=cartridge == 'lcd', palette=cartridge == 'palette', video=cartridge == 'video', emit_machine=False)
     css, commit, inputs, controls, readers, input_css, copy_css = checkpoint.generate(rom, initial=initial)
     (out / 'machine.css').write_text(css)
     # Keep each stylesheet below Chromium's per-sheet selector budget.
@@ -144,7 +145,7 @@ def build_checkpoint(rom, out, tile=False, cartridge="counter", initial=None):
 
 
 def build_automatic(rom, out, tile=False, cartridge="counter", initial=None, streaming=False):
-    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial', lcd=cartridge == 'lcd', palette=cartridge == 'palette', video=cartridge == 'video', steps=1 if streaming else portable.STEPS)
+    build(rom, out, tile=tile, bounded=True, stack=cartridge == 'stack', alu=cartridge == 'alu', bits=cartridge == 'bits', high=cartridge == 'high', interrupts=cartridge == 'interrupts', timers=cartridge == 'timers', serial=cartridge == 'serial', lcd=cartridge == 'lcd', palette=cartridge == 'palette', video=cartridge == 'video', steps=1 if streaming else portable.STEPS, emit_machine=False)
     # Keep the shared shell's streaming-mode visibility/clock rules below this
     # mode's rules, including when its capability gate fails.
     shell = (out / 'style.css').read_text()
