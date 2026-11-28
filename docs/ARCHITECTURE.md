@@ -105,7 +105,7 @@ validation of the new checkpoint mode below.
 ## Manual checkpoints (build 05)
 
 `/checkpoint/` feeds the same 128-stage arithmetic CPU from one of two reusable
-native HTML checkbox banks. Each bank stores 67,106 bits, including CPU registers,
+native HTML checkbox banks. Each bank stores 67,114 bits, including CPU registers,
 bookkeeping, peripheral state and 8,335 bytes of RAM/VRAM/HRAM. A commit checkbox selects the source bank.
 No DOM nodes are appended: every run uses the same inputs and CPU stages.
 
@@ -132,7 +132,7 @@ without raising the stage budget or precomputing a ROM execution trace.
 
 This is not automatic state capture: one tap/key activation is needed per
 changed bit, plus commit. The counter demo usually takes a few saves per batch;
-a program rewriting most of memory can require up to 67,106. Visually hidden storage
+a program rewriting most of memory can require up to 67,114. Visually hidden storage
 inputs hold their native checked state.
 There is no disk persistence. Reset/reload restores both banks to their defaults;
 pause keeps a partial copy and displays the last committed source state.
@@ -160,7 +160,7 @@ using touch input; current WebKit and Chromium receive the full regression suite
 with CSS scroll snapping and scroll-driven animations. No click sequence, script,
 server request or precomputed ROM trace clocks the machine after Run.
 
-There are two banks of 4,224 scroll cells plus one commit cell (8,449 total),
+There are two banks of 4,225 scroll cells plus one commit cell (8,451 total),
 covering 4,295 CPU, memory and peripheral fields. Adjacent physical RAM bytes
 share one 16-bit cell; CPU reads and writes remain byte-addressed. Each cell's native vertical scroll offset stores an integer. A marker
 is positioned at the desired value in pixels; mandatory scroll snapping moves
@@ -731,3 +731,20 @@ Manual UI queries now target the named `checkpoint-copy` container outside the
 hidden controls. Pre-run accessibility inspection could otherwise leave Chromium
 using a hidden ancestor for group 0 and suppress its save button after Run. The
 LCD manual lab deliberately exercises that inspection before native copying.
+
+
+## Background palette (0.22.0)
+
+BGP uses the ordinary mapped-byte CPU path: one retained eight-bit field,
+with normal read/modify/write and atomic access validation. It adds eight bits
+per manual bank and two scroll cells: 67,114 bits per bank / 134,230 inputs,
+and 8,451 automatic cells. Peripheral registers remain unpaired.
+
+Tile pixels keep a non-inheriting `--color-index` distinct from `--shade`.
+The two VRAM bitplanes determine the ID; CSS selects the corresponding two-bit
+field of BGP to determine the shade. Both decoder modes use the same small
+arithmetic palette selection before their existing RGB/native color mapping.
+No image or execution trace is generated from the running ROM in Python.
+BGP begins at zero; the tile ROM now writes E4 explicitly (86 instructions).
+The palette lab changes it to 1B after a batch boundary without rewriting VRAM.
+The tile viewer is independent of LCD enable/timing, not a frame scanout engine.

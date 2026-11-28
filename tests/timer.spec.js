@@ -23,7 +23,7 @@ for(const mode of ['portable','automatic','checkpoint','streaming'])test(`Timer 
   const expected={ticks:36,tcycles:360,a:165,b:1,sp:65534,m49152:42,m49154:165,m65285:43,m65286:42,m65287:248,m65295:224,halted:1,fault:0,'timer-reload':0};
   await expect.poll(()=>read(page,Object.keys(expected)),{timeout:120000,intervals:[1000]}).toEqual(expected);
   await expect(page.locator('.passed')).toBeVisible();
-  // Scope text lookup away from the manual mode's 134,214 input controls.
+  // Scope text lookup away from the manual mode's 134,230 input controls.
   await page.locator('.debug').getByText('Machine inspector',{exact:true}).click();
   await page.setViewportSize({width:320,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -46,7 +46,7 @@ for(const mode of ['automatic','checkpoint'])test(`timer overflow and HALT cross
     while(true){
       const copy=await read(page,['copy-index','copy-remaining','bank-phase'],'.checkpoint-select');
       if(!copy['copy-remaining'])break;
-      expect(saves++).toBeLessThan(67106);
+      expect(saves++).toBeLessThan(67114);
       await page.locator(`.bank${1-copy['bank-phase']}.copy-${copy['copy-index']}`).click();
       expect(await read(page,Object.keys(before))).toEqual(before);
     }

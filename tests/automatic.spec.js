@@ -23,13 +23,13 @@ function assertCounter(state, initial=0) {
 }
 
 test('automatic state advances beyond 1,000 instructions with one input, then pauses/resumes/resets', async ({page}, info) => {
-  // RAM, timer and serial state expand retention to 8449 cells, with mapped-RAM
+  // RAM, timer and serial state expand retention to 8451 cells, with mapped-RAM
   // fetches. Budget repeated tap/readback cycles; retain bounded progress checks.
   test.setTimeout(600000);
   await page.goto('/automatic/');
   expect(await page.locator('script').count()).toBe(0);
   expect(await page.locator('input').count()).toBe(1);
-  expect(await page.locator('.scroll-memory').count()).toBe(8449);
+  expect(await page.locator('.scroll-memory').count()).toBe(8451);
   expect(await page.locator('.pipeline-execute').count()).toBe(128);
   const nodes = await page.locator('*').count();
   await toggle(page);
@@ -86,7 +86,7 @@ for (const [path, expected, message] of [
 
 test('automatic tile renders committed VRAM, including while paused', async ({page}) => {
   await page.goto('/automatic/tile/'); await toggle(page);
-  await expect.poll(() => read(page, ['ticks','pc','halted','fault']),{timeout:STATE_TIMEOUT}).toEqual({ticks:84,pc:271,halted:1,fault:0});
+  await expect.poll(() => read(page, ['ticks','pc','halted','fault']),{timeout:STATE_TIMEOUT}).toEqual({ticks:86,pc:275,halted:1,fault:0});
   await expect(page.locator('.tile-ready')).toBeVisible();
   const colors = await page.locator('.tile-grid i').evaluateAll(nodes => nodes.map(el => getComputedStyle(el).backgroundColor));
   expect(colors).toHaveLength(64);
